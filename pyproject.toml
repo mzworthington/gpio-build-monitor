@@ -55,7 +55,7 @@ select = ["E", "F", "I", "UP"]
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
-build_command = "python -m build --sdist --wheel"
+build_command = ".venv/bin/python -m build --sdist --wheel"
 tag_format = "v{version}"
 commit_message = "chore(release): {version}"
 allow_zero_version = true

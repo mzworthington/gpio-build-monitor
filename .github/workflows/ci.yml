@@ -76,6 +76,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          export PATH="$PWD/.venv/bin:$PATH"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if ! git describe --tags --match 'v*' >/dev/null 2>&1; then
@@ -83,8 +84,8 @@ jobs:
             git tag "v${VERSION}"
             echo "Seeded baseline tag v${VERSION} from pyproject.toml"
           fi
-          if .venv/bin/semantic-release version --print 2>&1 | grep -q "No release will be made"; then
-            .venv/bin/semantic-release version --patch
+          if .venv/bin/semantic-release version --print --no-changelog 2>&1 | grep -q "No release will be made"; then
+            .venv/bin/semantic-release version --patch --no-changelog
           else
-            .venv/bin/semantic-release version
+            .venv/bin/semantic-release version --no-changelog
           fi
