@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+if [[ ! -d .venv ]]; then
+  "$ROOT/bin/bootstrap"
+fi
+
+# shellcheck disable=SC1091
+source .venv/bin/activate
+
+exec python -m monitor run \
+  --log-level "${LOG_LEVEL:-debug}" \
+  --conf "${CONF_FILE:-monitor/integrations.json}" \
+  "$@"

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+if command -v mise >/dev/null 2>&1; then
+  mise install
+  PYTHON="$(mise which python)"
+else
+  PYTHON="${PYTHON:-python3}"
+fi
+
+if [[ ! -x "$PYTHON" ]]; then
+  echo "error: Python not found. Install mise or set PYTHON to a Python 3.10+ interpreter." >&2
+  exit 1
+fi
+
+if [[ ! -f monitor/integrations.json ]]; then
+  cp monitor/integrations.example.json monitor/integrations.json
+  echo "Created monitor/integrations.json from integrations.example.json"
+fi
+
+"$PYTHON" -m venv .venv
+# shellcheck disable=SC1091
+source .venv/bin/activate
+
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -e ".[dev]"
+
+echo "Bootstrap complete. Activate with: source .venv/bin/activate"

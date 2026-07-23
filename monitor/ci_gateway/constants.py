@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-from typing import TypedDict
-from enum import Enum
-from abc import abstractmethod, ABC
 import logging
+from abc import ABC, abstractmethod
+from enum import Enum
+from typing import TypedDict
+
+from aiohttp import ClientSession
 
 
 class CiResult(Enum):
@@ -19,28 +21,29 @@ class CiResult(Enum):
 
 class IntegrationType(Enum):
     GITHUB = "GITHUB"
-    CIRCLECI = "CIRCLE_CI"
+    CIRCLECI = "CIRCLECI"
 
 
 class BuildStatus(TypedDict):
     type: IntegrationType
     vcs: str
-    id: str
+    id: str | int
     name: str
     start: str
     status: CiResult
 
 
 class IntegrationAdapter(ABC):
-    @property
+    username: str
+    repo: str
+
     @abstractmethod
     def get_type(self) -> IntegrationType:
         pass
 
     @abstractmethod
-    def get_latest(self) -> BuildStatus:
+    async def get_latest(self, session: ClientSession) -> list[BuildStatus]:
         logging.info(f'Initiating integration {self.get_type()}')
-        pass
 
 
 class APIError(Exception):

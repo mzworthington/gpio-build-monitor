@@ -5,13 +5,13 @@ if __debug__:
 else:
     from RPi import GPIO
 
-import logging
 import asyncio
+import logging
 
 from .constants import Lights
 
 
-class Board(object):
+class Board:
     def __enter__(self):
         logging.info('Setting up GPIO')
         self.GPIO = GPIO
@@ -21,13 +21,14 @@ class Board(object):
 
         self.pwm = {}
         for light in Lights:
+            pin = light.pin
             self.GPIO.setup(
-                light.value,
+                pin,
                 self.GPIO.OUT,
                 initial=self.GPIO.LOW)
 
-            self.pwm[light.value] = self.GPIO.PWM(
-                light.value,
+            self.pwm[pin] = self.GPIO.PWM(
+                pin,
                 100)
 
         self.tasks = {}
@@ -36,45 +37,43 @@ class Board(object):
 
     def on(self, light: Lights):
         logging.debug(f'Light {light} turning on...')
-        self.GPIO.output(light.value, self.GPIO.HIGH)
+        self.GPIO.output(light.pin, self.GPIO.HIGH)
         logging.debug(f'Light {light} on')
 
     async def pulse(self, light: Lights):
-        if light.value in self.tasks:
+        pin = light.pin
+        if pin in self.tasks:
             logging.debug(f'Light {light} is already pulsing.')
             return
 
         dc = 0
-        pwm = self.pwm.get(light.value)
+        pwm = self.pwm.get(pin)
         if pwm is None:
             logging.error(f'Failed to pulse light {light}')
             return
 
         pwm.start(dc)
 
-        self.tasks[light.value] = asyncio.ensure_future(pulse(pwm))
+        self.tasks[pin] = asyncio.create_task(pulse(pwm))
         logging.debug(f'Light {light} pulsing...')
         await asyncio.sleep(0.001)
 
     def off(self, light: Lights):
-        pwm = self.pwm.get(light.value)
+        pin = light.pin
+        pwm = self.pwm.get(pin)
         if pwm is not None:
             pwm.stop()
 
-        task = self.tasks.get(light.value)
+        task = self.tasks.get(pin)
         if task is not None:
             task.cancel()
-            self.tasks.pop(light.value)
+            self.tasks.pop(pin)
 
         logging.debug(f'Light {light} turning off...')
-        self.GPIO.output(light.value, self.GPIO.LOW)
+        self.GPIO.output(pin, self.GPIO.LOW)
         logging.debug(f'Light {light} off')
 
     def __exit__(self, type, value, traceback):
-        # logging.info('Cleaning up pulses')
-        # [task.cancel() for task in self.tasks]
-        # del self.tasks
-
         logging.info('Cleaning up GPIO')
         self.GPIO.cleanup()
 

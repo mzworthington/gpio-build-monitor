@@ -1,0 +1,5 @@
+# Allow the pi user to restart the monitor service during unattended updates.
+# Install with:
+#   sudo cp deploy/sudoers-gpio-build-monitor /etc/sudoers.d/gpio-build-monitor
+#   sudo chmod 0440 /etc/sudoers.d/gpio-build-monitor
+pi ALL=(ALL) NOPASSWD: /bin/systemctl start gpio-build-monitor, /bin/systemctl stop gpio-build-monitor, /bin/systemctl restart gpio-build-monitor, /usr/bin/systemctl start gpio-build-monitor, /usr/bin/systemctl stop gpio-build-monitor, /usr/bin/systemctl restart gpio-build-monitor

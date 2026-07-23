@@ -1,24 +1,21 @@
 #!/usr/bin/env python3
 from unittest import mock
 from unittest.mock import MagicMock, call
-import aiounittest
+
+import pytest
 from aioresponses import aioresponses
+
+import monitor.ci_gateway.integration_actions as available_integrations
 from monitor.build_monitor import BuildMonitor
 from monitor.gpio.board import Board
 from monitor.gpio.constants import Lights
 from monitor.service.aggregator_service import AggregatorService
 from monitor.service.integration_mapper import IntegrationMapper
-import monitor.ci_gateway.integration_actions as available_integrations
-
-
-class AsyncMock(MagicMock):
-    async def __call__(self, *args, **kwargs):
-        return super(AsyncMock, self).__call__(*args, **kwargs)
 
 
 async def run(mocked_pwm):
-    mocked_pwm.return_value.ChangeDutyCycle = mock.MagicMock()
-    mocked_pwm.return_value.stop = mock.MagicMock()
+    mocked_pwm.return_value.ChangeDutyCycle = MagicMock()
+    mocked_pwm.return_value.stop = MagicMock()
     data = {
         "workflow_runs": [
             dict(id=448533827,
@@ -42,7 +39,7 @@ async def run(mocked_pwm):
         repo='awesome')]
 
     with aioresponses() as m:
-        m.get('https://api.github.com/repos/super-man/awesome/actions/runs',  # noqa: E501
+        m.get('https://api.github.com/repos/super-man/awesome/actions/runs',
               payload=data, status=200)
         aggregator = AggregatorService(
             IntegrationMapper(
@@ -51,36 +48,33 @@ async def run(mocked_pwm):
 
         with Board() as board:
             monitor = BuildMonitor(board, aggregator)
-            await monitor.run()
+            import aiohttp
+            async with aiohttp.ClientSession() as session:
+                await monitor.run(session)
 
 
-class AppTests(aiounittest.AsyncTestCase):
-
-    @mock.patch('monitor.gpio.Mock.GPIO.PWM')
-    @mock.patch('monitor.gpio.Mock.GPIO.output')
-    async def test_blue_light(self, mocked_output, mocked_pwm):
-        await run(mocked_pwm)
-        self.assertTrue(call(Lights.BLUE.value, 1) in
-                        mocked_output.call_args_list)
-        self.assertTrue(call(Lights.BLUE.value, 0) in
-                        mocked_output.call_args_list)
-
-    @mock.patch('monitor.gpio.Mock.GPIO.PWM')
-    @mock.patch('monitor.gpio.Mock.GPIO.output')
-    async def test_pulse(self, mocked_output, mocked_pwm):
-        await run(mocked_pwm)
-        self.assertEqual(1, mocked_pwm.return_value.start.call_count)
-        assert mocked_pwm.return_value.ChangeDutyCycle.called
-
-    @mock.patch('monitor.gpio.Mock.GPIO.PWM')
-    @mock.patch('monitor.gpio.Mock.GPIO.output')
-    async def test_result(self, mocked_output, mocked_pwm):
-        await run(mocked_pwm)
-        self.assertTrue(call(Lights.GREEN.value, 1) in
-                        mocked_output.call_args_list)
-        self.assertTrue(call(Lights.RED.value, 0) in
-                        mocked_output.call_args_list)
+@pytest.mark.asyncio
+@mock.patch('monitor.gpio.Mock.GPIO.PWM')
+@mock.patch('monitor.gpio.Mock.GPIO.output')
+async def test_blue_light(mocked_output, mocked_pwm):
+    await run(mocked_pwm)
+    assert call(Lights.BLUE.pin, 1) in mocked_output.call_args_list
+    assert call(Lights.BLUE.pin, 0) in mocked_output.call_args_list
 
 
-if __name__ == '__main__':
-    aiounittest.main()
+@pytest.mark.asyncio
+@mock.patch('monitor.gpio.Mock.GPIO.PWM')
+@mock.patch('monitor.gpio.Mock.GPIO.output')
+async def test_pulse(mocked_output, mocked_pwm):
+    await run(mocked_pwm)
+    assert mocked_pwm.return_value.start.call_count == 1
+    assert mocked_pwm.return_value.ChangeDutyCycle.called
+
+
+@pytest.mark.asyncio
+@mock.patch('monitor.gpio.Mock.GPIO.PWM')
+@mock.patch('monitor.gpio.Mock.GPIO.output')
+async def test_result(mocked_output, mocked_pwm):
+    await run(mocked_pwm)
+    assert call(Lights.GREEN.pin, 1) in mocked_output.call_args_list
+    assert call(Lights.RED.pin, 0) in mocked_output.call_args_list

@@ -1,0 +1,21 @@
+[tools]
+python = "3.12"
+
+[env]
+_.python.venv = { path = ".venv", create = true }
+
+[tasks.bootstrap]
+description = "Install Python and project dependencies"
+run = "bin/bootstrap"
+
+[tasks.serve]
+description = "Run the build monitor locally"
+run = "bin/serve"
+
+[tasks.test]
+description = "Lint and run the test suite"
+run = "make test"
+
+[tasks.publish]
+description = "Build distribution packages"
+run = "make publish"

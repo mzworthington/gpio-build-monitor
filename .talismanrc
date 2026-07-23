@@ -1,13 +1,9 @@
 fileignoreconfig:
-- filename: test/monitor/ci_gateway/circleci_response.json
-  checksum: c3c8abb3ffcbf1203ff0d2ac243fb8c17e5980d96202128a36f20f3b13ea4bd2
+- filename: test/monitor/ci_gateway/circleci_pipelines.json
+  checksum: 6a8f594bd8c402d45fb63d06f10f0f7655d68141e613bb11d00ff55da0646753
+- filename: test/monitor/ci_gateway/circleci_workflows.json
+  checksum: 5c8bceb0fa01858b6b012c1d88ed054e22d905ed51b8325fd6d9f94d498ba8fa
 - filename: test/monitor/ci_gateway/github_response.json
-  checksum: 7b30e7d451f582c6e3a00d549dd175a8d06e18f27599701d5bbbb22d8d5a1d88
-- filename: monitor/build_monitor.py
-  checksum: 6077e0c684e6397709998fbed289edfcb4e365b6c5a3078d6a01a4a244e0771e
+  checksum: f97c66febcde34bda64516a9aa3eea3399270a82a9fd691364d98b47f8ede515
 - filename: .github/workflows/ci.yml
-  checksum: d222a51a2f7052434fd82f7fa8279b88e3dfd5bbad384a9cdd7018666b98686c
-- filename: monitor/ci_gateway/circleci.py
-  checksum: 0603d78d8c9679605f142628d182cd1d58e5639c638928e1af8df314587417bb
-- filename: monitor/ci_gateway/github.py
-  checksum: 6333824bc56022b17659d03cb48429f5d01e99b5a19c817f2c1b26915a6229f3
+  checksum: 14df656396f57fe1b31541ff8fd6af2aeb4f36ac74b1a64da5a4cc3e5ff716e8

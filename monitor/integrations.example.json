@@ -1,0 +1,24 @@
+{
+  "poll_in_seconds": 30,
+  "log_dir": "logs",
+  "pins": {
+    "GREEN": 17,
+    "YELLOW": 18,
+    "BLUE": 22,
+    "RED": 27,
+    "PURPLE": 23
+  },
+  "integrations": [
+    {
+      "type": "GITHUB",
+      "username": "your-github-org",
+      "repo": "your-repo"
+    },
+    {
+      "type": "CIRCLECI",
+      "username": "your-circle-org",
+      "repo": "your-repo",
+      "excluded_workflows": []
+    }
+  ]
+}

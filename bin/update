@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Poll GitHub releases and install the latest monitor wheel into the Pi venv.
+# Stops the systemd service before upgrading and starts it again afterwards.
+
+MONITOR_HOME="${MONITOR_HOME:-/home/pi/gpio-build-monitor}"
+MONITOR_VENV="${MONITOR_VENV:-$MONITOR_HOME/.venv}"
+MONITOR_SERVICE="${MONITOR_SERVICE:-gpio-build-monitor}"
+GITHUB_REPO="${GITHUB_REPO:-worthington10TW/gpio-build-monitor}"
+LOG_FILE="${MONITOR_UPDATE_LOG:-/var/log/gpio-build-monitor/update.log}"
+CHECK_ONLY="${CHECK_ONLY:-0}"
+
+API_URL="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
+PIP="${MONITOR_VENV}/bin/pip"
+PYTHON="${MONITOR_VENV}/bin/python"
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [--check]
+
+Poll GitHub for a new release of ${GITHUB_REPO}, install it, and restart
+${MONITOR_SERVICE}.
+
+Environment:
+  MONITOR_HOME       Install directory (default: /home/pi/gpio-build-monitor)
+  MONITOR_VENV       Virtualenv path (default: \$MONITOR_HOME/.venv)
+  MONITOR_SERVICE    systemd unit to restart (default: gpio-build-monitor)
+  GITHUB_REPO        owner/repo to check (default: worthington10TW/gpio-build-monitor)
+  MONITOR_UPDATE_LOG Log file path
+  CHECK_ONLY=1       Same as --check
+
+Options:
+  --check            Report whether an update is available and exit
+  -h, --help         Show this help
+EOF
+}
+
+log() {
+  local message="[$(date -Iseconds)] $*"
+  echo "$message"
+  if [[ -n "${LOG_FILE}" ]]; then
+    mkdir -p "$(dirname "$LOG_FILE")"
+    echo "$message" >>"$LOG_FILE"
+  fi
+}
+
+systemctl_cmd() {
+  if [[ "$(id -u)" -eq 0 ]]; then
+    systemctl "$@"
+  else
+    sudo systemctl "$@"
+  fi
+}
+
+installed_version() {
+  if [[ ! -x "$PIP" ]]; then
+    echo "0.0.0"
+    return
+  fi
+  "$PIP" show monitor 2>/dev/null | awk '/^Version: / {print $2; exit}'
+}
+
+version_gt() {
+  local left="$1"
+  local right="$2"
+  [[ "$(printf '%s\n%s\n' "$left" "$right" | sort -V | head -n1)" == "$right" && "$left" != "$right" ]]
+}
+
+fetch_latest_release() {
+  curl -fsSL \
+    -H "Accept: application/vnd.github+json" \
+    -H "User-Agent: gpio-build-monitor-updater" \
+    "$API_URL"
+}
+
+find_wheel_url() {
+  local release_json="$1"
+  "$PYTHON" -c '
+import json
+import sys
+
+release = json.load(sys.stdin)
+assets = release.get("assets", [])
+for asset in assets:
+    name = asset.get("name", "")
+    if name.endswith(".whl") and name.startswith("monitor-"):
+        print(asset["browser_download_url"])
+        break
+else:
+    raise SystemExit("No monitor wheel found in latest release assets")
+' <<<"$release_json"
+}
+
+latest_version_from_release() {
+  local release_json="$1"
+  "$PYTHON" -c '
+import json
+import sys
+
+release = json.load(sys.stdin)
+tag = release["tag_name"]
+print(tag[1:] if tag.startswith("v") else tag)
+' <<<"$release_json"
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    --check)
+      CHECK_ONLY=1
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $arg" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+if [[ ! -x "$PIP" ]]; then
+  log "ERROR: pip not found at $PIP"
+  exit 1
+fi
+
+log "Checking for updates (installed=$(installed_version), repo=${GITHUB_REPO})"
+
+RELEASE_JSON="$(fetch_latest_release)"
+LATEST_VERSION="$(latest_version_from_release "$RELEASE_JSON")"
+CURRENT_VERSION="$(installed_version)"
+
+if [[ -z "$CURRENT_VERSION" ]]; then
+  CURRENT_VERSION="0.0.0"
+fi
+
+if ! version_gt "$LATEST_VERSION" "$CURRENT_VERSION"; then
+  log "Already up to date ($CURRENT_VERSION)"
+  exit 0
+fi
+
+log "Update available: $CURRENT_VERSION -> $LATEST_VERSION"
+
+if [[ "$CHECK_ONLY" == "1" ]]; then
+  exit 10
+fi
+
+WHEEL_URL="$(find_wheel_url "$RELEASE_JSON")"
+TMPDIR="$(mktemp -d)"
+trap 'rm -rf "$TMPDIR"' EXIT
+WHEEL_PATH="${TMPDIR}/monitor-${LATEST_VERSION}.whl"
+
+log "Downloading $WHEEL_URL"
+curl -fsSL -o "$WHEEL_PATH" "$WHEEL_URL"
+
+SERVICE_WAS_ACTIVE=0
+if systemctl_cmd is-active --quiet "$MONITOR_SERVICE"; then
+  SERVICE_WAS_ACTIVE=1
+  log "Stopping $MONITOR_SERVICE"
+  systemctl_cmd stop "$MONITOR_SERVICE"
+fi
+
+log "Installing monitor $LATEST_VERSION"
+"$PIP" install --upgrade "$WHEEL_PATH"
+
+if [[ "$SERVICE_WAS_ACTIVE" -eq 1 ]]; then
+  log "Starting $MONITOR_SERVICE"
+  systemctl_cmd start "$MONITOR_SERVICE"
+fi
+
+log "Update complete ($LATEST_VERSION)"
+exit 0

@@ -2,40 +2,93 @@
 
 import asyncio
 import logging
+from pathlib import Path
+
+import typer
+
 import monitor.app as app
+from monitor.config import ConfigError, load_config
 
-import argparse
-
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    '-log',
-    default='info',
-    help=(
-        'Provide logging level. '
-        'Example --log debug\', default=\'warning\''),
-)
-parser.add_argument(
-    '-conf',
-    default='integration.json',
-    help='Integration configuration file',
+cli_app = typer.Typer(
+    add_completion=False,
+    help="GPIO build monitor for CI status LEDs",
+    no_args_is_help=True,
 )
 
-options = parser.parse_args()
-levels = dict(critical=logging.CRITICAL,
-              error=logging.ERROR,
-              warn=logging.WARNING,
-              warning=logging.WARNING,
-              info=logging.INFO,
-              debug=logging.DEBUG)
-level = levels.get(options.log.lower())
-conf_file = options.conf
-if level is None:
-    raise ValueError(
-        f'log level given: {options.log}'
-        f' -- must be one of: {" | ".join(levels.keys())}')
+LOG_LEVELS = {
+    "critical": logging.CRITICAL,
+    "error": logging.ERROR,
+    "warn": logging.WARNING,
+    "warning": logging.WARNING,
+    "info": logging.INFO,
+    "debug": logging.DEBUG,
+}
 
-loop = asyncio.get_event_loop()
-try:
-    loop.run_until_complete(app.main(conf_file, level))
-except KeyboardInterrupt:
-    pass
+
+def _resolve_log_level(log_level: str) -> int:
+    level = LOG_LEVELS.get(log_level.lower())
+    if level is None:
+        supported = ", ".join(sorted(LOG_LEVELS))
+        raise typer.BadParameter(
+            f"log level '{log_level}' is invalid (expected one of: {supported})"
+        )
+    return level
+
+
+@cli_app.command()
+def run(
+    conf: Path = typer.Option(
+        Path("monitor/integrations.json"),
+        "--conf",
+        "-c",
+        help="Integration configuration file",
+        exists=True,
+        readable=True,
+    ),
+    log_level: str = typer.Option(
+        "info",
+        "--log-level",
+        "-l",
+        help="Logging level",
+    ),
+) -> None:
+    """Poll CI providers and update GPIO LEDs."""
+    try:
+        asyncio.run(app.main(conf, _resolve_log_level(log_level)))
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    except KeyboardInterrupt:
+        raise typer.Exit(0) from None
+
+
+@cli_app.command("check-config")
+def check_config(
+    conf: Path = typer.Option(
+        Path("monitor/integrations.json"),
+        "--conf",
+        "-c",
+        help="Integration configuration file",
+        exists=True,
+        readable=True,
+    ),
+) -> None:
+    """Validate configuration and required environment variables."""
+    try:
+        config = load_config(conf)
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(
+        f"Config OK: {len(config['integrations'])} integration(s), "
+        f"poll every {config['poll_in_seconds']}s"
+    )
+
+
+def cli() -> None:
+    cli_app()
+
+
+if __name__ == "__main__":
+    cli()

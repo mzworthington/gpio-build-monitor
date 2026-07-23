@@ -1,143 +1,139 @@
 #!/usr/bin/env python3
 
-import pytest
 import json
 import os
-import aiounittest
+from pathlib import Path
+
+import aiohttp
+import pytest
 from aioresponses import aioresponses
-from monitor.ci_gateway.circleci import CircleCI, APIError
-from monitor.ci_gateway.constants import CiResult as Result, IntegrationType
 
-os.environ['CIRCLECI_TOKEN'] = 'secret'
+from monitor.ci_gateway.circleci import API_BASE, APIError, CircleCI
+from monitor.ci_gateway.constants import CiResult as Result
+from monitor.ci_gateway.constants import IntegrationType
+
+os.environ['CIRCLE_CI_TOKEN'] = 'secret'
+FIXTURE_DIR = Path(__file__).parent
 
 
-class CircleCiTests(aiounittest.AsyncTestCase):
+class TestCircleCi:
     def test_type(self):
-        self.assertEqual(IntegrationType.CIRCLECI,
-                         CircleCI(**{
-                             'username': 'super-man',
-                             'repo': 'awesome'}).get_type())
+        assert IntegrationType.CIRCLECI == CircleCI(**{
+            'username': 'super-man',
+            'repo': 'awesome'}).get_type()
 
     def test_map_result(self):
-        latest = """{
-            "build_num": 1234,
-            "outcome": "success",
-            "lifecycle": "finished",
-            "start_time": "2020-12-28T09:23:57Z",
-            "workflows": {
-                "workflow_name": "blah"
-            },
-            "vcs_url": "http://superurl.com"
-        }"""
-        result = CircleCI.map_result(json.loads(latest))
-        self.assertEqual(IntegrationType.CIRCLECI, result["type"])
-        self.assertEqual(Result.PASS, result["status"])
-        self.assertEqual("2020-12-28T09:23:57Z", result["start"])
-        self.assertEqual("2020-12-28T09:23:57Z", result["start"])
-        self.assertEqual("blah", result["name"])
-        self.assertEqual("http://superurl.com", result["vcs"])
-        self.assertEqual(1234, result["id"])
+        latest = {
+            "id": "wf-1234",
+            "name": "blah",
+            "status": "success",
+            "created_at": "2020-12-28T09:23:57Z",
+        }
+        result = CircleCI.map_result(latest, "http://superurl.com")
+        assert result["type"] == IntegrationType.CIRCLECI
+        assert result["status"] == Result.PASS
+        assert result["start"] == "2020-12-28T09:23:57Z"
+        assert result["name"] == "blah"
+        assert result["vcs"] == "http://superurl.com"
+        assert result["id"] == "wf-1234"
 
     def test_running(self):
-        latest = """{
-                    "build_num": 1234,
-                    "outcome": "failed",
-                    "lifecycle": "not_finished",
-                    "start_time": "2020-12-28T09:23:57Z",
-                    "workflows": {
-                        "workflow_name": "blah"
-                    },
-                    "vcs_url": "http://superurl.com"
-                }"""
-        result = CircleCI.map_result(json.loads(latest))
-        self.assertEqual(Result.RUNNING, result["status"])
+        latest = {
+            "id": "wf-1234",
+            "name": "blah",
+            "status": "running",
+            "created_at": "2020-12-28T09:23:57Z",
+        }
+        result = CircleCI.map_result(latest, "http://superurl.com")
+        assert result["status"] == Result.RUNNING
 
     def test_pass(self):
-        latest = """{
-                    "build_num": 1234,
-                    "outcome": "success",
-                    "lifecycle": "finished",
-                    "start_time": "2020-12-28T09:23:57Z",
-                    "workflows": {
-                        "workflow_name": "blah"
-                    },
-                    "vcs_url": "http://superurl.com"
-                }"""
-        result = CircleCI.map_result(json.loads(latest))
-        self.assertEqual(Result.PASS, result["status"])
+        latest = {
+            "id": "wf-1234",
+            "name": "blah",
+            "status": "success",
+            "created_at": "2020-12-28T09:23:57Z",
+        }
+        result = CircleCI.map_result(latest, "http://superurl.com")
+        assert result["status"] == Result.PASS
 
     def test_failed(self):
-        latest = """{
-                    "build_num": 1234,
-                    "outcome": "failed",
-                    "lifecycle": "finished",
-                    "start_time": "2020-12-28T09:23:57Z",
-                    "workflows": {
-                        "workflow_name": "blah"
-                    },
-                    "vcs_url": "http://superurl.com"
-                }"""
-        result = CircleCI.map_result(json.loads(latest))
-        self.assertEqual(Result.FAIL, result["status"])
+        latest = {
+            "id": "wf-1234",
+            "name": "blah",
+            "status": "failed",
+            "created_at": "2020-12-28T09:23:57Z",
+        }
+        result = CircleCI.map_result(latest, "http://superurl.com")
+        assert result["status"] == Result.FAIL
 
-    @aioresponses()
-    async def test_gets_latest_from_circle(self, m):
-        response_json = os.path.join(
-            os.path.dirname(__file__),
-            'circleci_response.json')
-        with open(response_json) as json_file:
-            data = json.load(json_file)
+    @pytest.mark.asyncio
+    async def test_gets_latest_from_circle(self):
+        with open(FIXTURE_DIR / 'circleci_pipelines.json') as pipelines_file:
+            pipelines = json.load(pipelines_file)
+        with open(FIXTURE_DIR / 'circleci_workflows.json') as workflows_file:
+            workflows = json.load(workflows_file)
 
-        m.get('https://circleci.com/api/v1.1/project/github/super-man/awesome?shallow=true',  # noqa: E501
-              payload=data, status=200)
+        pipelines_url = f"{API_BASE}/project/gh/super-man/awesome/pipeline"
+        workflows_url = f"{API_BASE}/pipeline/pipe-1/workflow"
 
-        action = CircleCI(**{'username': 'super-man',
-                             'repo': 'awesome'})
-        result = await action.get_latest()
-        self.assertEqual(IntegrationType.CIRCLECI, result[0]["type"])
-        self.assertEqual(Result.PASS, result[0]["status"])
-        self.assertEqual("build_and_test", result[0]["name"])
+        with aioresponses() as m:
+            m.get(pipelines_url, payload=pipelines, status=200)
+            m.get(workflows_url, payload=workflows, status=200)
 
-        self.assertEqual(IntegrationType.CIRCLECI, result[1]["type"])
-        self.assertEqual(Result.FAIL, result[1]["status"])
-        self.assertEqual("check_vulnerabilities", result[1]["name"])
-
-        self.assertEqual(IntegrationType.CIRCLECI, result[2]["type"])
-        self.assertEqual(Result.PASS, result[2]["status"])
-        self.assertEqual("scan_for_vulnerabilities", result[2]["name"])
-
-    @aioresponses()
-    async def test_ignores_excluded_repo(self, m):
-        response_json = os.path.join(
-            os.path.dirname(__file__),
-            'circleci_response.json')
-        with open(response_json) as json_file:
-            data = json.load(json_file)
-
-        m.get('https://circleci.com/api/v1.1/project/github/super-man/awesome?shallow=true',  # noqa: E501
-              payload=data, status=200)
-
-        action = CircleCI(**{'username': 'super-man',
-                             'repo': 'awesome',
-                             'excluded_workflows': 'scan_for_vulnerabilities'})
-        result = await action.get_latest()
-        self.assertEqual("build_and_test", result[0]["name"])
-        self.assertEqual("check_vulnerabilities", result[1]["name"])
-        self.assertEqual(2, len(result))
-
-    @aioresponses()
-    async def test_fails_when_not_200(self, m):
-        with pytest.raises(APIError) as excinfo:
-            m.get(
-                'https://circleci.com/api/v1.1/project/github/super-man/awesome?shallow=true',  # noqa: E501
-                status=400)
             action = CircleCI(**{'username': 'super-man',
                                  'repo': 'awesome'})
-            await action.get_latest()
+            async with aiohttp.ClientSession() as session:
+                result = await action.get_latest(session)
 
-        msg = "APIError: GET https://circleci.com/api/v1.1/project/github/super-man/awesome?shallow=true 400"  # noqa: E501
-        self.assertEqual(msg, str(excinfo.value))
+        assert result[0]["type"] == IntegrationType.CIRCLECI
+        assert result[0]["status"] == Result.PASS
+        assert result[0]["name"] == "build_and_test"
 
+        assert result[1]["type"] == IntegrationType.CIRCLECI
+        assert result[1]["status"] == Result.FAIL
+        assert result[1]["name"] == "check_vulnerabilities"
 
-if __name__ == '__main__':
-    aiounittest.main()
+        assert result[2]["type"] == IntegrationType.CIRCLECI
+        assert result[2]["status"] == Result.PASS
+        assert result[2]["name"] == "scan_for_vulnerabilities"
+
+    @pytest.mark.asyncio
+    async def test_ignores_excluded_repo(self):
+        with open(FIXTURE_DIR / 'circleci_pipelines.json') as pipelines_file:
+            pipelines = json.load(pipelines_file)
+        with open(FIXTURE_DIR / 'circleci_workflows.json') as workflows_file:
+            workflows = json.load(workflows_file)
+
+        pipelines_url = f"{API_BASE}/project/gh/super-man/awesome/pipeline"
+        workflows_url = f"{API_BASE}/pipeline/pipe-1/workflow"
+
+        with aioresponses() as m:
+            m.get(pipelines_url, payload=pipelines, status=200)
+            m.get(workflows_url, payload=workflows, status=200)
+
+            action = CircleCI(**{'username': 'super-man',
+                                 'repo': 'awesome',
+                                 'excluded_workflows': ['scan_for_vulnerabilities']})
+            async with aiohttp.ClientSession() as session:
+                result = await action.get_latest(session)
+
+        assert result[0]["name"] == "build_and_test"
+        assert result[1]["name"] == "check_vulnerabilities"
+        assert len(result) == 2
+
+    @pytest.mark.asyncio
+    async def test_fails_when_not_200(self):
+        pipelines_url = f"{API_BASE}/project/gh/super-man/awesome/pipeline"
+        with aioresponses() as m:
+            m.get(pipelines_url, status=400)
+            action = CircleCI(**{'username': 'super-man',
+                                 'repo': 'awesome'})
+            async with aiohttp.ClientSession() as session:
+                with pytest.raises(APIError) as excinfo:
+                    await action.get_latest(session)
+
+        assert str(excinfo.value) == (
+            "APIError: GET "
+            f"{pipelines_url} 400"
+        )

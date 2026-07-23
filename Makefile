@@ -1,15 +1,10 @@
 # define the name of the virtual environment directory
-VENV := venv
+VENV := .venv
 
 # default target, when make executed without arguments
-all: venv
+all: bootstrap
 
-$(VENV)/bin/activate: requirements.txt requirements-dev.txt
-	python3 -m venv $(VENV)
-	./$(VENV)/bin/pip install -r requirements.txt -r requirements-dev.txt
-
-# venv is a shortcut target
-venv: $(VENV)/bin/activate
+.PHONY: help all bootstrap venv run test build publish clean serve lint
 
 help:
 	@IFS=$$'\n' ; \
@@ -22,25 +17,36 @@ help:
         printf "%-30s %s\n" $$help_command $$help_info ; \
     done
 
-run: venv ## Runs monitor using debug and monitor/integrations.json configuration
-	./$(VENV)/bin/python3 -m monitor -log debug -conf monitor/integrations.json
+bootstrap: ## Install Python (via mise) and project dependencies
+	./bin/bootstrap
 
-test: venv ## Lint monitor and test	and runs pytest with junit formatting
-	./$(VENV)/bin/python3 -m flake8 monitor
-	./$(VENV)/bin/python3 -m flake8 test
-	./$(VENV)/bin/python3 -m pytest test/monitor -v --junitxml=junit/test-results.xml
+$(VENV)/bin/activate: pyproject.toml
+	./bin/bootstrap
 
-publish: test ## Removes existing build, dist and egg, then creates bdist_wheel
+venv: $(VENV)/bin/activate ## Alias for bootstrap
+
+serve: bootstrap ## Run the build monitor locally (mock GPIO in debug mode)
+	./bin/serve
+
+run: serve ## Alias for serve
+
+lint: bootstrap ## Run ruff linter
+	./$(VENV)/bin/ruff check monitor test
+
+test: bootstrap lint ## Run pytest with junit formatting
+	./$(VENV)/bin/python -m pytest test/monitor -v --junitxml=junit/test-results.xml
+
+build: bootstrap ## Create sdist and wheel without running tests
 	rm -rf build/
 	rm -rf dist/
 	rm -rf monitor.egg-info/
-	./$(VENV)/bin/python3  -m build --sdist --wheel
+	./$(VENV)/bin/python -m build --sdist --wheel
 
-clean: ## Removes virtual env and pyc
+publish: test build ## Lint, test, then create distribution packages
+
+clean: ## Remove virtual env, build artifacts, and pyc files
 	rm -rf $(VENV)
 	rm -rf build/
 	rm -rf dist/
 	rm -rf monitor.egg-info/
 	find . -type f -name '*.pyc' -delete
-
-.PHONY: help all venv run test publish clean

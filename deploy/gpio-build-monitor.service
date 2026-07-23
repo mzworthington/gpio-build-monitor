@@ -1,0 +1,18 @@
+[Unit]
+Description=GPIO Build Monitor
+Documentation=https://github.com/worthington10TW/gpio-build-monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/gpio-build-monitor
+EnvironmentFile=-/etc/gpio-build-monitor/env
+ExecStart=/home/pi/gpio-build-monitor/.venv/bin/python -O -m monitor run --conf /etc/gpio-build-monitor/integrations.json --log-level info
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

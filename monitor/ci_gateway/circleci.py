@@ -1,95 +1,115 @@
-import os
 import logging
+import os
 from abc import ABC
-from itertools import groupby
 
-from monitor.ci_gateway.constants import IntegrationType, \
-    APIError, IntegrationAdapter, CiResult, BuildStatus
-from aiohttp import ClientSession, client_exceptions
+from aiohttp import ClientSession
+
+from monitor.ci_gateway.constants import (
+    APIError,
+    BuildStatus,
+    CiResult,
+    IntegrationAdapter,
+    IntegrationType,
+)
+
+API_BASE = "https://circleci.com/api/v2"
+MAX_PIPELINES = 10
 
 
 class CircleCI(IntegrationAdapter, ABC):
     def __init__(self, **kwargs):
         self.username = kwargs.get('username')
         self.repo = kwargs.get('repo')
-        self.token = os.getenv('CIRCLE_CI_TOKEN')
+        self.token = kwargs.get('token') or os.getenv('CIRCLE_CI_TOKEN')
         self.excluded_workflows = kwargs.get('excluded_workflows') or []
 
     def get_type(self) -> IntegrationType:
         return IntegrationType.CIRCLECI
 
-    async def get_latest(self) -> BuildStatus:
-        super().get_latest()
-        base = 'https://circleci.com/api/v1.1'
-        url = f'{base}/project/github/{self.username}/{self.repo}?shallow=true'  # noqa: E501
-        logging.debug(f'Calling {url}')
+    @property
+    def project_slug(self) -> str:
+        return f"gh/{self.username}/{self.repo}"
 
-        async with ClientSession() as session:
-            resp = await session.get(
-                url,
-                headers={'Circle-Token': f'{self.token}',
-                         'Accept': 'application/json',
-                         'Content-Type': 'application/json'})
+    @property
+    def vcs_url(self) -> str:
+        return f"https://github.com/{self.username}/{self.repo}"
 
-            if resp.status != 200:
-                raise APIError('GET', url, resp.status)
+    def _headers(self) -> dict[str, str]:
+        return {
+            "Circle-Token": f"{self.token}",
+            "Accept": "application/json",
+        }
 
-            try:
-                json = await resp.json(content_type=None)
-            except client_exceptions.ContentTypeError:
-                raise APIError('GET',
-                               url,
-                               resp.status,
-                               text=await resp.text())
+    async def get_latest(self, session: ClientSession) -> list[BuildStatus]:
+        pipelines_url = f"{API_BASE}/project/{self.project_slug}/pipeline"
+        logging.debug(f"Calling {pipelines_url}")
 
-        response = list(
-            map(
-                CircleCI.map_result,
-                self.get_unique_latest_jobs(json)))
-        logging.info(f'Called {url}')
-        logging.info(f'Response {response}')
+        resp = await session.get(pipelines_url, headers=self._headers())
+        if resp.status != 200:
+            raise APIError("GET", pipelines_url, resp.status)
+
+        pipelines = (await resp.json()).get("items", [])
+        workflows_by_name: dict[str, dict] = {}
+
+        for pipeline in pipelines[:MAX_PIPELINES]:
+            pipeline_id = pipeline["id"]
+            workflows_url = f"{API_BASE}/pipeline/{pipeline_id}/workflow"
+            workflow_resp = await session.get(workflows_url, headers=self._headers())
+            if workflow_resp.status != 200:
+                raise APIError("GET", workflows_url, workflow_resp.status)
+
+            for workflow in (await workflow_resp.json()).get("items", []):
+                name = workflow["name"]
+                if name in self.excluded_workflows:
+                    continue
+
+                existing = workflows_by_name.get(name)
+                if existing is None or workflow["created_at"] > existing["created_at"]:
+                    workflows_by_name[name] = workflow
+
+        response = [
+            CircleCI.map_result(workflow, self.vcs_url)
+            for workflow in sorted(
+                workflows_by_name.values(),
+                key=lambda item: item["name"],
+            )
+        ]
+        logging.info(f"Called {pipelines_url}")
+        logging.info(f"Response {response}")
         return response
 
     @staticmethod
-    def map_result(latest: dict) -> BuildStatus:
-        outcome = latest["outcome"]
-        lifecycle = latest["lifecycle"]
+    def map_result(workflow: dict, vcs_url: str) -> BuildStatus:
+        status = workflow["status"]
         return BuildStatus(
             type=IntegrationType.CIRCLECI,
-            vcs=latest["vcs_url"],
-            id=latest["build_num"],
-            name=latest['workflows']['workflow_name'],
-            start=latest["start_time"],
-            status=CiResult.RUNNING if lifecycle != "finished" else
-            CiResult.FAIL if outcome != "success" else  # noqa: E501
-            CiResult.PASS)
+            vcs=vcs_url,
+            id=workflow["id"],
+            name=workflow["name"],
+            start=workflow["created_at"],
+            status=CircleCI._map_status(status),
+        )
 
-    def get_unique_latest_jobs(self, json):
-        jobs = []
-        for k, g in groupby(
-                sorted(
-                    filter(
-                        lambda x:
-                        x['workflows']['workflow_name']not in
-                        self.excluded_workflows,
-                        json), key=lambda x: x['workflows']['workflow_name']),
-                lambda x: x['workflows']['workflow_name']):
-            jobs.append(list(g)[0])
-
-        return jobs
+    @staticmethod
+    def _map_status(status: str) -> CiResult:
+        if status in {"running", "on_hold", "failing"}:
+            return CiResult.RUNNING
+        if status == "success":
+            return CiResult.PASS
+        if status in {"failed", "error"}:
+            return CiResult.FAIL
+        return CiResult.UNKNOWN
 
 
 if __name__ == "__main__":
     import argparse
-    import sys
     import asyncio
+    import sys
 
     parser = argparse.ArgumentParser()
-
     parser.add_argument('--username', help='repo username')
     parser.add_argument('--repo', help='repo to query')
-    parser.add_argument('--excluded_workflows', help='excluded workflows')
-
+    parser.add_argument('--excluded_workflows', nargs='*', default=[])
     args = parser.parse_args()
 
     screen_handler = logging.StreamHandler(stream=sys.stdout)
@@ -97,16 +117,14 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
     logger.addHandler(screen_handler)
 
-    loop = asyncio.get_event_loop()
+    async def _main():
+        async with ClientSession() as session:
+            action = CircleCI(
+                username=args.username,
+                repo=args.repo,
+                excluded_workflows=args.excluded_workflows,
+            )
+            result = await action.get_latest(session)
+            print(result)
 
-    args.excluded_workflows = args.excluded_workflows or []
-    task = CircleCI(
-        **{
-            'username': args.username,
-            'repo': args.repo,
-            'excluded_workflows': args.excluded_workflows
-        }).get_latest()
-    done, pending = loop.run_until_complete(asyncio.wait((task,)))
-    for future in done:
-        value = future.result()
-        print(value)
+    asyncio.run(_main())

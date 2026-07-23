@@ -9,6 +9,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 .vscode/
+monitor/integrations.json
 monitor/logs/
 .idea/
 build/
@@ -137,3 +138,4 @@ gpio-build-monitor-*.whl
 
 Pipfile.lock
 /junit/test-results.xml
+app.log
