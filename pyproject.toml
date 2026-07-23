@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "monitor"
-version = "0.2.1"
+version = "0.2.2"
 description = "GPIO build monitor for CI status LEDs"
 readme = "README.md"
 license = { file = "LICENSE" }
