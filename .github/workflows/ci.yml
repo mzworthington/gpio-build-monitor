@@ -84,8 +84,8 @@ jobs:
             git tag "v${VERSION}"
             echo "Seeded baseline tag v${VERSION} from pyproject.toml"
           fi
-          if .venv/bin/semantic-release version --print --no-changelog 2>&1 | grep -q "No release will be made"; then
-            .venv/bin/semantic-release version --patch --no-changelog
+          if .venv/bin/semantic-release version --print 2>&1 | grep -q "No release will be made"; then
+            .venv/bin/semantic-release version --patch
           else
-            .venv/bin/semantic-release version --no-changelog
+            .venv/bin/semantic-release version
           fi

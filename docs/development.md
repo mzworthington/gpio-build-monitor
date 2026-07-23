@@ -35,18 +35,20 @@ Merging to `main` triggers an automatic release when `monitor/` or `pyproject.to
 The release job:
 
 1. Detects application changes since the latest `v*` tag
-2. Bumps the patch version in `pyproject.toml`
-3. Builds wheel and sdist artifacts
-4. Creates a GitHub Release and pushes the `vX.Y.Z` tag
+2. Bumps the version in `pyproject.toml` from commit messages
+3. Updates `CHANGELOG.md` from conventional commits
+4. Builds wheel and sdist artifacts
+5. Creates a GitHub Release and pushes the `vX.Y.Z` tag
 
-Commit messages can optionally drive minor or major bumps instead of patch:
+Use [Conventional Commits](https://www.conventionalcommits.org/) so entries land in the changelog:
 
 | Commit prefix | Version bump |
 |---------------|--------------|
 | `fix:` | patch |
 | `feat:` | minor |
 | `feat!:` or `BREAKING CHANGE` | major |
-Example: `feat: add purple LED blink pattern` → minor release on the next merge to `main`.
+
+Example: `feat: add purple LED blink pattern` → minor release and a changelog entry on the next merge to `main`.
 
 If this is the first automated release and no `v*` tags exist yet, CI seeds a baseline tag from the current `pyproject.toml` version before bumping.
 
