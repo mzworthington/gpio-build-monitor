@@ -28,14 +28,27 @@ pre-commit install --hook-type pre-push
 - Bootstrap, lint, and pytest
 - JUnit report upload
 
-Pushing a tag `vX.Y.Z` that matches the version in `pyproject.toml` triggers a GitHub Release with built wheel and sdist artifacts.
+### Releases
 
-```shell
-# bump version in pyproject.toml, commit, then:
-git tag v0.2.0
-git push origin main
-git push origin v0.2.0
-```
+Merging to `main` triggers an automatic release when `monitor/` or `pyproject.toml` changed since the last tag. No manual tagging or version bumps are required.
+
+The release job:
+
+1. Detects application changes since the latest `v*` tag
+2. Bumps the patch version in `pyproject.toml`
+3. Builds wheel and sdist artifacts
+4. Creates a GitHub Release and pushes the `vX.Y.Z` tag
+
+Commit messages can optionally drive minor or major bumps instead of patch:
+
+| Commit prefix | Version bump |
+|---------------|--------------|
+| `fix:` | patch |
+| `feat:` | minor |
+| `feat!:` or `BREAKING CHANGE` | major |
+Example: `feat: add purple LED blink pattern` → minor release on the next merge to `main`.
+
+If this is the first automated release and no `v*` tags exist yet, CI seeds a baseline tag from the current `pyproject.toml` version before bumping.
 
 ## Security
 

@@ -23,6 +23,7 @@ dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
+    "python-semantic-release>=9.21.0",
     "ruff>=0.15.22",
 ]
 
@@ -51,3 +52,21 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+build_command = "python -m build --sdist --wheel"
+tag_format = "v{version}"
+commit_message = "chore(release): {version}"
+allow_zero_version = true
+
+[tool.semantic_release.branches.main]
+match = "main"
+prerelease = false
+
+[tool.semantic_release.publish]
+upload_to_vcs_release = true
+dist_glob_patterns = ["dist/*"]
+
+[tool.semantic_release.remote]
+type = "github"

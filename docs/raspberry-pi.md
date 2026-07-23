@@ -85,8 +85,8 @@ Update activity is appended to `/var/log/gpio-build-monitor/update.log` by defau
 
 Requirements:
 
-- A published GitHub Release whose tag matches `vX.Y.Z` in `pyproject.toml`
-- A `monitor-*.whl` asset attached to that release (created automatically by CI)
+- A published GitHub Release (created automatically when `main` changes application code)
+- A `monitor-*.whl` asset attached to that release
 - Outbound HTTPS access to `api.github.com` and `github.com`
 
 To change the schedule, edit `OnCalendar` in `deploy/gpio-build-monitor-update.timer` and run `sudo systemctl daemon-reload`.

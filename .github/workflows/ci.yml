@@ -3,7 +3,6 @@ name: CI/CD
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
     branches: [main]
 
@@ -34,33 +33,58 @@ jobs:
 
   release:
     needs: test
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
-      - name: Install mise
-        uses: jdx/mise-action@v4
-
-      - name: Verify tag matches package version
+      - name: Detect application changes since last release
+        id: changes
         run: |
-          TAG="${GITHUB_REF#refs/tags/v}"
-          VERSION="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
-          if [ "$TAG" != "$VERSION" ]; then
-            echo "Tag v$TAG does not match pyproject.toml version $VERSION"
-            exit 1
+          git fetch --tags --force
+          if ! git describe --tags --match 'v*' --abbrev=0 >/dev/null 2>&1; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "No previous release tag found; release required."
+            exit 0
           fi
 
+          last_tag="$(git describe --tags --match 'v*' --abbrev=0)"
+          if git diff --quiet "${last_tag}" HEAD -- monitor/ pyproject.toml; then
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "No application changes since ${last_tag}."
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "Application changes detected since ${last_tag}."
+          fi
+
+      - name: Install mise
+        if: steps.changes.outputs.release == 'true'
+        uses: jdx/mise-action@v4
+
       - name: Bootstrap
+        if: steps.changes.outputs.release == 'true'
         run: make bootstrap
 
-      - name: Build packages
-        run: make build
-
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v3
-        with:
-          files: dist/*
-          generate_release_notes: true
+      - name: Release
+        if: steps.changes.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git describe --tags --match 'v*' >/dev/null 2>&1; then
+            VERSION="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+            git tag "v${VERSION}"
+            echo "Seeded baseline tag v${VERSION} from pyproject.toml"
+          fi
+          if .venv/bin/semantic-release version --print 2>&1 | grep -q "No release will be made"; then
+            .venv/bin/semantic-release version --patch
+          else
+            .venv/bin/semantic-release version
+          fi
