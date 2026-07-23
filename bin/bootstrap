@@ -28,4 +28,8 @@ source .venv/bin/activate
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install -e ".[dev]"
 
+pre-commit install
+pre-commit install --hook-type pre-push
+echo "Git hooks installed via pre-commit"
+
 echo "Bootstrap complete. Activate with: source .venv/bin/activate"
