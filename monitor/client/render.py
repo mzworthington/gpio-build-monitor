@@ -6,7 +6,12 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from monitor.service.aggregator_service import BuildDetail, Result, attention_builds
+from monitor.service.aggregator_service import (
+    BuildDetail,
+    Result,
+    attention_builds,
+    repo_summaries,
+)
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "web" / "templates"
 
@@ -16,6 +21,7 @@ SUMMARIES = {
     Result.UNKNOWN.value: "Mixed or unknown status",
     Result.CONNECTION_ERROR.value: "Could not reach a CI provider",
     Result.NONE.value: "No build results yet",
+    "RUNNING": "Build in progress",
 }
 
 STATUS_WORDS = {
@@ -24,7 +30,23 @@ STATUS_WORDS = {
     Result.UNKNOWN.value: "Mixed",
     Result.CONNECTION_ERROR.value: "Offline",
     Result.NONE.value: "Idle",
+    "RUNNING": "Running",
 }
+
+# When something is running and nothing has failed/errored, the dial leads with Running.
+_RUNNING_OVERRIDES = {
+    Result.PASS.value,
+    Result.NONE.value,
+    Result.UNKNOWN.value,
+}
+
+
+def _display_status(status: str, *, is_running: bool, fetching: bool) -> str:
+    if fetching:
+        return status
+    if is_running and status in _RUNNING_OVERRIDES:
+        return "RUNNING"
+    return status
 
 
 class StatusPageRenderer:
@@ -51,16 +73,22 @@ class StatusPageRenderer:
         last_checked_at: float | None = None,
         next_check_at: float | None = None,
     ) -> str:
-        summary = SUMMARIES.get(status, SUMMARIES[Result.NONE.value])
-        status_word = STATUS_WORDS.get(status, STATUS_WORDS[Result.NONE.value])
+        shown = _display_status(status, is_running=is_running, fetching=fetching)
         if fetching:
             status_word = "Checking"
-        if is_running:
-            summary += " · build running"
-        if fetching:
-            summary += " · fetching"
+            summary = SUMMARIES.get(status, SUMMARIES[Result.NONE.value]) + " · fetching"
+        elif shown == "RUNNING":
+            status_word = STATUS_WORDS["RUNNING"]
+            summary = SUMMARIES["RUNNING"]
+        else:
+            status_word = STATUS_WORDS.get(status, STATUS_WORDS[Result.NONE.value])
+            summary = SUMMARIES.get(status, SUMMARIES[Result.NONE.value])
+            if is_running:
+                summary += " · build running"
 
-        issues = attention_builds(list(builds or []))
+        build_list = list(builds or [])
+        issues = attention_builds(build_list)
+        repos = repo_summaries(build_list)
         last_checked_label = _format_last_checked(last_checked_at)
 
         return self._template.render(
@@ -75,11 +103,12 @@ class StatusPageRenderer:
             summary=summary,
             status_word=status_word,
             issues=issues,
+            repos=repos,
             poll_in_seconds=poll_in_seconds,
             last_checked_at=last_checked_at,
             last_checked_label=last_checked_label,
             next_check_at=next_check_at,
-            status=status,
+            status=shown,
         )
 
 

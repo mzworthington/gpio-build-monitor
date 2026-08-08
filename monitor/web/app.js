@@ -9,6 +9,9 @@
   const connection = document.getElementById("connection");
   const summary = document.getElementById("summary");
   const statusWord = document.getElementById("status-word");
+  const reposSection = document.getElementById("repos");
+  const repoList = document.getElementById("repo-list");
+  const repoCount = document.getElementById("repo-count");
   const issuesSection = document.getElementById("issues");
   const issueList = document.getElementById("issue-list");
   const issueCount = document.getElementById("issue-count");
@@ -19,6 +22,7 @@
     UNKNOWN: "Mixed or unknown status",
     CONNECTION_ERROR: "Could not reach a CI provider",
     NONE: "No build results yet",
+    RUNNING: "Build in progress",
   };
 
   const statusWords = {
@@ -27,9 +31,18 @@
     UNKNOWN: "Mixed",
     CONNECTION_ERROR: "Offline",
     NONE: "Idle",
+    RUNNING: "Running",
   };
 
   const attentionStatuses = new Set(["FAIL", "CONNECTION_ERROR", "UNKNOWN"]);
+  const runningOverrides = new Set(["PASS", "NONE", "UNKNOWN"]);
+  const expandedRepos = new Set();
+
+  function displayStatus(status, isRunning, fetching) {
+    if (fetching) return status;
+    if (isRunning && runningOverrides.has(status)) return "RUNNING";
+    return status;
+  }
 
   function setLight(name, mode) {
     const el = lights[name];
@@ -88,6 +101,181 @@
     };
   }
 
+  function appendRepoLabel(parent, repo) {
+    const { org, name } = splitRepo(repo);
+    if (org) {
+      const orgEl = document.createElement("span");
+      orgEl.className = "issue-org";
+      orgEl.textContent = org;
+      const nameEl = document.createElement("span");
+      nameEl.className = "issue-name";
+      nameEl.textContent = name;
+      parent.append(orgEl, nameEl);
+      return;
+    }
+    parent.textContent = name;
+  }
+
+  function summarizeRepos(builds) {
+    const byRepo = new Map();
+    (builds || []).forEach((build) => {
+      const key = build.repo || "unknown repo";
+      if (!byRepo.has(key)) {
+        byRepo.set(key, []);
+      }
+      byRepo.get(key).push(build);
+    });
+
+    return [...byRepo.entries()]
+      .map(([repo, repoBuilds]) => {
+        const settled = repoBuilds.filter((b) => b.status !== "RUNNING");
+        let status = "NONE";
+        if (settled.some((b) => b.status === "CONNECTION_ERROR")) {
+          status = "CONNECTION_ERROR";
+        } else if (settled.some((b) => b.status === "FAIL")) {
+          status = "FAIL";
+        } else if (settled.length && settled.every((b) => b.status === "PASS")) {
+          status = "PASS";
+        } else if (settled.length) {
+          status = "UNKNOWN";
+        }
+        const isRunning = repoBuilds.some((b) => b.status === "RUNNING");
+        if (status === "NONE" && isRunning) {
+          status = "RUNNING";
+        }
+        const workflows = [...repoBuilds].sort((a, b) =>
+          String(a.workflow || "").localeCompare(String(b.workflow || "")),
+        );
+        return {
+          repo,
+          status,
+          workflow_count: repoBuilds.length,
+          is_running: isRunning,
+          url: repo.includes("/") ? `https://github.com/${repo}` : "",
+          workflows,
+        };
+      })
+      .sort((a, b) => a.repo.localeCompare(b.repo));
+  }
+
+  function createWorkflowRow(workflow) {
+    const item = document.createElement("li");
+    item.className = `workflow-row workflow-${String(workflow.status || "").toLowerCase()}`;
+
+    const name = document.createElement("span");
+    name.className = "workflow-name";
+    name.textContent = workflow.workflow || "(unnamed)";
+
+    const status = document.createElement("span");
+    status.className = "workflow-status";
+    status.textContent = workflow.status || "";
+
+    if (workflow.url) {
+      const link = document.createElement("a");
+      link.href = workflow.url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.append(name, status);
+      item.append(link);
+    } else {
+      item.append(name, status);
+    }
+    return item;
+  }
+
+  function renderRepos(builds) {
+    if (!reposSection || !repoList) return;
+    repoList.querySelectorAll("details.repo-row[open]").forEach((el) => {
+      if (el.dataset.repo) {
+        expandedRepos.add(el.dataset.repo);
+      }
+    });
+    const repos = summarizeRepos(builds);
+    repoList.replaceChildren();
+    if (!repos.length) {
+      reposSection.hidden = true;
+      return;
+    }
+
+    reposSection.hidden = false;
+    if (repoCount) {
+      repoCount.textContent = `${repos.length} watched`;
+    }
+
+    repos.forEach((entry, index) => {
+      const item = document.createElement("li");
+      item.className = `repo-item`;
+      item.style.setProperty("--delay", `${index * 40}ms`);
+
+      const details = document.createElement("details");
+      details.className = `repo-row repo-${String(entry.status || "").toLowerCase()}`;
+      if (entry.is_running) {
+        details.classList.add("is-running");
+      }
+      details.dataset.repo = entry.repo;
+      if (expandedRepos.has(entry.repo)) {
+        details.open = true;
+      }
+      details.addEventListener("toggle", () => {
+        if (details.open) {
+          expandedRepos.add(entry.repo);
+        } else {
+          expandedRepos.delete(entry.repo);
+        }
+      });
+
+      const summary = document.createElement("summary");
+      summary.className = "repo-summary";
+
+      const chevron = document.createElement("span");
+      chevron.className = "repo-chevron";
+      chevron.setAttribute("aria-hidden", "true");
+
+      const name = document.createElement("span");
+      name.className = "repo-name";
+      appendRepoLabel(name, entry.repo);
+
+      const meta = document.createElement("span");
+      meta.className = "repo-meta";
+      const count = entry.workflow_count;
+      meta.textContent = `${count} workflow${count === 1 ? "" : "s"}`;
+      if (entry.is_running) {
+        meta.textContent += " · running";
+      }
+
+      const status = document.createElement("span");
+      status.className = "repo-status";
+      status.textContent = entry.status || "";
+
+      summary.append(chevron, name, meta, status);
+
+      if (entry.url) {
+        const link = document.createElement("a");
+        link.className = "repo-external";
+        link.href = entry.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.title = `Open ${entry.repo} on GitHub`;
+        link.setAttribute("aria-label", `Open ${entry.repo} on GitHub`);
+        link.textContent = "↗";
+        link.addEventListener("click", (event) => {
+          event.stopPropagation();
+        });
+        summary.append(link);
+      }
+
+      const workflowList = document.createElement("ul");
+      workflowList.className = "repo-workflows";
+      entry.workflows.forEach((workflow) => {
+        workflowList.append(createWorkflowRow(workflow));
+      });
+
+      details.append(summary, workflowList);
+      item.append(details);
+      repoList.append(item);
+    });
+  }
+
   function renderIssues(builds) {
     const issues = (builds || []).filter((build) => attentionStatuses.has(build.status));
     issueList.replaceChildren();
@@ -106,20 +294,9 @@
       item.className = `issue issue-${String(issue.status || "").toLowerCase()}`;
       item.style.setProperty("--delay", `${index * 40}ms`);
 
-      const { org, name } = splitRepo(issue.repo);
       const repo = document.createElement("span");
       repo.className = "issue-repo";
-      if (org) {
-        const orgEl = document.createElement("span");
-        orgEl.className = "issue-org";
-        orgEl.textContent = org;
-        const nameEl = document.createElement("span");
-        nameEl.className = "issue-name";
-        nameEl.textContent = name;
-        repo.append(orgEl, nameEl);
-      } else {
-        repo.textContent = name;
-      }
+      appendRepoLabel(repo, issue.repo);
 
       const workflow = document.createElement("span");
       workflow.className = "issue-workflow";
@@ -147,6 +324,7 @@
     const status = payload.status || "NONE";
     const fetching = Boolean(payload.fetching);
     const isRunning = Boolean(payload.is_running);
+    const shown = displayStatus(status, isRunning, fetching);
 
     setLight("blue", fetching ? "on" : "off");
     setLight("purple", status === "CONNECTION_ERROR" ? "on" : "off");
@@ -157,21 +335,28 @@
     if (statusWord) {
       statusWord.textContent = fetching
         ? "Checking"
-        : statusWords[status] || statusWords.NONE;
+        : statusWords[shown] || statusWords.NONE;
       scheduleFitStatusWord();
     }
 
-    summary.textContent = summaries[status] || summaries.NONE;
-    if (isRunning) {
-      summary.textContent += " · build running";
-    }
     if (fetching) {
-      summary.textContent += " · fetching";
+      summary.textContent = (summaries[status] || summaries.NONE) + " · fetching";
+    } else if (shown === "RUNNING") {
+      summary.textContent = summaries.RUNNING;
+    } else {
+      summary.textContent = summaries[status] || summaries.NONE;
+      if (isRunning) {
+        summary.textContent += " · build running";
+      }
     }
+    renderRepos(payload.builds);
     renderIssues(payload.builds);
 
     if (window.BuildMonitorTicker) {
-      window.BuildMonitorTicker.applyTiming(payload);
+      window.BuildMonitorTicker.applyTiming({
+        ...payload,
+        status: shown,
+      });
     }
   }
 

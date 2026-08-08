@@ -52,12 +52,97 @@ def test_renderer_marks_pass_and_running():
         }],
     )
 
-    assert "All builds passed · build running · fetching" in html
+    assert "All builds passed · fetching" in html
     assert 'http-equiv="refresh"' not in html
     assert 'class="light on" data-light="blue"' in html
     assert 'class="light on pulse" data-light="yellow"' in html
     assert "Needs attention" in html
+    assert 'id="repos"' in html
+    assert "1 watched" in html
+    assert "org/" in html
+    assert "1 workflow" in html
     assert "app.js" in html
+
+
+def test_renderer_elevates_running_as_primary():
+    html = StatusPageRenderer().render(
+        status="PASS",
+        fetching=False,
+        is_running=True,
+        connected=True,
+        builds=[{
+            "repo": "org/repo",
+            "workflow": "CI",
+            "status": "RUNNING",
+            "url": "",
+        }],
+    )
+
+    assert 'data-status="RUNNING"' in html
+    assert ">Running<" in html
+    assert "Build in progress" in html
+    assert "Passing" not in html
+    assert "· build running" not in html
+    assert 'class="light on" data-light="green"' in html
+    assert 'class="light on pulse" data-light="yellow"' in html
+
+
+def test_renderer_keeps_fail_over_running():
+    html = StatusPageRenderer().render(
+        status="FAIL",
+        fetching=False,
+        is_running=True,
+        connected=True,
+        builds=[{
+            "repo": "org/repo",
+            "workflow": "CI",
+            "status": "FAIL",
+            "url": "",
+        }],
+    )
+
+    assert 'data-status="FAIL"' in html
+    assert ">Failing<" in html
+    assert "· build running" in html
+    assert ">Running<" not in html
+    assert "Build in progress" not in html
+
+def test_renderer_lists_watched_repos():
+    html = StatusPageRenderer().render(
+        status="PASS",
+        connected=True,
+        builds=[
+            {
+                "repo": "mzworthington/edge-dns",
+                "workflow": "Pulumi",
+                "status": "PASS",
+                "url": "https://github.com/mzworthington/edge-dns/actions",
+            },
+            {
+                "repo": "mzworthington/archlens",
+                "workflow": "CI",
+                "status": "PASS",
+                "url": "https://github.com/mzworthington/archlens/actions",
+            },
+            {
+                "repo": "mzworthington/archlens",
+                "workflow": "Deploy",
+                "status": "RUNNING",
+                "url": "https://github.com/mzworthington/archlens/actions/2",
+            },
+        ],
+    )
+
+    assert "2 watched" in html
+    assert "edge-dns" in html
+    assert "archlens" in html
+    assert "2 workflows" in html
+    assert "· running" in html
+    assert 'class="repo-row repo-pass is-running"' in html
+    assert "repo-workflows" in html
+    assert "workflow-name" in html
+    assert "Deploy" in html
+    assert "CI" in html
 
 
 def test_renderer_shows_last_checked_time():

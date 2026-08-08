@@ -79,6 +79,52 @@
       </div>
     </div>
 
+    <section id="repos" class="repos" aria-label="Watched repositories"{% if not repos %} hidden{% endif %}>
+      <div class="repos-head">
+        <h2>Repos</h2>
+        <p id="repo-count" class="repo-count">{% if repos %}{{ repos|length }} watched{% endif %}</p>
+      </div>
+      <ul id="repo-list">
+        {% for repo in repos %}
+        <li class="repo-item" style="--delay: {{ loop.index0 * 40 }}ms">
+          <details class="repo-row repo-{{ repo.status|lower }}{% if repo.is_running %} is-running{% endif %}" data-repo="{{ repo.repo }}">
+            {% set parts = repo.repo.split('/') %}
+            <summary class="repo-summary">
+              <span class="repo-chevron" aria-hidden="true"></span>
+              <span class="repo-name">
+                {% if parts|length == 2 %}
+                <span class="issue-org">{{ parts[0] }}/</span><span class="issue-name">{{ parts[1] }}</span>
+                {% else %}
+                {{ repo.repo }}
+                {% endif %}
+              </span>
+              <span class="repo-meta">{% if repo.workflow_count == 1 %}1 workflow{% else %}{{ repo.workflow_count }} workflows{% endif %}{% if repo.is_running %} · running{% endif %}</span>
+              <span class="repo-status">{{ repo.status }}</span>
+              {% if repo.url %}
+              <a class="repo-external" href="{{ repo.url }}" target="_blank" rel="noopener noreferrer" title="Open {{ repo.repo }} on GitHub" aria-label="Open {{ repo.repo }} on GitHub">↗</a>
+              {% endif %}
+            </summary>
+            <ul class="repo-workflows">
+              {% for workflow in repo.workflows %}
+              <li class="workflow-row workflow-{{ workflow.status|lower }}">
+                {% if workflow.url %}
+                <a href="{{ workflow.url }}" target="_blank" rel="noopener noreferrer">
+                  <span class="workflow-name">{{ workflow.workflow }}</span>
+                  <span class="workflow-status">{{ workflow.status }}</span>
+                </a>
+                {% else %}
+                <span class="workflow-name">{{ workflow.workflow }}</span>
+                <span class="workflow-status">{{ workflow.status }}</span>
+                {% endif %}
+              </li>
+              {% endfor %}
+            </ul>
+          </details>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+
     <section id="issues" class="issues" aria-label="Attention"{% if not issues %} hidden{% endif %}>
       <div class="issues-head">
         <h2>Needs attention</h2>

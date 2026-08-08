@@ -76,6 +76,45 @@ def attention_builds(builds: list[BuildDetail]) -> list[BuildDetail]:
     ]
 
 
+class RepoSummary(TypedDict):
+    repo: str
+    status: str
+    workflow_count: int
+    is_running: bool
+    url: str
+    workflows: list[BuildDetail]
+
+
+def repo_summaries(builds: list[BuildDetail]) -> list[RepoSummary]:
+    """One row per repo with worst status across its workflows."""
+    by_repo: dict[str, list[BuildDetail]] = {}
+    for build in builds:
+        by_repo.setdefault(build["repo"], []).append(build)
+
+    summaries: list[RepoSummary] = []
+    for repo, repo_builds in by_repo.items():
+        status = get_status_from_details(repo_builds).value
+        is_running = any(b["status"] == CiResult.RUNNING.value for b in repo_builds)
+        if status == Result.NONE.value and is_running:
+            status = CiResult.RUNNING.value
+        url = f"https://github.com/{repo}" if "/" in repo else ""
+        workflows = sorted(
+            repo_builds,
+            key=lambda item: (item.get("workflow") or "").lower(),
+        )
+        summaries.append({
+            "repo": repo,
+            "status": status,
+            "workflow_count": len(repo_builds),
+            "is_running": is_running,
+            "url": url,
+            "workflows": workflows,
+        })
+
+    summaries.sort(key=lambda item: item["repo"].lower())
+    return summaries
+
+
 class AggregatorService:
     def __init__(self, integrations: list[IntegrationAdapter]):
         self.integrations = integrations

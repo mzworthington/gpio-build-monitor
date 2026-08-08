@@ -5,7 +5,7 @@ import aiohttp
 import pytest
 
 from monitor.ci_gateway.constants import CiResult, IntegrationType
-from monitor.service.aggregator_service import AggregatorService, Result
+from monitor.service.aggregator_service import AggregatorService, Result, repo_summaries
 
 
 class StubIntegration:
@@ -126,3 +126,65 @@ async def test_connection_error_is_reported():
     async with aiohttp.ClientSession() as session:
         result = await AggregatorService(integrations).run(session)
     assert result["status"] == Result.CONNECTION_ERROR
+
+
+def test_repo_summaries_groups_workflows_and_worst_status():
+    summaries = repo_summaries([
+        {
+            "repo": "mzworthington/archlens",
+            "workflow": "CI",
+            "status": "PASS",
+            "url": "https://github.com/mzworthington/archlens/actions/1",
+        },
+        {
+            "repo": "mzworthington/edge-dns",
+            "workflow": "Pulumi",
+            "status": "PASS",
+            "url": "https://github.com/mzworthington/edge-dns/actions/1",
+        },
+        {
+            "repo": "mzworthington/archlens",
+            "workflow": "Deploy",
+            "status": "FAIL",
+            "url": "https://github.com/mzworthington/archlens/actions/2",
+        },
+    ])
+
+    assert summaries == [
+        {
+            "repo": "mzworthington/archlens",
+            "status": "FAIL",
+            "workflow_count": 2,
+            "is_running": False,
+            "url": "https://github.com/mzworthington/archlens",
+            "workflows": [
+                {
+                    "repo": "mzworthington/archlens",
+                    "workflow": "CI",
+                    "status": "PASS",
+                    "url": "https://github.com/mzworthington/archlens/actions/1",
+                },
+                {
+                    "repo": "mzworthington/archlens",
+                    "workflow": "Deploy",
+                    "status": "FAIL",
+                    "url": "https://github.com/mzworthington/archlens/actions/2",
+                },
+            ],
+        },
+        {
+            "repo": "mzworthington/edge-dns",
+            "status": "PASS",
+            "workflow_count": 1,
+            "is_running": False,
+            "url": "https://github.com/mzworthington/edge-dns",
+            "workflows": [
+                {
+                    "repo": "mzworthington/edge-dns",
+                    "workflow": "Pulumi",
+                    "status": "PASS",
+                    "url": "https://github.com/mzworthington/edge-dns/actions/1",
+                },
+            ],
+        },
+    ]
