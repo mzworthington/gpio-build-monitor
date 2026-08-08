@@ -52,7 +52,7 @@ def run(
         help="Logging level",
     ),
 ) -> None:
-    """Poll CI providers and update GPIO LEDs."""
+    """Refresh CI status onto GPIO LEDs (poll and optional webhooks)."""
     try:
         asyncio.run(app.main(conf, _resolve_log_level(log_level)))
     except ConfigError as exc:
@@ -80,9 +80,16 @@ def check_config(
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
 
+    webhooks = config.get("webhooks")
+    webhook_note = ""
+    if webhooks is not None and webhooks["enabled"]:
+        webhook_note = (
+            f", webhooks on {webhooks['host']}:{webhooks['port']}"
+        )
+
     typer.echo(
         f"Config OK: {len(config['integrations'])} integration(s), "
-        f"poll every {config['poll_in_seconds']}s"
+        f"poll every {config['poll_in_seconds']}s{webhook_note}"
     )
 
 
