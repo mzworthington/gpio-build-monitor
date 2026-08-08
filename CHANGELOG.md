@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.5.0 (2026-08-08)
+
+### Features
+
+- Show in scope repos and workflows
+  ([`e28274d`](https://github.com/mzworthington/gpio-build-monitor/commit/e28274db302a66b92e2d8b11869bbdc50b2b8cee))
+
+### Refactoring
+
+- Enhance documentation and clarify deployment structure
+  ([`ee34899`](https://github.com/mzworthington/gpio-build-monitor/commit/ee34899851f6724f6afbc77aa239993b9c06d511))
+
+
 ## v0.4.0 (2026-08-08)
 
 ### Features
