@@ -1,6 +1,10 @@
 # Raspberry Pi
 
-## Setup
+For a full ordered checklist (clone → systemd → Cloudflare Tunnel → optional webhooks/updates), use **[Pi setup](pi-setup.md)**.
+
+This page keeps reference notes that sit beside that guide.
+
+## Quick local run
 
 1. Clone the repo and bootstrap on the Pi:
 
@@ -23,9 +27,11 @@
    python -O -m monitor run --conf monitor/integrations.yaml --log-level info
    ```
 
+Public hostname and systemd install steps: [pi-setup.md](pi-setup.md).
+
 ## systemd service
 
-For a persistent service, use the unit file in `deploy/`:
+For a persistent service, use the unit file in `deploy/` (also covered in [pi-setup.md](pi-setup.md)):
 
 ```shell
 sudo mkdir -p /etc/gpio-build-monitor
@@ -41,17 +47,7 @@ The unit file assumes the repo lives at `/home/pi/gpio-build-monitor`. Adjust `W
 
 ## Optional webhooks
 
-To refresh as soon as CI finishes (instead of waiting for the next poll):
-
-1. Set `webhooks.enabled` to `true` in `/etc/gpio-build-monitor/integrations.yaml` and choose a reconcile `poll_in_seconds` (for example `15`–`120`). Use a different port from `outputs.websocket` if both are enabled.
-2. Add `GITHUB_WEBHOOK_SECRET` / `CIRCLE_CI_WEBHOOK_SECRET` to `/etc/gpio-build-monitor/env` for each configured provider.
-3. Expose the Pi with a tunnel or reverse proxy so providers can reach:
-   - `POST /webhooks/github`
-   - `POST /webhooks/circleci`
-4. Register those URLs in GitHub (workflow_run) and CircleCI (workflow-completed / job-completed) with the same secrets.
-5. Restart the service: `sudo systemctl restart gpio-build-monitor`
-
-See [Configuration](configuration.md#webhooks) for event details and why a reconcile poll remains.
+See [pi-setup.md](pi-setup.md#6-optional-webhooks) and [Configuration](configuration.md#webhooks).
 
 ## Auto-updates
 

@@ -15,7 +15,6 @@ Before starting work, read:
 
 ## Project notes
 
-- Raspberry Pi owns GPIO + CI polling (`monitor/` Python package).
-- Cloudflare Worker + custom domain live in `infra/cloudflare` (Pulumi); Worker code in `worker/`.
-- Hostname: `monitor.mzworthington.co.uk` on the `mzworthington.co.uk` zone (zone owned by edge-dns).
+- Raspberry Pi owns headless GPIO + CI polling (`monitor/` Python package).
+- Hosted status UI is a Cloudflare Worker (`worker/`) on `monitor.mzworthington.co.uk` (`infra/cloudflare` Pulumi).
 - Before handover of infra changes: `cd infra/cloudflare && pnpm install && pnpm typecheck` (and `pulumi preview` with stack selected when credentials are available).

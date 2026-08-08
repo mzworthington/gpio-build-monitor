@@ -1,0 +1,12 @@
+{
+  "poll_in_seconds": 30,
+  "integrations": [
+    {
+      "type": "GITHUB",
+      "username": "your-github-org",
+      "repo": "your-repo",
+      "branch": "main",
+      "excluded_workflow_patterns": ["* - Update #*"]
+    }
+  ]
+}

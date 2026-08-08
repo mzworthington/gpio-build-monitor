@@ -21,15 +21,14 @@ pre-commit install
 pre-commit install --hook-type pre-push
 ```
 
-## Cloudflare Worker
+## Cloudflare
 
-Edge hosting for `monitor.mzworthington.co.uk` lives under `infra/cloudflare` (Pulumi) and `worker/` (Wrangler). Zone DNS for `mzworthington.co.uk` stays in edge-dns.
+Hosted UI: Worker under `worker/`, custom domain via `infra/cloudflare`. Headless Pi: [pi-setup.md](pi-setup.md).
 
 ```shell
-# Bootstrap secrets/config (uses edge-dns script via shim)
 bin/setup-cloudflare-hosting.sh
-cd infra/cloudflare && pnpm install && pulumi up
-cd ../../worker && pnpm install && pnpm deploy
+cd worker && pnpm install && pnpm deploy   # deploy script before first custom-domain attach
+cd ../infra/cloudflare && pnpm install && pulumi up
 ```
 
 [`.github/workflows/pulumi-cloudflare.yml`](../.github/workflows/pulumi-cloudflare.yml) previews/applies the Pulumi stack via the shared edge-dns reusable workflow.

@@ -17,8 +17,8 @@ function resolveWorkerName(): string {
   return name;
 }
 
-/** Hostnames attached via Workers custom domains (DNS + certs managed by Cloudflare). */
-function resolveWorkerHostnames(): string[] {
+/** Public hostnames for the hosted status UI (Worker custom domains). */
+function resolveHostnames(): string[] {
   const listed =
     config.getObject<string[]>('workerHostnames') ??
     config.getObject<string[]>('pagesHostnames');
@@ -29,11 +29,18 @@ function resolveWorkerHostnames(): string[] {
 }
 
 const workerName = resolveWorkerName();
-const workerHostnames = resolveWorkerHostnames();
+const hostnames = resolveHostnames();
 
 const zone = cloudflare.getZoneOutput({ zoneId });
 
-/** Account Worker identity; script content is deployed with wrangler (see /worker). */
+/**
+ * Hosted deployment: Cloudflare Worker serves the status UI + live WebSocket.
+ * The Pi is a separate headless GPIO deployment (no tunnel / no custom domain).
+ *
+ * Script content is deployed with wrangler (`worker/`). Custom domains require
+ * at least one Worker deployment before attach — run `pnpm deploy` in worker/
+ * before the first `pulumi up` that creates WorkersCustomDomain.
+ */
 const worker = new cloudflare.Worker('monitor', {
   accountId,
   name: workerName,
@@ -50,8 +57,9 @@ const worker = new cloudflare.Worker('monitor', {
   },
 });
 
-for (const hostname of workerHostnames) {
+for (const hostname of hostnames) {
   const safe = hostname.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
+
   new cloudflare.WorkersCustomDomain(`worker-domain-${safe}`, {
     accountId,
     zoneId,
@@ -68,5 +76,5 @@ for (const hostname of workerHostnames) {
 
 export const workerNameOut = worker.name;
 export const workerId = worker.id;
-export const workerHostnamesOut = workerHostnames;
+export const hostnamesOut = hostnames;
 export const zoneName = zone.name;

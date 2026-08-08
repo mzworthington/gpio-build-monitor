@@ -1,13 +1,31 @@
-# Cloudflare Worker
+# Hosted Worker (Cloudflare)
 
-Serves the status UI assets from `monitor/web` at the custom domain owned by
-Pulumi (`infra/cloudflare`). GPIO + CI polling remain on the Raspberry Pi.
+Public status UI + live WebSocket. Same CI aggregation behaviour as the Pi,
+without GPIO. Hostname: `monitor.mzworthington.co.uk` (Pulumi custom domain).
 
 ```bash
 pnpm install
-pnpm dev      # local
-pnpm deploy   # production (requires CLOUDFLARE_API_TOKEN)
+
+# Prefer syncing from the Pi/laptop integrations file (GitHub-only is fine):
+#   bin/sync-worker-monitor-config.sh
+#
+# Or manually:
+echo -n "$GITHUB_TOKEN" | pnpm exec wrangler secret put GITHUB_TOKEN --name gpio-build-monitor
+# only if you have CircleCI integrations:
+# echo -n "$CIRCLE_CI_TOKEN" | pnpm exec wrangler secret put CIRCLE_CI_TOKEN --name gpio-build-monitor
+
+pnpm deploy
 ```
 
-Custom domains are **not** declared here — Pulumi attaches
-`monitor.mzworthington.co.uk` so Wrangler and Pulumi do not fight over DNS.
+Empty `integrations` (or only placeholders) shows **Idle**, not an error. Omit CircleCI
+entries entirely when you have none.
+
+Webhooks (immediate refresh): [docs/webhooks.md](../docs/webhooks.md).
+
+Local:
+
+```bash
+pnpm dev
+```
+
+Infra (custom domain): [../infra/cloudflare/README.md](../infra/cloudflare/README.md).

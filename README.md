@@ -49,20 +49,23 @@ See [Getting started](docs/getting-started.md) for mise, Make, and CLI details.
 
 ## Public UI (Cloudflare)
 
-The status UI can be published at [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) via a Cloudflare Worker. GPIO and CI polling stay on the Pi; Pulumi owns the Worker identity + custom domain (`infra/cloudflare`), and Wrangler deploys Worker code (`worker/`).
+Two deployments:
 
-See [infra/cloudflare/README.md](infra/cloudflare/README.md).
+- **Hosted:** [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) — Cloudflare Worker (UI + live status). See [worker/README.md](worker/README.md) and [infra/cloudflare](infra/cloudflare/README.md).
+- **Headless:** Raspberry Pi GPIO — [docs/pi-setup.md](docs/pi-setup.md). No tunnel required for the website.
 
 ## Documentation
 
 | Guide | Contents |
 |-------|----------|
 | [Getting started](docs/getting-started.md) | Local setup, CLI, development workflow |
+| [Pi setup](docs/pi-setup.md) | Raspberry Pi + Cloudflare Tunnel checklist |
+| [Webhooks](docs/webhooks.md) | GitHub/CircleCI webhooks on the hosted Worker |
 | [Configuration](docs/configuration.md) | `integrations.yaml`, tokens, pins, logging |
-| [Raspberry Pi](docs/raspberry-pi.md) | GPIO, systemd, auto-updates |
+| [Raspberry Pi](docs/raspberry-pi.md) | GPIO reference, systemd, auto-updates |
 | [Hardware](docs/hardware.md) | Pin map, shopping list, build photos |
 | [Development](docs/development.md) | Tests, releases, CI, security scanning |
-| [Cloudflare](infra/cloudflare/README.md) | Worker + `monitor.mzworthington.co.uk` Pulumi |
+| [Cloudflare](infra/cloudflare/README.md) | Tunnel + DNS Pulumi |
 
 ## Install from GitHub
 

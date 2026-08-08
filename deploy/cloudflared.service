@@ -1,0 +1,18 @@
+[Unit]
+Description=Cloudflare Tunnel for GPIO Build Monitor
+Documentation=https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/
+After=network-online.target gpio-build-monitor.service
+Wants=network-online.target gpio-build-monitor.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+EnvironmentFile=/etc/gpio-build-monitor/cloudflared.env
+# Prefer /usr/bin when installed via package; override if cloudflared lives elsewhere.
+ExecStart=/usr/bin/cloudflared tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

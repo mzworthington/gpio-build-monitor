@@ -4,6 +4,6 @@ config:
   gpio-build-monitor:zoneId: YOUR_CLOUDFLARE_ZONE_ID
   # Worker name (also accepted as pagesProjectName for edge-dns bootstrap compatibility)
   gpio-build-monitor:workerName: gpio-build-monitor
-  # Subdomains on an existing active zone (mzworthington.co.uk lives in edge-dns):
+  # Hosted status UI hostnames on an existing active zone:
   gpio-build-monitor:workerHostnames:
     - monitor.mzworthington.co.uk

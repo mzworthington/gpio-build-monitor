@@ -15,5 +15,19 @@
     "directory": "../monitor/web",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application"
-  }
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "STATUS",
+        "class_name": "StatusHub"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["StatusHub"]
+    }
+  ]
 }

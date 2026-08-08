@@ -1,17 +1,20 @@
 # Cloudflare infrastructure (Pulumi)
 
-Worker + custom domain(s) on an existing active zone (zone lifecycle stays in
-[edge-dns](https://github.com/mzworthington/edge-dns)). The Python GPIO process
-still runs on the Pi; this stack publishes the edge hostname
-(`monitor.mzworthington.co.uk` by default).
+Two deployments share this product:
+
+| Deployment | Where | Role |
+|------------|--------|------|
+| **Hosted** | Cloudflare Worker + custom domain | Public status UI + live WebSocket at `monitor.mzworthington.co.uk` |
+| **Headless** | Raspberry Pi | GPIO LEDs only (see [docs/pi-setup.md](../../docs/pi-setup.md)) — no tunnel required for the website |
+
+This stack owns the **hosted** path only. Zone lifecycle stays in
+[edge-dns](https://github.com/mzworthington/edge-dns).
 
 | Resource | Purpose |
 |----------|---------|
 | `Worker` | Account Worker identity (script via Wrangler) |
 | `WorkersCustomDomain` | Hostname → Worker (Cloudflare creates DNS + cert) |
 | `ObservatoryScheduledTest` | Synthetic Speed test per hostname |
-
-Zone Web Analytics stays on the mzworthington site stack (same zone); do not duplicate it here.
 
 Config accepts either `workerName` / `workerHostnames` or the Pages-shaped
 aliases (`pagesProjectName` / `pagesHostnames`) so the shared edge-dns bootstrap
@@ -21,25 +24,22 @@ and CI action work without changes.
 
 ```bash
 # From repo root — see .env.example
-export DOMAIN=mzworthington.co.uk
-export PAGES_HOSTNAMES=monitor.mzworthington.co.uk
-export PAGES_PROJECT_NAME=gpio-build-monitor
-export PULUMI_STACK=prod
-../../bin/setup-cloudflare-hosting.sh
+bin/setup-cloudflare-hosting.sh
 
-# Custom domains require an existing Worker deployment — deploy script first:
-cd ../../worker && pnpm install && pnpm deploy
+# Custom domains require an existing Worker deployment first:
+cd worker && pnpm install && pnpm deploy
 
-# Then attach hostname(s) + Observatory:
 cd ../infra/cloudflare && pulumi up
 ```
 
-If `WorkersCustomDomain` fails with “has no deployments”, run `pnpm deploy` in `worker/` and `pulumi up` again.
+If you previously pointed the hostname at a Tunnel CNAME, destroy that DNS
+record (or `pulumi up` after this program removes it) **before** attaching the
+Worker custom domain, or Cloudflare will reject the domain attach.
 
 ## Related
 
 | Path | Purpose |
 |------|---------|
-| [`worker/`](../../worker/) | Worker source + Wrangler |
+| [`worker/`](../../worker/) | Hosted Worker (UI + CI poll + `/ws`) |
+| [`docs/pi-setup.md`](../../docs/pi-setup.md) | Headless Pi / GPIO |
 | [`.github/workflows/pulumi-cloudflare.yml`](../../.github/workflows/pulumi-cloudflare.yml) | Thin caller of edge-dns reusable workflow |
-| [edge-dns reusable CI](https://github.com/mzworthington/edge-dns/blob/main/docs/reusable-cloudflare-ci.md) | Secrets, bootstrap, apply gate |
