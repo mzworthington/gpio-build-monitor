@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v0.4.0 (2026-08-08)
+
+### Features
+
+- Deplopy ws web app
+  ([`16522fc`](https://github.com/mzworthington/gpio-build-monitor/commit/16522fcc9bcde250db976e5a1eeb162e5593783a))
+
+- Deplopy ws web app
+  ([`cc196fc`](https://github.com/mzworthington/gpio-build-monitor/commit/cc196fcf80ae13b5f84f48a98e276b0292e6f02e))
+
+
 ## v0.3.0 (2026-08-08)
 
 ### Features
