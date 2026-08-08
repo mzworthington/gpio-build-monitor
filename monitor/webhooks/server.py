@@ -1,35 +1,31 @@
 #!/usr/bin/env python3
 
 import logging
-from typing import TypedDict
+from collections.abc import Sequence
+from functools import partial
 
 from aiohttp import web
 
 from monitor.service.refresh_signal import RefreshSignal
-from monitor.webhooks.events import RefreshDecision, decide_circleci, decide_github
-from monitor.webhooks.signatures import (
-    verify_circleci_signature,
-    verify_github_signature,
-)
-
-
-class WebhookSecrets(TypedDict):
-    github: str | None
-    circleci: str | None
-
+from monitor.webhooks.constants import RefreshDecision, WebhookProvider, WebhookSecrets
+from monitor.webhooks.providers import get_all
 
 REFRESH_SIGNAL_KEY = web.AppKey("refresh_signal", RefreshSignal)
 WEBHOOK_SECRETS_KEY = web.AppKey("webhook_secrets", WebhookSecrets)
 
 
-def create_app(signal: RefreshSignal, secrets: WebhookSecrets) -> web.Application:
+def create_app(
+    signal: RefreshSignal,
+    secrets: WebhookSecrets,
+    providers: Sequence[WebhookProvider] | None = None,
+) -> web.Application:
     """Build the webhook HTTP app. Does not start listening."""
     app = web.Application()
     app[REFRESH_SIGNAL_KEY] = signal
     app[WEBHOOK_SECRETS_KEY] = secrets
     app.router.add_get("/health", _health)
-    app.router.add_post("/webhooks/github", _github_webhook)
-    app.router.add_post("/webhooks/circleci", _circleci_webhook)
+    for provider in providers if providers is not None else get_all():
+        app.router.add_post(provider.path, partial(_webhook, provider=provider))
     return app
 
 
@@ -38,8 +34,9 @@ async def start_server(
     secrets: WebhookSecrets,
     host: str,
     port: int,
+    providers: Sequence[WebhookProvider] | None = None,
 ) -> web.AppRunner:
-    app = create_app(signal, secrets)
+    app = create_app(signal, secrets, providers=providers)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, host=host, port=port)
@@ -52,38 +49,23 @@ async def _health(_: web.Request) -> web.Response:
     return web.json_response({"status": "ok"})
 
 
-async def _github_webhook(request: web.Request) -> web.Response:
+async def _webhook(request: web.Request, *, provider: WebhookProvider) -> web.Response:
     secrets = request.app[WEBHOOK_SECRETS_KEY]
-    secret = secrets.get("github")
+    secret = secrets.get(provider.name)
     if not secret:
-        return web.Response(status=503, text="GitHub webhooks are not configured")
+        return web.Response(
+            status=503,
+            text=f"{provider.display_name} webhooks are not configured",
+        )
 
     body = await request.read()
-    signature = request.headers.get("X-Hub-Signature-256")
-    if not verify_github_signature(body, secret, signature):
-        logging.warning("Rejected GitHub webhook: invalid signature")
+    if not provider.verify_signature(body, secret, provider.signature_value(request)):
+        logging.warning("Rejected %s webhook: invalid signature", provider.display_name)
         return web.Response(status=403, text="invalid signature")
 
-    event_name = request.headers.get("X-GitHub-Event")
-    decision = decide_github(event_name)
-    return _respond(request, decision, f"github:{event_name or 'unknown'}")
-
-
-async def _circleci_webhook(request: web.Request) -> web.Response:
-    secrets = request.app[WEBHOOK_SECRETS_KEY]
-    secret = secrets.get("circleci")
-    if not secret:
-        return web.Response(status=503, text="CircleCI webhooks are not configured")
-
-    body = await request.read()
-    signature = request.headers.get("circleci-signature")
-    if not verify_circleci_signature(body, secret, signature):
-        logging.warning("Rejected CircleCI webhook: invalid signature")
-        return web.Response(status=403, text="invalid signature")
-
-    event_name = request.headers.get("circleci-event-type")
-    decision = decide_circleci(event_name)
-    return _respond(request, decision, f"circleci:{event_name or 'unknown'}")
+    event_name = provider.event_name(request)
+    decision = provider.decide(event_name)
+    return _respond(request, decision, f"{provider.name}:{event_name or 'unknown'}")
 
 
 def _respond(
