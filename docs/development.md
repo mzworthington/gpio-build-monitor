@@ -28,6 +28,9 @@ Hosted UI: Worker under `worker/`, custom domain via `infra/cloudflare`. Headles
 ```shell
 bin/setup-cloudflare-hosting.sh
 cd worker && pnpm install && pnpm deploy   # deploy script before first custom-domain attach
+# On main, pushes that touch worker/ or monitor/web/ also run
+# .github/workflows/deploy-worker.yml (wrangler deploy). Pulumi only manages
+# the Worker identity + custom domain, not the script/assets.
 cd ../infra/cloudflare && pnpm install && pulumi up
 ```
 

@@ -16,6 +16,11 @@ This stack owns the **hosted** path only. Zone lifecycle stays in
 | `WorkersCustomDomain` | Hostname → Worker (Cloudflare creates DNS + cert) |
 | `ObservatoryScheduledTest` | Synthetic Speed test per hostname |
 
+Script + static UI assets are **not** updated by Pulumi. They ship via
+`wrangler deploy` from [`worker/`](../../worker/) — locally or through
+[`.github/workflows/deploy-worker.yml`](../../.github/workflows/deploy-worker.yml)
+when `worker/` or `monitor/web/` changes on `main`.
+
 Config accepts either `workerName` / `workerHostnames` or the Pages-shaped
 aliases (`pagesProjectName` / `pagesHostnames`) so the shared edge-dns bootstrap
 and CI action work without changes.
