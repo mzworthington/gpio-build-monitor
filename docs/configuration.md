@@ -9,7 +9,7 @@ cp monitor/integrations.example.yaml monitor/integrations.yaml
 ## Example
 
 ```yaml
-poll_in_seconds: 15
+poll_in_seconds: 60
 log_dir: logs
 outputs:
   gpio: true
