@@ -7,7 +7,7 @@ set -euo pipefail
 MONITOR_HOME="${MONITOR_HOME:-/home/pi/gpio-build-monitor}"
 MONITOR_VENV="${MONITOR_VENV:-$MONITOR_HOME/.venv}"
 MONITOR_SERVICE="${MONITOR_SERVICE:-gpio-build-monitor}"
-GITHUB_REPO="${GITHUB_REPO:-worthington10TW/gpio-build-monitor}"
+GITHUB_REPO="${GITHUB_REPO:-mzworthington/gpio-build-monitor}"
 LOG_FILE="${MONITOR_UPDATE_LOG:-/var/log/gpio-build-monitor/update.log}"
 CHECK_ONLY="${CHECK_ONLY:-0}"
 
@@ -26,7 +26,7 @@ Environment:
   MONITOR_HOME       Install directory (default: /home/pi/gpio-build-monitor)
   MONITOR_VENV       Virtualenv path (default: \$MONITOR_HOME/.venv)
   MONITOR_SERVICE    systemd unit to restart (default: gpio-build-monitor)
-  GITHUB_REPO        owner/repo to check (default: worthington10TW/gpio-build-monitor)
+  GITHUB_REPO        owner/repo to check (default: mzworthington/gpio-build-monitor)
   MONITOR_UPDATE_LOG Log file path
   CHECK_ONLY=1       Same as --check
 

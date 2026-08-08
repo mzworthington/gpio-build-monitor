@@ -33,8 +33,8 @@ dev = [
 monitor = "monitor.__main__:cli"
 
 [project.urls]
-Homepage = "https://github.com/worthington10TW/gpio-build-monitor"
-Repository = "https://github.com/worthington10TW/gpio-build-monitor"
+Homepage = "https://github.com/mzworthington/gpio-build-monitor"
+Repository = "https://github.com/mzworthington/gpio-build-monitor"
 
 [tool.setuptools.packages.find]
 include = ["monitor", "monitor.*"]

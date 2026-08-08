@@ -49,8 +49,11 @@ The release job:
 1. Detects application changes since the latest `v*` tag
 2. Bumps the version in `pyproject.toml` from commit messages
 3. Updates `CHANGELOG.md` from conventional commits
-4. Builds wheel and sdist artifacts
+4. Builds wheel and sdist artifacts (`semantic-release version`)
 5. Creates a GitHub Release and pushes the `vX.Y.Z` tag
+6. Uploads the wheel/sdist to that release (`semantic-release publish`)
+
+Pi auto-updates (`bin/update`) install the `monitor-*.whl` asset from the latest GitHub Release, so step 6 is required for new versions to land on devices.
 
 Use [Conventional Commits](https://www.conventionalcommits.org/) so entries land in the changelog:
 

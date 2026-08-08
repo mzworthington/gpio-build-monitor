@@ -1,6 +1,6 @@
 [Unit]
 Description=GPIO Build Monitor
-Documentation=https://github.com/worthington10TW/gpio-build-monitor
+Documentation=https://github.com/mzworthington/gpio-build-monitor
 After=network-online.target
 Wants=network-online.target
 
