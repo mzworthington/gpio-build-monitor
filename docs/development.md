@@ -28,6 +28,9 @@ Hosted UI: Worker under `worker/`, custom domain via `infra/cloudflare`. Headles
 ```shell
 bin/setup-cloudflare-hosting.sh
 cd worker && pnpm install && pnpm deploy   # deploy script before first custom-domain attach
+# On main, the CI/CD workflow also runs wrangler deploy after tests
+# (deploy-worker job). Pulumi only manages the Worker identity + custom
+# domain, not the script/assets.
 cd ../infra/cloudflare && pnpm install && pulumi up
 ```
 
@@ -39,6 +42,8 @@ cd ../infra/cloudflare && pnpm install && pulumi up
 
 - Bootstrap, lint, and pytest
 - JUnit report upload
+- On `main` only: `deploy-worker` (`wrangler deploy` for `monitor.mzworthington.co.uk`)
+- On `main` only: `release` when application code changed since the last tag
 
 ### Releases
 
