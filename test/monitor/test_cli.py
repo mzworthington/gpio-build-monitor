@@ -10,11 +10,13 @@ runner = CliRunner()
 
 def test_check_config_success(tmp_path, monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "secret")
-    config_path = tmp_path / "integrations.json"
+    config_path = tmp_path / "integrations.yaml"
     config_path.write_text(
-        '{"poll_in_seconds": 30, "integrations": ['
-        '{"type": "GITHUB", "username": "org", "repo": "repo"}'
-        ']}',
+        "poll_in_seconds: 30\n"
+        "integrations:\n"
+        "  - type: GITHUB\n"
+        "    username: org\n"
+        "    repo: repo\n",
         encoding="utf-8",
     )
 
@@ -22,15 +24,22 @@ def test_check_config_success(tmp_path, monkeypatch):
 
     assert result.exit_code == 0
     assert "Config OK" in result.stdout
+    assert "outputs=gpio" in result.stdout
 
 
 def test_check_config_mentions_webhooks(tmp_path, monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "secret")
     monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "hook")
-    config_path = tmp_path / "integrations.json"
+    config_path = tmp_path / "integrations.yaml"
     config_path.write_text(
-        '{"poll_in_seconds": 300, "webhooks": {"enabled": true, "port": 8080},'
-        ' "integrations": [{"type": "GITHUB", "username": "org", "repo": "repo"}]}',
+        "poll_in_seconds: 300\n"
+        "webhooks:\n"
+        "  enabled: true\n"
+        "  port: 8080\n"
+        "integrations:\n"
+        "  - type: GITHUB\n"
+        "    username: org\n"
+        "    repo: repo\n",
         encoding="utf-8",
     )
 
@@ -42,11 +51,13 @@ def test_check_config_mentions_webhooks(tmp_path, monkeypatch):
 
 def test_check_config_failure(tmp_path, monkeypatch):
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
-    config_path = tmp_path / "integrations.json"
+    config_path = tmp_path / "integrations.yaml"
     config_path.write_text(
-        '{"poll_in_seconds": 30, "integrations": ['
-        '{"type": "GITHUB", "username": "org", "repo": "repo"}'
-        ']}',
+        "poll_in_seconds: 30\n"
+        "integrations:\n"
+        "  - type: GITHUB\n"
+        "    username: org\n"
+        "    repo: repo\n",
         encoding="utf-8",
     )
 

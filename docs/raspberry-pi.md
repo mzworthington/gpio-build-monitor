@@ -19,8 +19,8 @@
 4. Validate and run (note `-O` for real GPIO):
 
    ```shell
-   monitor check-config --conf monitor/integrations.json
-   python -O -m monitor run --conf monitor/integrations.json --log-level info
+   monitor check-config --conf monitor/integrations.yaml
+   python -O -m monitor run --conf monitor/integrations.yaml --log-level info
    ```
 
 ## systemd service
@@ -30,7 +30,7 @@ For a persistent service, use the unit file in `deploy/`:
 ```shell
 sudo mkdir -p /etc/gpio-build-monitor
 sudo cp deploy/env.example /etc/gpio-build-monitor/env
-sudo cp monitor/integrations.json /etc/gpio-build-monitor/integrations.json
+sudo cp monitor/integrations.yaml /etc/gpio-build-monitor/integrations.yaml
 # edit /etc/gpio-build-monitor/env with your tokens
 sudo cp deploy/gpio-build-monitor.service /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -43,7 +43,7 @@ The unit file assumes the repo lives at `/home/pi/gpio-build-monitor`. Adjust `W
 
 To refresh as soon as CI finishes (instead of waiting for the next poll):
 
-1. Set `webhooks.enabled` to `true` in `/etc/gpio-build-monitor/integrations.json` and raise `poll_in_seconds` (for example `300`).
+1. Set `webhooks.enabled` to `true` in `/etc/gpio-build-monitor/integrations.yaml` and choose a reconcile `poll_in_seconds` (for example `15`–`120`). Use a different port from `outputs.websocket` if both are enabled.
 2. Add `GITHUB_WEBHOOK_SECRET` / `CIRCLE_CI_WEBHOOK_SECRET` to `/etc/gpio-build-monitor/env` for each configured provider.
 3. Expose the Pi with a tunnel or reverse proxy so providers can reach:
    - `POST /webhooks/github`

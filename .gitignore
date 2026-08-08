@@ -9,7 +9,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 .vscode/
-monitor/integrations.json
+monitor/integrations.yaml
 monitor/logs/
 .idea/
 build/
@@ -115,6 +115,10 @@ ENV/
 env.bak/
 venv.bak/
 
+# Node / pnpm (Cloudflare Worker + Pulumi)
+node_modules/
+.pnpm-store/
+
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -139,3 +143,18 @@ gpio-build-monitor-*.whl
 Pipfile.lock
 /junit/test-results.xml
 app.log
+
+# Cloudflare / Wrangler
+.wrangler/
+worker/node_modules/
+worker/.wrangler/
+
+# Pulumi (infra/cloudflare)
+infra/cloudflare/node_modules/
+infra/cloudflare/bin/
+infra/cloudflare/.pulumi/
+.pulumi/
+# Stack config may contain account IDs / encrypted secrets after bootstrap
+infra/cloudflare/Pulumi.*.yaml
+!infra/cloudflare/Pulumi.prod.yaml.example
+!infra/cloudflare/Pulumi.yaml

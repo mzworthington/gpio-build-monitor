@@ -59,15 +59,36 @@ async def test_is_not_running():
 async def test_contains_failed():
     integrations = [
         StubIntegration('a', 'b', IntegrationType.GITHUB, [
-            dict(status=CiResult.PASS, type=IntegrationType.GITHUB, vcs='', id='', name='', start=''),
+            dict(status=CiResult.PASS, type=IntegrationType.GITHUB, vcs='', id='', name='CI', start=''),
         ]),
         StubIntegration('c', 'd', IntegrationType.GITHUB, [
-            dict(status=CiResult.FAIL, type=IntegrationType.GITHUB, vcs='', id='', name='', start=''),
+            dict(
+                status=CiResult.FAIL,
+                type=IntegrationType.GITHUB,
+                vcs='https://example.com/fail',
+                id='',
+                name='CI',
+                start='',
+            ),
         ]),
     ]
     async with aiohttp.ClientSession() as session:
         result = await AggregatorService(integrations).run(session)
     assert result["status"] == Result.FAIL
+    assert result["builds"] == [
+        {
+            "repo": "a/b",
+            "workflow": "CI",
+            "status": "PASS",
+            "url": "",
+        },
+        {
+            "repo": "c/d",
+            "workflow": "CI",
+            "status": "FAIL",
+            "url": "https://example.com/fail",
+        },
+    ]
 
 
 @pytest.mark.asyncio

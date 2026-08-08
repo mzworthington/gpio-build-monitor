@@ -1,0 +1,29 @@
+poll_in_seconds: 15
+log_dir: logs
+outputs:
+  gpio: true
+  websocket:
+    enabled: true
+    host: "0.0.0.0"
+    port: 8080
+webhooks:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8081
+pins:
+  GREEN: 17
+  YELLOW: 18
+  BLUE: 22
+  RED: 27
+  PURPLE: 23
+integrations:
+  - type: GITHUB
+    username: your-github-org
+    repo: your-repo
+    branch: main
+    excluded_workflow_patterns:
+      - "* - Update #*"
+  - type: CIRCLECI
+    username: your-circle-org
+    repo: your-repo
+    excluded_workflows: []

@@ -5,13 +5,15 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "monitor"
 version = "0.3.0"
-description = "GPIO build monitor for CI status LEDs"
+description = "Build monitor for CI status via GPIO LEDs and/or a WebSocket UI"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "Matthew Z Worthington", email = "worthingtown@gmail.com" }]
 requires-python = ">=3.10"
 dependencies = [
     "aiohttp>=3.14.3,<3.15",
+    "jinja2>=3.1.6,<4",
+    "pyyaml>=6.0.2,<7",
     "typer>=0.27.0",
 ]
 
@@ -39,7 +41,7 @@ include = ["monitor", "monitor.*"]
 exclude = ["test", "test.*"]
 
 [tool.setuptools.package-data]
-monitor = ["integrations.example.json"]
+monitor = ["integrations.example.yaml", "web/*", "web/templates/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]

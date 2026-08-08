@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# Create (or update) GITHUB_TOKEN in Bitwarden Secrets Manager via bws.
+#
+# Prerequisites:
+#   - bws installed and on PATH
+#   - BWS_ACCESS_TOKEN set (machine account access token)
+#   - A Secrets Manager project ID
+#
+# Usage:
+#   export BWS_ACCESS_TOKEN=...
+#   export BWS_PROJECT_ID=...          # from: bws project list
+#   bin/bws-add-github-token           # prompts for the GitHub PAT
+#   bin/bws-add-github-token ghp_...   # pass the PAT as an argument
+#   GITHUB_TOKEN=ghp_... bin/bws-add-github-token
+#
+# Then run the monitor with secrets injected:
+#   bws run --project-id "$BWS_PROJECT_ID" -- bin/serve
+
+set -euo pipefail
+
+SECRET_KEY="${SECRET_KEY:-GITHUB_TOKEN}"
+NOTE="${NOTE:-GitHub PAT for gpio-build-monitor (Actions: Read)}"
+
+if ! command -v bws >/dev/null 2>&1; then
+  echo "error: bws not found on PATH" >&2
+  exit 1
+fi
+
+if [[ -z "${BWS_ACCESS_TOKEN:-}" ]]; then
+  echo "error: set BWS_ACCESS_TOKEN to your Bitwarden Secrets Manager access token" >&2
+  exit 1
+fi
+
+if [[ -z "${BWS_PROJECT_ID:-}" ]]; then
+  echo "error: set BWS_PROJECT_ID (run: bws project list)" >&2
+  exit 1
+fi
+
+if [[ $# -gt 1 ]]; then
+  echo "usage: $0 [github-pat]" >&2
+  exit 1
+fi
+
+if [[ $# -eq 1 ]]; then
+  TOKEN="$1"
+elif [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  TOKEN="$GITHUB_TOKEN"
+else
+  read -r -s -p "GitHub PAT (GITHUB_TOKEN): " TOKEN
+  echo
+fi
+
+if [[ -z "$TOKEN" ]]; then
+  echo "error: GitHub token is empty" >&2
+  exit 1
+fi
+
+export SECRET_KEY
+existing_id="$(
+  bws secret list "$BWS_PROJECT_ID" -o json \
+    | python3 -c '
+import json, os, sys
+key = os.environ["SECRET_KEY"]
+secrets = json.load(sys.stdin)
+matches = [s for s in secrets if s.get("key") == key]
+print(matches[0]["id"] if matches else "")
+'
+)"
+
+if [[ -n "$existing_id" ]]; then
+  echo "Updating existing secret ${SECRET_KEY} (${existing_id})..."
+  bws secret edit "$existing_id" \
+    --key "$SECRET_KEY" \
+    --value "$TOKEN" \
+    --note "$NOTE" \
+    -o none
+  echo "Updated ${SECRET_KEY} in project ${BWS_PROJECT_ID}"
+else
+  echo "Creating secret ${SECRET_KEY}..."
+  bws secret create "$SECRET_KEY" "$TOKEN" "$BWS_PROJECT_ID" \
+    --note "$NOTE" \
+    -o none
+  echo "Created ${SECRET_KEY} in project ${BWS_PROJECT_ID}"
+fi
+
+echo
+echo "Run the monitor with:"
+echo "  bws run --project-id \"\$BWS_PROJECT_ID\" -- bin/serve"

@@ -11,7 +11,14 @@ fi
 # shellcheck disable=SC1091
 source .venv/bin/activate
 
+if [[ -f "$ROOT/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT/.env"
+  set +a
+fi
+
 exec python -m monitor run \
   --log-level "${LOG_LEVEL:-debug}" \
-  --conf "${CONF_FILE:-monitor/integrations.json}" \
+  --conf "${CONF_FILE:-monitor/integrations.yaml}" \
   "$@"

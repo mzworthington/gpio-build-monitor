@@ -29,6 +29,9 @@ class IntegrationMapper:
             username=integration['username'],
             repo=integration['repo'],
             excluded_workflows=integration.get('excluded_workflows', []),
+            excluded_workflow_patterns=integration.get(
+                'excluded_workflow_patterns', []),
+            branch=integration.get('branch', 'main'),
             token=os.getenv(token_env),
         )
 

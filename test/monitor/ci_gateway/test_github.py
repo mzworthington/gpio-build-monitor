@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 
 import pytest
 from aioresponses import aioresponses
@@ -11,6 +12,10 @@ from monitor.ci_gateway.constants import IntegrationType
 from monitor.ci_gateway.github import APIError, GitHubAction
 
 os.environ['GITHUB_TOKEN'] = 'secret'
+
+_RUNS_URL = re.compile(
+    r'https://api\.github\.com/repos/super-man/awesome/actions/runs(\?.*)?'
+)
 
 
 class TestGithub:
@@ -118,8 +123,7 @@ class TestGithub:
 
         import aiohttp
         with aioresponses() as m:
-            m.get('https://api.github.com/repos/super-man/awesome/actions/runs',
-                  payload=data, status=200)
+            m.get(_RUNS_URL, payload=data, status=200)
 
             action = GitHubAction(**{'username': 'super-man',
                                      'repo': 'awesome'})
@@ -136,9 +140,7 @@ class TestGithub:
     async def test_fails_when_not_200(self):
         import aiohttp
         with aioresponses() as m:
-            m.get('https://api.github.com/repos/super-man/awesome/actions/runs',
-                  body='',
-                  status=400)
+            m.get(_RUNS_URL, body='', status=400)
             action = GitHubAction(**{'username': 'super-man',
                                      'repo': 'awesome'})
             async with aiohttp.ClientSession() as session:
@@ -147,3 +149,63 @@ class TestGithub:
 
         msg = "APIError: GET https://api.github.com/repos/super-man/awesome/actions/runs 400"
         assert str(excinfo.value) == msg
+
+    def test_filters_other_head_branches(self):
+        action = GitHubAction(
+            username='super-man', repo='awesome', branch='main')
+        runs = [
+            {
+                'id': 1,
+                'name': 'CI',
+                'head_branch': 'main',
+                'created_at': '2020-01-01T00:00:00Z',
+            },
+            {
+                'id': 2,
+                'name': 'CI',
+                'head_branch': 'dependabot/npm_and_yarn/foo',
+                'created_at': '2020-01-02T00:00:00Z',
+            },
+        ]
+        jobs = action.get_unique_latest_jobs(runs)
+        assert len(jobs) == 1
+        assert jobs[0]['id'] == 1
+
+    def test_excluded_workflow_patterns(self):
+        action = GitHubAction(
+            username='super-man',
+            repo='awesome',
+            branch='*',
+            excluded_workflow_patterns=['* - Update #*'],
+        )
+        runs = [
+            {
+                'id': 1,
+                'name': 'CI',
+                'head_branch': 'main',
+                'created_at': '2020-01-01T00:00:00Z',
+            },
+            {
+                'id': 2,
+                'name': 'npm_and_yarn in /. for lodash - Update #123',
+                'head_branch': 'dependabot/npm_and_yarn/lodash',
+                'created_at': '2020-01-02T00:00:00Z',
+            },
+        ]
+        jobs = action.get_unique_latest_jobs(runs)
+        assert len(jobs) == 1
+        assert jobs[0]['name'] == 'CI'
+
+    def test_all_branches_skips_head_filter(self):
+        action = GitHubAction(
+            username='super-man', repo='awesome', branch='*')
+        runs = [
+            {
+                'id': 1,
+                'name': 'CI',
+                'head_branch': 'feature/x',
+                'created_at': '2020-01-01T00:00:00Z',
+            },
+        ]
+        jobs = action.get_unique_latest_jobs(runs)
+        assert len(jobs) == 1

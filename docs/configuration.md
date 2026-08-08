@@ -1,60 +1,78 @@
 # Configuration
 
-`monitor/integrations.json` is local to your machine and gitignored. Start from the example:
+`monitor/integrations.yaml` is local to your machine and gitignored. Start from the example:
 
 ```shell
-cp monitor/integrations.example.json monitor/integrations.json
+cp monitor/integrations.example.yaml monitor/integrations.yaml
 ```
 
 ## Example
 
-```json
-{
-  "poll_in_seconds": 30,
-  "log_dir": "logs",
-  "pins": {
-    "GREEN": 17,
-    "YELLOW": 18,
-    "BLUE": 22,
-    "RED": 27,
-    "PURPLE": 23
-  },
-  "webhooks": {
-    "enabled": false,
-    "host": "0.0.0.0",
-    "port": 8080
-  },
-  "integrations": [
-    {
-      "type": "GITHUB",
-      "username": "your-github-org",
-      "repo": "your-repo",
-      "excluded_workflows": []
-    },
-    {
-      "type": "CIRCLECI",
-      "username": "your-circle-org",
-      "repo": "your-repo",
-      "excluded_workflows": ["nightly-scan"]
-    }
-  ]
-}
+```yaml
+poll_in_seconds: 15
+log_dir: logs
+outputs:
+  gpio: true
+  websocket:
+    enabled: true
+    host: "0.0.0.0"
+    port: 8080
+webhooks:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8081
+pins:
+  GREEN: 17
+  YELLOW: 18
+  BLUE: 22
+  RED: 27
+  PURPLE: 23
+integrations:
+  - type: GITHUB
+    username: your-github-org
+    repo: your-repo
+    branch: main
+    excluded_workflows: []
+    excluded_workflow_patterns:
+      - "* - Update #*"
+  - type: CIRCLECI
+    username: your-circle-org
+    repo: your-repo
+    excluded_workflows:
+      - nightly-scan
 ```
 
 ## Fields
 
 | Field | Description |
 |-------|-------------|
-| `poll_in_seconds` | Seconds between reconcile polls (default: 30). With webhooks enabled, raise this (for example `300`) so polling is a fallback, not the primary cadence. |
+| `poll_in_seconds` | Seconds between reconcile polls (default: 30). With webhooks enabled this is the fallback cadence; events wake an immediate refresh. |
 | `log_dir` | Directory for `monitor.log` (default: `logs/`) |
+| `outputs` | Optional status adapters (default: GPIO only) |
+| `outputs.gpio` | Drive Raspberry Pi LEDs (default: `true`) |
+| `outputs.websocket` | Optional browser UI over WebSockets |
+| `outputs.websocket.enabled` | Serve the status page (default: `true` when the object is present) |
+| `outputs.websocket.host` | Bind address (default: `0.0.0.0`) |
+| `outputs.websocket.port` | HTTP/WebSocket port (default: `8080`) |
 | `pins` | Optional BCM pin overrides per light name |
 | `webhooks` | Optional webhook ingress settings |
 | `webhooks.enabled` | Listen for provider webhooks that wake an immediate refresh (default: `false`) |
 | `webhooks.host` | Bind address (default: `0.0.0.0`) |
-| `webhooks.port` | Bind port (default: `8080`) |
+| `webhooks.port` | Bind port (default: `8080`; use a different port from `outputs.websocket` if both are enabled) |
 | `integrations` | List of repos to monitor |
 | `integrations[].type` | `GITHUB` or `CIRCLECI` |
-| `integrations[].excluded_workflows` | Workflow names to ignore (optional) |
+| `integrations[].excluded_workflows` | Exact workflow names to ignore (optional) |
+| `integrations[].excluded_workflow_patterns` | fnmatch patterns for workflow names (optional), e.g. `* - Update #*` |
+| `integrations[].branch` | GitHub only: branch to monitor (default: `main`; use `*` for all branches) |
+
+With WebSocket enabled, open `http://<host>:8080/` for the live JS status page, or run the Python HTML client:
+
+```shell
+monitor client --server http://127.0.0.1:8080
+# then open http://127.0.0.1:8090/
+```
+
+The client renders Jinja2 HTML for the first paint, then updates live over WebSocket (no full-page reload). You can run GPIO only, WebSocket only, or both.
 
 ## Webhooks
 
@@ -91,7 +109,8 @@ Only set the variables for providers present in your config. `monitor check-conf
 | `CIRCLE_CI_WEBHOOK_SECRET` | Shared secret for CircleCI webhook signature verification |
 | `MONITOR_LOG_DIR` | Default log directory when `log_dir` is not set in config |
 | `LOG_LEVEL` | Log level for `bin/serve` (default: `debug`) |
-| `CONF_FILE` | Config path for `bin/serve` (default: `monitor/integrations.json`) |
+| `CONF_FILE` | Config path for `bin/serve` (default: `monitor/integrations.yaml`) |
+| — | `bin/serve` also loads a gitignored `.env` from the repo root when present |
 | `MONITOR_HOME` | Pi install directory (default: `/home/pi/gpio-build-monitor`) |
 | `MONITOR_VENV` | Virtualenv used on the Pi (default: `$MONITOR_HOME/.venv`) |
 | `MONITOR_SERVICE` | systemd unit name (default: `gpio-build-monitor`) |

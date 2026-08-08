@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-import json
 import os
 from pathlib import Path
 from typing import Any, NotRequired, TypedDict
+
+import yaml
 
 from monitor.ci_gateway.constants import IntegrationType
 from monitor.gpio.constants import Lights, configure_pins
@@ -18,6 +19,19 @@ class IntegrationConfig(TypedDict):
     username: str
     repo: str
     excluded_workflows: NotRequired[list[str]]
+    excluded_workflow_patterns: NotRequired[list[str]]
+    branch: NotRequired[str]
+
+
+class WebSocketOutputConfig(TypedDict):
+    enabled: bool
+    host: str
+    port: int
+
+
+class OutputsConfig(TypedDict):
+    gpio: bool
+    websocket: NotRequired[WebSocketOutputConfig]
 
 
 class WebhookConfig(TypedDict):
@@ -29,6 +43,7 @@ class WebhookConfig(TypedDict):
 class Config(TypedDict):
     poll_in_seconds: int
     integrations: list[IntegrationConfig]
+    outputs: OutputsConfig
     pins: NotRequired[dict[str, int]]
     log_dir: NotRequired[str]
     webhooks: NotRequired[WebhookConfig]
@@ -46,6 +61,7 @@ WEBHOOK_SECRET_ENV_VARS: dict[IntegrationType, str] = {
 
 DEFAULT_WEBHOOK_HOST = "0.0.0.0"
 DEFAULT_WEBHOOK_PORT = 8080
+_DEFAULT_OUTPUTS: OutputsConfig = {"gpio": True}
 
 
 def load_config(conf_file: str | Path) -> Config:
@@ -54,14 +70,17 @@ def load_config(conf_file: str | Path) -> Config:
         raise ConfigError(f"Config file not found: {path}")
 
     with path.open(encoding="utf-8") as handle:
-        raw = json.load(handle)
+        try:
+            raw = yaml.safe_load(handle)
+        except yaml.YAMLError as exc:
+            raise ConfigError(f"Invalid YAML in {path}: {exc}") from exc
 
     return validate_config(raw)
 
 
 def validate_config(raw: dict[str, Any]) -> Config:
     if not isinstance(raw, dict):
-        raise ConfigError("Config must be a JSON object")
+        raise ConfigError("Config must be a YAML mapping")
 
     poll_in_seconds = raw.get("poll_in_seconds", 30)
     if not isinstance(poll_in_seconds, int) or poll_in_seconds <= 0:
@@ -78,6 +97,7 @@ def validate_config(raw: dict[str, Any]) -> Config:
     pins = _validate_pins(raw.get("pins"))
     log_dir = _validate_log_dir(raw.get("log_dir"))
     webhooks = _validate_webhooks(raw.get("webhooks"))
+    outputs = _validate_outputs(raw.get("outputs"))
 
     validate_tokens(validated_integrations)
     if webhooks is not None and webhooks["enabled"]:
@@ -87,6 +107,7 @@ def validate_config(raw: dict[str, Any]) -> Config:
     config = Config(
         poll_in_seconds=poll_in_seconds,
         integrations=validated_integrations,
+        outputs=outputs,
     )
     if pins is not None:
         config["pins"] = pins
@@ -95,6 +116,47 @@ def validate_config(raw: dict[str, Any]) -> Config:
     if webhooks is not None:
         config["webhooks"] = webhooks
     return config
+
+
+def _validate_outputs(raw: Any) -> OutputsConfig:
+    if raw is None:
+        return dict(_DEFAULT_OUTPUTS)
+
+    if not isinstance(raw, dict):
+        raise ConfigError("outputs must be an object")
+
+    gpio = raw.get("gpio", True)
+    if not isinstance(gpio, bool):
+        raise ConfigError("outputs.gpio must be a boolean")
+
+    outputs: OutputsConfig = {"gpio": gpio}
+
+    if "websocket" in raw:
+        outputs["websocket"] = _validate_websocket(raw.get("websocket"))
+
+    if not outputs["gpio"] and not outputs.get("websocket", {}).get("enabled", False):
+        raise ConfigError("At least one output must be enabled (gpio or websocket)")
+
+    return outputs
+
+
+def _validate_websocket(raw: Any) -> WebSocketOutputConfig:
+    if not isinstance(raw, dict):
+        raise ConfigError("outputs.websocket must be an object")
+
+    enabled = raw.get("enabled", True)
+    if not isinstance(enabled, bool):
+        raise ConfigError("outputs.websocket.enabled must be a boolean")
+
+    host = raw.get("host", "0.0.0.0")
+    if not isinstance(host, str) or not host.strip():
+        raise ConfigError("outputs.websocket.host must be a non-empty string")
+
+    port = raw.get("port", 8080)
+    if not isinstance(port, int) or not (1 <= port <= 65535):
+        raise ConfigError("outputs.websocket.port must be an integer between 1 and 65535")
+
+    return WebSocketOutputConfig(enabled=enabled, host=host, port=port)
 
 
 def _validate_pins(raw: Any) -> dict[str, int] | None:
@@ -156,12 +218,35 @@ def _validate_integration(raw: Any, index: int) -> IntegrationConfig:
     ):
         raise ConfigError(f"{prefix}.excluded_workflows must be a list of strings")
 
-    return IntegrationConfig(
+    excluded_workflow_patterns = raw.get("excluded_workflow_patterns", [])
+    if excluded_workflow_patterns is None:
+        excluded_workflow_patterns = []
+    if not isinstance(excluded_workflow_patterns, list) or not all(
+        isinstance(pattern, str) and pattern for pattern in excluded_workflow_patterns
+    ):
+        raise ConfigError(
+            f"{prefix}.excluded_workflow_patterns must be a list of non-empty strings"
+        )
+
+    branch = raw.get("branch")
+    if branch is None:
+        branch = "main" if integration_type == "GITHUB" else None
+    elif not isinstance(branch, str) or not branch.strip():
+        raise ConfigError(
+            f"{prefix}.branch must be a non-empty string "
+            "(use '*' to include all branches)"
+        )
+
+    config = IntegrationConfig(
         type=integration_type,
         username=username,
         repo=repo,
         excluded_workflows=excluded_workflows,
+        excluded_workflow_patterns=excluded_workflow_patterns,
     )
+    if branch is not None:
+        config["branch"] = branch
+    return config
 
 
 def validate_tokens(integrations: list[IntegrationConfig]) -> None:

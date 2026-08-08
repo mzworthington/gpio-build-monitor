@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Build monitor</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body data-status="NONE">
+  <div class="atmosphere" aria-hidden="true"></div>
+  <main>
+    <header class="masthead">
+      <img class="brand-mark" src="/logo.svg" width="64" height="64" alt="">
+      <h1>Build monitor</h1>
+      <p id="connection" class="connection" data-state="connecting">Connecting…</p>
+      <p
+        id="last-checked"
+        class="last-checked"
+        data-last-checked-at=""
+      >Not checked yet</p>
+    </header>
+
+    <section class="hero">
+      <div
+        class="status-dial"
+        id="status-dial"
+        data-status="NONE"
+        data-poll-seconds="30"
+        data-next-check-at=""
+        data-fetching="false"
+      >
+        <svg class="status-dial-ring" viewBox="0 0 100 100" aria-hidden="true">
+          <circle class="status-dial-track" cx="50" cy="50" r="46"></circle>
+          <circle
+            class="status-dial-progress"
+            id="ticker-progress"
+            cx="50"
+            cy="50"
+            r="46"
+            pathLength="1"
+          ></circle>
+        </svg>
+        <div class="status-dial-core">
+          <p id="status-word" class="status-word">Idle</p>
+          <p id="summary" class="summary">Waiting for status…</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="lights" aria-label="Signal lights" aria-live="polite">
+      <div class="light" data-light="blue" title="Fetching">
+        <span class="bulb"></span>
+        <span class="label">Fetch</span>
+      </div>
+      <div class="light" data-light="green" title="Pass">
+        <span class="bulb"></span>
+        <span class="label">Pass</span>
+      </div>
+      <div class="light" data-light="yellow" title="Running">
+        <span class="bulb"></span>
+        <span class="label">Run</span>
+      </div>
+      <div class="light" data-light="red" title="Fail">
+        <span class="bulb"></span>
+        <span class="label">Fail</span>
+      </div>
+      <div class="light" data-light="purple" title="Connection error">
+        <span class="bulb"></span>
+        <span class="label">Error</span>
+      </div>
+    </div>
+
+    <section id="issues" class="issues" aria-label="Attention" hidden>
+      <div class="issues-head">
+        <h2>Needs attention</h2>
+        <p id="issue-count" class="issue-count"></p>
+      </div>
+      <ul id="issue-list"></ul>
+    </section>
+  </main>
+  <script src="/countdown.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

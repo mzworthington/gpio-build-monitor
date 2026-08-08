@@ -7,7 +7,6 @@ from typing import TypedDict
 
 from aiohttp import ClientSession
 
-import monitor.ci_gateway.constants as ci_constants
 from monitor.ci_gateway.constants import BuildStatus, CiResult, IntegrationAdapter
 
 
@@ -22,6 +21,13 @@ class Result(enum.Enum):
         return self.value == other.value
 
 
+class BuildDetail(TypedDict):
+    repo: str
+    workflow: str
+    status: str
+    url: str
+
+
 def get_status(results: list[BuildStatus]) -> Result:
     if len(results) == 0:
         return Result.NONE
@@ -34,10 +40,40 @@ def get_status(results: list[BuildStatus]) -> Result:
     return Result.UNKNOWN
 
 
+def get_status_from_details(builds: list[BuildDetail]) -> Result:
+    non_running = [
+        build for build in builds
+        if build["status"] != CiResult.RUNNING.value
+    ]
+    if not non_running:
+        return Result.NONE
+    if any(build["status"] == CiResult.CONNECTION_ERROR.value for build in non_running):
+        return Result.CONNECTION_ERROR
+    if any(build["status"] == CiResult.FAIL.value for build in non_running):
+        return Result.FAIL
+    if all(build["status"] == CiResult.PASS.value for build in non_running):
+        return Result.PASS
+    return Result.UNKNOWN
+
+
 class OverallStatus(TypedDict):
     type: str
     is_running: bool
     status: Result
+    builds: list[BuildDetail]
+
+
+def attention_builds(builds: list[BuildDetail]) -> list[BuildDetail]:
+    """Builds that should be called out in the UI (failed / error / unknown)."""
+    return [
+        build
+        for build in builds
+        if build["status"] in {
+            CiResult.FAIL.value,
+            CiResult.CONNECTION_ERROR.value,
+            CiResult.UNKNOWN.value,
+        }
+    ]
 
 
 class AggregatorService:
@@ -51,45 +87,42 @@ class AggregatorService:
         ]
         completed = await asyncio.gather(*tasks)
 
-        result: list[BuildStatus] = []
-        for integration_results in completed:
-            result.extend(integration_results)
+        builds: list[BuildDetail] = []
+        for integration_builds in completed:
+            builds.extend(integration_builds)
 
         return OverallStatus(
             type="AGGREGATED",
-            is_running=any(
-                r['status'] == ci_constants.CiResult.RUNNING for r in result),
-            status=get_status(
-                [
-                    build
-                    for build in result
-                    if build['status'] != ci_constants.CiResult.RUNNING
-                ]))
+            is_running=any(build["status"] == CiResult.RUNNING.value for build in builds),
+            status=get_status_from_details(builds),
+            builds=builds,
+        )
 
     async def _fetch(
         self,
         session: ClientSession,
         integration: IntegrationAdapter,
-    ) -> list[BuildStatus]:
-        label = (
-            f"{integration.get_type().name}:"
-            f"{integration.username}/{integration.repo}"
-        )
+    ) -> list[BuildDetail]:
+        repo = f"{integration.username}/{integration.repo}"
         try:
-            return await integration.get_latest(session)
+            results = await integration.get_latest(session)
         except Exception:
-            logging.exception('Failed to fetch build status for %s', label)
-            return [self._connection_error_status(integration)]
+            logging.exception("Failed to fetch build status for %s", repo)
+            return [
+                BuildDetail(
+                    repo=repo,
+                    workflow="(fetch)",
+                    status=CiResult.CONNECTION_ERROR.value,
+                    url="",
+                )
+            ]
 
-    @staticmethod
-    def _connection_error_status(
-        integration: IntegrationAdapter,
-    ) -> BuildStatus:
-        return BuildStatus(
-            type=integration.get_type(),
-            vcs="",
-            id="",
-            name=f"{integration.username}/{integration.repo}",
-            start="",
-            status=CiResult.CONNECTION_ERROR,
-        )
+        return [
+            BuildDetail(
+                repo=repo,
+                workflow=build["name"],
+                status=build["status"].value,
+                url=build["vcs"],
+            )
+            for build in results
+        ]

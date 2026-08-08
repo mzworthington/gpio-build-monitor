@@ -2,7 +2,7 @@
 
 ## Pin map
 
-Default BCM pins (configurable via `pins` in `integrations.json`):
+Default BCM pins (configurable via `pins` in `integrations.yaml`):
 
 | Light | Default pin |
 |-------|-------------|

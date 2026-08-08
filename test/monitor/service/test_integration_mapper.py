@@ -40,6 +40,31 @@ class TestIntegrationMapper:
         assert all(isinstance(adapter, GitHubAction) for adapter in result)
         assert result[0].username == 'meee'
         assert result[1].repo == 'another-repo'
+        assert result[0].branch == 'main'
+        assert result[1].branch == 'main'
+
+    def test_maps_github_branch_override(self):
+        integrations = [
+            dict(type='GITHUB', username='meee', repo='super-repo', branch='develop'),
+        ]
+        result = IntegrationMapper(
+            available_integrations.get_all()).get(integrations)
+
+        assert result[0].branch == 'develop'
+
+    def test_maps_excluded_workflow_patterns(self):
+        integrations = [
+            dict(
+                type='GITHUB',
+                username='meee',
+                repo='super-repo',
+                excluded_workflow_patterns=['* - Update #*'],
+            ),
+        ]
+        result = IntegrationMapper(
+            available_integrations.get_all()).get(integrations)
+
+        assert result[0].excluded_workflow_patterns == ['* - Update #*']
 
     def test_maps_circleci_integration(self):
         integrations = [

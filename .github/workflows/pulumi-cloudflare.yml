@@ -1,0 +1,41 @@
+name: Pulumi Cloudflare
+
+# Thin caller — preview/apply live in edge-dns.
+# See: https://github.com/mzworthington/edge-dns/blob/main/docs/reusable-cloudflare-ci.md
+#
+# Create GitHub Environment "pulumi-prod" with required reviewers for the apply gate.
+# Secrets: CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_ZONE_ID, CLOUDFLARE_API_TOKEN, PULUMI_ACCESS_TOKEN
+# Vars:    PULUMI_PAGES_PROJECT_NAME, PULUMI_PAGES_HOSTNAMES (JSON array)
+#          (mapped to workerName / workerHostnames by the Pulumi program)
+
+on:
+  pull_request:
+    paths:
+      - 'infra/cloudflare/**'
+      - '.github/workflows/pulumi-cloudflare.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/cloudflare/**'
+      - '.github/workflows/pulumi-cloudflare.yml'
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: After preview, wait for pulumi-prod approval then run pulumi up
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  deployments: write
+
+jobs:
+  pulumi:
+    uses: mzworthington/edge-dns/.github/workflows/product-pulumi-cloudflare.yml@main
+    with:
+      work-dir: infra/cloudflare
+      stack-name: prod
+      tooling-ref: main
+      apply: ${{ github.event_name != 'workflow_dispatch' || inputs.apply }}
+    secrets: inherit

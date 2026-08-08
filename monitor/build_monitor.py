@@ -4,56 +4,27 @@ import logging
 
 from aiohttp import ClientSession
 
-from monitor.gpio.board import Board
-from monitor.gpio.constants import Lights
-from monitor.service.aggregator_service import AggregatorService, Result
+from monitor.output.port import StatusOutput
+from monitor.service.aggregator_service import AggregatorService
 
 
 class BuildMonitor:
-    def __init__(self,
-                 board: Board,
-                 aggregator: AggregatorService):
-        self.board = board
+    def __init__(self, output: StatusOutput, aggregator: AggregatorService):
+        self.output = output
         self.aggregator = aggregator
 
     async def run(self, session: ClientSession) -> None:
-        self.board.on(Lights.BLUE)
+        await self.output.begin_fetch()
         logging.info("Getting build results")
         try:
             result = await self.aggregator.run(session)
         finally:
-            self.board.off(Lights.BLUE)
+            await self.output.end_fetch()
 
-        status = result['status']
-        is_running = result['is_running']
-
-        logging.info(f'Setting output {result}')
-
-        match status:
-            case Result.PASS:
-                self.board.off(Lights.PURPLE)
-                self.board.on(Lights.GREEN)
-                self.board.off(Lights.RED)
-            case Result.FAIL:
-                self.board.off(Lights.PURPLE)
-                self.board.off(Lights.GREEN)
-                self.board.on(Lights.RED)
-            case Result.UNKNOWN:
-                self.board.off(Lights.PURPLE)
-                self.board.on(Lights.GREEN)
-                self.board.on(Lights.RED)
-            case Result.CONNECTION_ERROR:
-                self.board.on(Lights.PURPLE)
-                self.board.off(Lights.GREEN)
-                self.board.off(Lights.RED)
-            case _:
-                self.board.off(Lights.PURPLE)
-                self.board.off(Lights.GREEN)
-                self.board.off(Lights.RED)
-
-        if is_running:
-            await self.board.pulse(Lights.YELLOW)
-        else:
-            self.board.off(Lights.YELLOW)
-
+        logging.info("Setting output %s", result)
+        await self.output.publish(
+            result["status"],
+            is_running=result["is_running"],
+            builds=result["builds"],
+        )
         logging.info("Finished build run")

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Build monitor">
+  <defs>
+    <radialGradient id="glow-blue" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#6aa8ff" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#6aa8ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-green" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#3dd68c" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-yellow" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#efc15a" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#efc15a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-red" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#ff6b6b" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#ff6b6b" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-purple" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#c084fc" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#c084fc" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="#0b0e13"/>
+  <circle cx="64" cy="64" r="46" fill="none" stroke="#1c2430" stroke-width="6"/>
+  <circle cx="64" cy="64" r="46" fill="none" stroke="#3dd68c" stroke-width="6"
+          stroke-linecap="round" stroke-dasharray="72 217" transform="rotate(-90 64 64)" opacity="0.95"/>
+  <!-- glow washes -->
+  <circle cx="64" cy="22" r="16" fill="url(#glow-blue)"/>
+  <circle cx="103" cy="48" r="16" fill="url(#glow-green)"/>
+  <circle cx="90" cy="96" r="16" fill="url(#glow-yellow)"/>
+  <circle cx="38" cy="96" r="16" fill="url(#glow-red)"/>
+  <circle cx="25" cy="48" r="16" fill="url(#glow-purple)"/>
+  <!-- bulbs -->
+  <circle cx="64" cy="22" r="7.5" fill="#6aa8ff"/>
+  <circle cx="64" cy="20.5" r="2.6" fill="#dce9ff" opacity="0.85"/>
+  <circle cx="103" cy="48" r="7.5" fill="#3dd68c"/>
+  <circle cx="103" cy="46.5" r="2.6" fill="#d9ffe9" opacity="0.85"/>
+  <circle cx="90" cy="96" r="7.5" fill="#efc15a"/>
+  <circle cx="90" cy="94.5" r="2.6" fill="#fff1c2" opacity="0.85"/>
+  <circle cx="38" cy="96" r="7.5" fill="#ff6b6b"/>
+  <circle cx="38" cy="94.5" r="2.6" fill="#ffd4d4" opacity="0.85"/>
+  <circle cx="25" cy="48" r="7.5" fill="#c084fc"/>
+  <circle cx="25" cy="46.5" r="2.6" fill="#f0ddff" opacity="0.85"/>
+</svg>

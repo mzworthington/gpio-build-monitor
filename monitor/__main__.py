@@ -11,7 +11,7 @@ from monitor.config import ConfigError, load_config
 
 cli_app = typer.Typer(
     add_completion=False,
-    help="GPIO build monitor for CI status LEDs",
+    help="Build monitor for CI status (GPIO LEDs and/or WebSocket UI)",
     no_args_is_help=True,
 )
 
@@ -38,7 +38,7 @@ def _resolve_log_level(log_level: str) -> int:
 @cli_app.command()
 def run(
     conf: Path = typer.Option(
-        Path("monitor/integrations.json"),
+        Path("monitor/integrations.yaml"),
         "--conf",
         "-c",
         help="Integration configuration file",
@@ -52,7 +52,7 @@ def run(
         help="Logging level",
     ),
 ) -> None:
-    """Refresh CI status onto GPIO LEDs (poll and optional webhooks)."""
+    """Refresh CI status onto configured outputs (poll and optional webhooks)."""
     try:
         asyncio.run(app.main(conf, _resolve_log_level(log_level)))
     except ConfigError as exc:
@@ -65,7 +65,7 @@ def run(
 @cli_app.command("check-config")
 def check_config(
     conf: Path = typer.Option(
-        Path("monitor/integrations.json"),
+        Path("monitor/integrations.yaml"),
         "--conf",
         "-c",
         help="Integration configuration file",
@@ -80,17 +80,80 @@ def check_config(
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
 
+    outputs = config["outputs"]
+    enabled = []
+    if outputs.get("gpio", True):
+        enabled.append("gpio")
+    websocket = outputs.get("websocket")
+    if websocket and websocket.get("enabled"):
+        enabled.append(f"websocket:{websocket['host']}:{websocket['port']}")
+
     webhooks = config.get("webhooks")
     webhook_note = ""
     if webhooks is not None and webhooks["enabled"]:
-        webhook_note = (
-            f", webhooks on {webhooks['host']}:{webhooks['port']}"
-        )
+        webhook_note = f", webhooks on {webhooks['host']}:{webhooks['port']}"
 
     typer.echo(
         f"Config OK: {len(config['integrations'])} integration(s), "
-        f"poll every {config['poll_in_seconds']}s{webhook_note}"
+        f"poll every {config['poll_in_seconds']}s, "
+        f"outputs={','.join(enabled)}{webhook_note}"
     )
+
+
+@cli_app.command("client")
+def client(
+    server: str = typer.Option(
+        "http://127.0.0.1:8080",
+        "--server",
+        "-s",
+        help="Monitor base URL or WebSocket URL (e.g. http://127.0.0.1:8080)",
+    ),
+    host: str = typer.Option(
+        "127.0.0.1",
+        "--host",
+        help="Bind address for the HTML client",
+    ),
+    port: int = typer.Option(
+        8090,
+        "--port",
+        "-p",
+        help="Port for the HTML client",
+        min=1,
+        max=65535,
+    ),
+    refresh: int = typer.Option(
+        0,
+        "--refresh",
+        "-r",
+        help="Optional HTML meta-refresh interval in seconds (0 = live WebSocket updates only)",
+        min=0,
+    ),
+    log_level: str = typer.Option(
+        "info",
+        "--log-level",
+        "-l",
+        help="Logging level",
+    ),
+) -> None:
+    """Render the status page in Python (Jinja2) from the monitor WebSocket feed."""
+    from monitor.client import app as client_app
+    from monitor.log_handler import setup_logger
+
+    setup_logger(_resolve_log_level(log_level), None)
+    try:
+        asyncio.run(
+            client_app.main(
+                server,
+                host=host,
+                port=port,
+                refresh_seconds=refresh,
+            )
+        )
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    except KeyboardInterrupt:
+        raise typer.Exit(0) from None
 
 
 def cli() -> None:

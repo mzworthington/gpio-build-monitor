@@ -1,6 +1,9 @@
+#!/usr/bin/env python3
+
 import logging
 import os
 from abc import ABC
+from fnmatch import fnmatch
 from itertools import groupby
 
 from aiohttp import ClientSession
@@ -13,6 +16,8 @@ from monitor.ci_gateway.constants import (
     IntegrationType,
 )
 
+ALL_BRANCHES = "*"
+
 
 class GitHubAction(IntegrationAdapter, ABC):
     def __init__(self, **kwargs):
@@ -20,31 +25,43 @@ class GitHubAction(IntegrationAdapter, ABC):
         self.repo = kwargs.get('repo')
         self.token = kwargs.get('token') or os.getenv('GITHUB_TOKEN')
         self.excluded_workflows = kwargs.get('excluded_workflows') or []
+        self.excluded_workflow_patterns = kwargs.get('excluded_workflow_patterns') or []
+        self.branch = kwargs.get('branch', 'main')
 
     def get_type(self) -> IntegrationType:
         return IntegrationType.GITHUB
 
+    @property
+    def filters_by_branch(self) -> bool:
+        return bool(self.branch) and self.branch != ALL_BRANCHES
+
     async def get_latest(self, session: ClientSession) -> list[BuildStatus]:
         base = 'https://api.github.com'
         url = f'{base}/repos/{self.username}/{self.repo}/actions/runs'
+        params: dict[str, str] = {'per_page': '100'}
+        if self.filters_by_branch:
+            params['branch'] = self.branch
 
-        logging.debug(f'Calling {url}')
+        logging.debug('Calling %s (branch=%s)', url, self.branch)
 
         resp = await session.get(
             url,
-            headers={'Authorization': f'Bearer {self.token}'})
+            params=params,
+            headers={
+                'Authorization': f'Bearer {self.token}',
+                'Accept': 'application/vnd.github+json',
+                'X-GitHub-Api-Version': '2022-11-28',
+            },
+        )
 
         if resp.status != 200:
             raise APIError('GET', url, resp.status)
 
         payload = await resp.json()
-
-        response = list(
-            map(
-                GitHubAction.map_result,
-                self.get_unique_latest_jobs(payload['workflow_runs'])))
-        logging.info(f'Called {url}')
-        logging.info(f'Response {response}')
+        runs = self.get_unique_latest_jobs(payload.get('workflow_runs') or [])
+        response = list(map(GitHubAction.map_result, runs))
+        logging.info('Called %s (branch=%s)', url, self.branch)
+        logging.info('Response %s', response)
         return response
 
     @staticmethod
@@ -62,30 +79,51 @@ class GitHubAction(IntegrationAdapter, ABC):
             CiResult.RUNNING if conclusion is None and (status == "queued" or status == "in_progress") else
             CiResult.UNKNOWN)
 
-    def get_unique_latest_jobs(self, json):
-        jobs = []
-        for k, g in groupby(
-                sorted(
-                    filter(
-                        lambda x: x['name']
-                        not in self.excluded_workflows,
-                        json), key=lambda x: x['name']),
-                lambda x: x['name']):
-            jobs.append(list(g)[0])
+    def _include_run(self, run: dict) -> bool:
+        name = run.get('name') or ''
+        if name in self.excluded_workflows:
+            return False
+        if any(fnmatch(name, pattern) for pattern in self.excluded_workflow_patterns):
+            logging.debug('Skipping workflow %s matching exclusion pattern', name)
+            return False
+        if self.filters_by_branch:
+            head_branch = run.get('head_branch')
+            if head_branch is not None and head_branch != self.branch:
+                logging.debug(
+                    'Skipping %s run %s on branch %s (want %s)',
+                    name,
+                    run.get('id'),
+                    head_branch,
+                    self.branch,
+                )
+                return False
+        return True
 
+    def get_unique_latest_jobs(self, runs: list[dict]) -> list[dict]:
+        jobs = []
+        filtered = [run for run in runs if self._include_run(run)]
+        for _, group in groupby(
+            sorted(filtered, key=lambda run: run['name']),
+            key=lambda run: run['name'],
+        ):
+            jobs.append(list(group)[0])
         return jobs
 
 
 if __name__ == "__main__":
     import argparse
     import asyncio
-    import os
     import sys
 
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--username', help='repo username')
     parser.add_argument('--repo', help='repo to query')
+    parser.add_argument(
+        '--branch',
+        default='main',
+        help='branch to monitor, or * for all branches',
+    )
 
     args = parser.parse_args()
 
@@ -99,6 +137,7 @@ if __name__ == "__main__":
             action = GitHubAction(
                 username=args.username,
                 repo=args.repo,
+                branch=args.branch,
                 token=os.getenv('GITHUB_TOKEN'),
             )
             result = await action.get_latest(session)
