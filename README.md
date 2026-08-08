@@ -15,7 +15,7 @@ Inspired by the information radiators we used to have in the office. [Read the s
 
 ## How it works
 
-The monitor polls your configured repos on a fixed interval, aggregates the results, and drives five LEDs:
+The monitor fetches your configured repos, aggregates the results, and drives five LEDs. By default it polls on a fixed interval. Optionally, GitHub and CircleCI webhooks can wake a refresh immediately, with polling kept as a reconcile fallback.
 
 | Light | Meaning |
 |-------|---------|
@@ -26,7 +26,7 @@ The monitor polls your configured repos on a fixed interval, aggregates the resu
 | Purple | Connection or API error (polling continues) |
 
 ```
-integrations.json  →  poll CI APIs  →  aggregate  →  LEDs
+integrations.json  →  poll CI APIs (and optional webhooks)  →  aggregate  →  LEDs
 ```
 
 On a dev machine, GPIO is mocked automatically. On the Pi, run with `python -O` to use real hardware.

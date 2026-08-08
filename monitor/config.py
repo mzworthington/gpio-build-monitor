@@ -20,17 +20,32 @@ class IntegrationConfig(TypedDict):
     excluded_workflows: NotRequired[list[str]]
 
 
+class WebhookConfig(TypedDict):
+    enabled: bool
+    host: str
+    port: int
+
+
 class Config(TypedDict):
     poll_in_seconds: int
     integrations: list[IntegrationConfig]
     pins: NotRequired[dict[str, int]]
     log_dir: NotRequired[str]
+    webhooks: NotRequired[WebhookConfig]
 
 
 TOKEN_ENV_VARS: dict[IntegrationType, str] = {
     IntegrationType.GITHUB: "GITHUB_TOKEN",
     IntegrationType.CIRCLECI: "CIRCLE_CI_TOKEN",
 }
+
+WEBHOOK_SECRET_ENV_VARS: dict[IntegrationType, str] = {
+    IntegrationType.GITHUB: "GITHUB_WEBHOOK_SECRET",
+    IntegrationType.CIRCLECI: "CIRCLE_CI_WEBHOOK_SECRET",
+}
+
+DEFAULT_WEBHOOK_HOST = "0.0.0.0"
+DEFAULT_WEBHOOK_PORT = 8080
 
 
 def load_config(conf_file: str | Path) -> Config:
@@ -62,8 +77,11 @@ def validate_config(raw: dict[str, Any]) -> Config:
 
     pins = _validate_pins(raw.get("pins"))
     log_dir = _validate_log_dir(raw.get("log_dir"))
+    webhooks = _validate_webhooks(raw.get("webhooks"))
 
     validate_tokens(validated_integrations)
+    if webhooks is not None and webhooks["enabled"]:
+        validate_webhook_secrets(validated_integrations)
     configure_pins(pins)
 
     config = Config(
@@ -74,6 +92,8 @@ def validate_config(raw: dict[str, Any]) -> Config:
         config["pins"] = pins
     if log_dir is not None:
         config["log_dir"] = log_dir
+    if webhooks is not None:
+        config["webhooks"] = webhooks
     return config
 
 
@@ -156,3 +176,45 @@ def validate_tokens(integrations: list[IntegrationConfig]) -> None:
             "Missing required environment variable(s): "
             + ", ".join(sorted(set(missing)))
         )
+
+
+def validate_webhook_secrets(integrations: list[IntegrationConfig]) -> None:
+    required_types = {IntegrationType[integration["type"]] for integration in integrations}
+    missing = [
+        env_var
+        for integration_type in required_types
+        if not os.getenv(env_var := WEBHOOK_SECRET_ENV_VARS[integration_type])
+    ]
+    if missing:
+        raise ConfigError(
+            "webhooks.enabled requires environment variable(s): "
+            + ", ".join(sorted(set(missing)))
+        )
+
+
+def webhook_secrets_from_env() -> dict[str, str | None]:
+    return {
+        "github": os.getenv(WEBHOOK_SECRET_ENV_VARS[IntegrationType.GITHUB]),
+        "circleci": os.getenv(WEBHOOK_SECRET_ENV_VARS[IntegrationType.CIRCLECI]),
+    }
+
+
+def _validate_webhooks(raw: Any) -> WebhookConfig | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ConfigError("webhooks must be an object")
+
+    enabled = raw.get("enabled", False)
+    if not isinstance(enabled, bool):
+        raise ConfigError("webhooks.enabled must be a boolean")
+
+    host = raw.get("host", DEFAULT_WEBHOOK_HOST)
+    if not isinstance(host, str) or not host.strip():
+        raise ConfigError("webhooks.host must be a non-empty string")
+
+    port = raw.get("port", DEFAULT_WEBHOOK_PORT)
+    if not isinstance(port, int) or not (1 <= port <= 65535):
+        raise ConfigError("webhooks.port must be an integer between 1 and 65535")
+
+    return WebhookConfig(enabled=enabled, host=host, port=port)

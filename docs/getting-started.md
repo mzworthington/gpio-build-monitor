@@ -49,7 +49,7 @@ monitor run --conf monitor/integrations.json --log-level debug
 monitor check-config --conf monitor/integrations.json
 ```
 
-- `monitor run` - start the polling loop
+- `monitor run` - start the refresh loop (timed poll, optional webhook wake-ups)
 - `monitor check-config` - validate config and required environment variables without touching GPIO
 
 Module form:

@@ -39,6 +39,20 @@ sudo systemctl enable --now gpio-build-monitor
 
 The unit file assumes the repo lives at `/home/pi/gpio-build-monitor`. Adjust `WorkingDirectory`, `ExecStart`, and `User` in `deploy/gpio-build-monitor.service` if your paths differ.
 
+## Optional webhooks
+
+To refresh as soon as CI finishes (instead of waiting for the next poll):
+
+1. Set `webhooks.enabled` to `true` in `/etc/gpio-build-monitor/integrations.json` and raise `poll_in_seconds` (for example `300`).
+2. Add `GITHUB_WEBHOOK_SECRET` / `CIRCLE_CI_WEBHOOK_SECRET` to `/etc/gpio-build-monitor/env` for each configured provider.
+3. Expose the Pi with a tunnel or reverse proxy so providers can reach:
+   - `POST /webhooks/github`
+   - `POST /webhooks/circleci`
+4. Register those URLs in GitHub (workflow_run) and CircleCI (workflow-completed / job-completed) with the same secrets.
+5. Restart the service: `sudo systemctl restart gpio-build-monitor`
+
+See [Configuration](configuration.md#webhooks) for event details and why a reconcile poll remains.
+
 ## Auto-updates
 
 The Pi can poll GitHub Releases for a newer version, install the release wheel, and restart the monitor service. Handled by `bin/update` and an optional systemd timer.

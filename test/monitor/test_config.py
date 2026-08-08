@@ -97,3 +97,54 @@ def test_validate_pins_rejects_unknown_light():
                 {"type": "GITHUB", "username": "org", "repo": "repo"},
             ],
         })
+
+
+def test_validate_webhooks_optional_and_defaults():
+    config = validate_config({
+        "poll_in_seconds": 30,
+        "webhooks": {"enabled": False},
+        "integrations": [
+            {"type": "GITHUB", "username": "org", "repo": "repo"},
+        ],
+    })
+    assert config["webhooks"] == {
+        "enabled": False,
+        "host": "0.0.0.0",
+        "port": 8080,
+    }
+
+
+def test_validate_webhooks_requires_secrets_when_enabled(monkeypatch):
+    monkeypatch.delenv("GITHUB_WEBHOOK_SECRET", raising=False)
+    with pytest.raises(ConfigError, match="GITHUB_WEBHOOK_SECRET"):
+        validate_config({
+            "poll_in_seconds": 300,
+            "webhooks": {"enabled": True, "port": 9090},
+            "integrations": [
+                {"type": "GITHUB", "username": "org", "repo": "repo"},
+            ],
+        })
+
+
+def test_validate_webhooks_accepts_enabled_with_secrets(monkeypatch):
+    monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "hook-secret")
+    config = validate_config({
+        "poll_in_seconds": 300,
+        "webhooks": {"enabled": True, "host": "127.0.0.1", "port": 9090},
+        "integrations": [
+            {"type": "GITHUB", "username": "org", "repo": "repo"},
+        ],
+    })
+    assert config["webhooks"]["enabled"] is True
+    assert config["webhooks"]["port"] == 9090
+
+
+def test_validate_webhooks_rejects_bad_port():
+    with pytest.raises(ConfigError, match="webhooks.port"):
+        validate_config({
+            "poll_in_seconds": 30,
+            "webhooks": {"enabled": False, "port": 70000},
+            "integrations": [
+                {"type": "GITHUB", "username": "org", "repo": "repo"},
+            ],
+        })
