@@ -114,7 +114,7 @@ Only set the variables for providers present in your config. `monitor check-conf
 | `MONITOR_HOME` | Pi install directory (default: `/home/pi/gpio-build-monitor`) |
 | `MONITOR_VENV` | Virtualenv used on the Pi (default: `$MONITOR_HOME/.venv`) |
 | `MONITOR_SERVICE` | systemd unit name (default: `gpio-build-monitor`) |
-| `GITHUB_REPO` | Repository checked for releases (default: `worthington10TW/gpio-build-monitor`) |
+| `GITHUB_REPO` | Repository checked for releases (default: `mzworthington/gpio-build-monitor`) |
 | `MONITOR_UPDATE_LOG` | Auto-update log file (default: `/var/log/gpio-build-monitor/update.log`) |
 
 Logs are written to `<log_dir>/monitor.log` and stdout.

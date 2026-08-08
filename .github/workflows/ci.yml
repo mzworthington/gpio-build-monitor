@@ -89,3 +89,6 @@ jobs:
           else
             .venv/bin/semantic-release version
           fi
+          # `version` builds dist/ and creates the GitHub Release; `publish` uploads
+          # the wheel/sdist assets that bin/update installs on the Pi.
+          .venv/bin/semantic-release publish

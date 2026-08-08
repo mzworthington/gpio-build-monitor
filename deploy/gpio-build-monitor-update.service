@@ -1,6 +1,6 @@
 [Unit]
 Description=GPIO Build Monitor release updater
-Documentation=https://github.com/worthington10TW/gpio-build-monitor
+Documentation=https://github.com/mzworthington/gpio-build-monitor
 Wants=network-online.target
 After=network-online.target
 
