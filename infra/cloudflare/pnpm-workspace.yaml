@@ -1,0 +1,7 @@
+packages:
+  - .
+allowBuilds:
+  protobufjs: true
+minimumReleaseAgeExclude:
+  - '@pulumi/cloudflare'
+

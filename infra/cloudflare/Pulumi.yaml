@@ -1,0 +1,7 @@
+name: gpio-build-monitor
+description: Cloudflare Worker and custom domains for the build monitor UI
+runtime:
+  name: nodejs
+  options:
+    packagemanager: pnpm
+    typescript: true
