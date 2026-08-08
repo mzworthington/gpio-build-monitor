@@ -42,6 +42,8 @@ cd ../infra/cloudflare && pnpm install && pulumi up
 
 - Bootstrap, lint, and pytest
 - JUnit report upload
+- On `main` only: `deploy-worker` (`wrangler deploy` for `monitor.mzworthington.co.uk`)
+- On `main` only: `release` when application code changed since the last tag
 
 ### Releases
 
