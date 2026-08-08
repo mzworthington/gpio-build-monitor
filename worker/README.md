@@ -17,9 +17,9 @@ echo -n "$GITHUB_TOKEN" | pnpm exec wrangler secret put GITHUB_TOKEN --name gpio
 pnpm deploy
 ```
 
-On `main`, CI deploys automatically when `worker/` or `monitor/web/` changes
-(`.github/workflows/deploy-worker.yml`). Manual `pnpm deploy` is still fine for
-hotfixes; secrets on the Worker persist across deploys.
+On `main`, the CI/CD workflow deploys automatically after tests
+(`.github/workflows/ci.yml` `deploy-worker` job). Manual `pnpm deploy` is still
+fine for hotfixes; secrets on the Worker persist across deploys.
 
 Empty `integrations` (or only placeholders) shows **Idle**, not an error. Omit CircleCI
 entries entirely when you have none.
