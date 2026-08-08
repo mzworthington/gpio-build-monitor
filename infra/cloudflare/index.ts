@@ -38,7 +38,7 @@ const zone = cloudflare.getZoneOutput({ zoneId });
  * The Pi is a separate headless GPIO deployment (no tunnel / no custom domain).
  *
  * Script content is deployed with wrangler (`worker/`). Custom domains require
- * at least one Worker deployment before attach — run `pnpm deploy` in worker/
+ * at least one Worker deployment before attach - run `pnpm deploy` in worker/
  * before the first `pulumi up` that creates WorkersCustomDomain.
  */
 const worker = new cloudflare.Worker('monitor', {

@@ -1,7 +1,7 @@
 # Pi setup (headless)
 
 Headless deployment: Raspberry Pi drives **GPIO LEDs** from the same CI config.
-The public website is a **separate** Cloudflare Worker deployment — see
+The public website is a **separate** Cloudflare Worker deployment - see
 [worker/README.md](../worker/README.md) and [infra/cloudflare/README.md](../infra/cloudflare/README.md).
 You do **not** need Cloudflare Tunnel for the hosted UI.
 
@@ -33,7 +33,7 @@ sudo mkdir -p /etc/gpio-build-monitor /var/log/gpio-build-monitor
 sudo cp monitor/integrations.yaml /etc/gpio-build-monitor/integrations.yaml
 sudo cp deploy/env.example /etc/gpio-build-monitor/env
 sudo chmod 600 /etc/gpio-build-monitor/env
-# edit /etc/gpio-build-monitor/env — at least GITHUB_TOKEN / CIRCLE_CI_TOKEN
+# edit /etc/gpio-build-monitor/env - at least GITHUB_TOKEN / CIRCLE_CI_TOKEN
 ```
 
 Validate:

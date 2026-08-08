@@ -5,7 +5,7 @@ Two deployments share this product:
 | Deployment | Where | Role |
 |------------|--------|------|
 | **Hosted** | Cloudflare Worker + custom domain | Public status UI + live WebSocket at `monitor.mzworthington.co.uk` |
-| **Headless** | Raspberry Pi | GPIO LEDs only (see [docs/pi-setup.md](../../docs/pi-setup.md)) — no tunnel required for the website |
+| **Headless** | Raspberry Pi | GPIO LEDs only (see [docs/pi-setup.md](../../docs/pi-setup.md)) - no tunnel required for the website |
 
 This stack owns the **hosted** path only. Zone lifecycle stays in
 [edge-dns](https://github.com/mzworthington/edge-dns).
@@ -23,7 +23,7 @@ and CI action work without changes.
 ## Quick setup
 
 ```bash
-# From repo root — see .env.example
+# From repo root - see .env.example
 bin/setup-cloudflare-hosting.sh
 
 # Custom domains require an existing Worker deployment first:

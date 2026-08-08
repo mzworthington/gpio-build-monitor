@@ -4,10 +4,10 @@ Standards and lifecycle agents live in `~/.agents` ([agent-lifecycle-kit](https:
 
 Before starting work, read:
 
-- `~/.agents/AGENTS.md` — bootstrap and lifecycle routing
-- `~/.agents/CODING_PHILOSOPHY.md` — hexagonal architecture, DDD, vertical slices, clean code
-- `~/.agents/skills/profile-iac/SKILL.md` — secure IaC (when touching `infra/`)
-- `~/.agents/skills/framework-pulumi/SKILL.md` — Pulumi patterns (when touching `infra/`)
+- `~/.agents/AGENTS.md` - bootstrap and lifecycle routing
+- `~/.agents/CODING_PHILOSOPHY.md` - hexagonal architecture, DDD, vertical slices, clean code
+- `~/.agents/skills/profile-iac/SKILL.md` - secure IaC (when touching `infra/`)
+- `~/.agents/skills/framework-pulumi/SKILL.md` - Pulumi patterns (when touching `infra/`)
 
 ## Toolchain
 

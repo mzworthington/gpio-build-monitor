@@ -13,7 +13,7 @@ DRY_RUN=0
 
 CONF="${CONF_FILE:-monitor/integrations.yaml}"
 [[ -f "$CONF" ]] || {
-  echo "Missing $CONF — copy monitor/integrations.example.yaml" >&2
+  echo "Missing $CONF - copy monitor/integrations.example.yaml" >&2
   exit 1
 }
 
@@ -85,12 +85,12 @@ PY
 echo "$OUT"
 
 if [[ "$DRY_RUN" == "1" ]]; then
-  echo "(dry-run — not uploading)" >&2
+  echo "(dry-run - not uploading)" >&2
   exit 0
 fi
 
 if [[ "$(echo "$OUT" | "$PYTHON" -c 'import json,sys; print(len(json.load(sys.stdin).get("integrations") or []))')" == "0" ]]; then
-  echo "No integrations to upload (empty list is OK — Worker will show Idle)." >&2
+  echo "No integrations to upload (empty list is OK - Worker will show Idle)." >&2
 fi
 
 printf '%s' "$OUT" | (cd worker && pnpm exec wrangler secret put MONITOR_CONFIG --name gpio-build-monitor)

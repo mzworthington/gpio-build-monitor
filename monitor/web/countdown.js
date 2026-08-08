@@ -118,7 +118,8 @@
   function tick() {
     updateLastCheckedLabel();
     if (fetching || nextCheckAt == null) {
-      progress.style.strokeDashoffset = "0.25";
+      // CSS owns the quiet fetch spinner; keep inline offset clear of the arc.
+      progress.style.strokeDashoffset = fetching ? "" : "0.12";
       dial.setAttribute(
         "aria-label",
         fetching ? "Checking build status" : "Waiting for next schedule",

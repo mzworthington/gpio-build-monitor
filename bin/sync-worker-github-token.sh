@@ -71,7 +71,7 @@ sys.stdout.write(value)
 echo "✓ Got ${SECRET_KEY} (length ${#TOKEN})"
 
 if [[ "$DRY_RUN" == "1" ]]; then
-  echo "(dry-run — not uploading to Cloudflare)"
+  echo "(dry-run - not uploading to Cloudflare)"
   exit 0
 fi
 

@@ -110,7 +110,7 @@ Only set the variables for providers present in your config. `monitor check-conf
 | `MONITOR_LOG_DIR` | Default log directory when `log_dir` is not set in config |
 | `LOG_LEVEL` | Log level for `bin/serve` (default: `debug`) |
 | `CONF_FILE` | Config path for `bin/serve` (default: `monitor/integrations.yaml`) |
-| — | `bin/serve` also loads a gitignored `.env` from the repo root when present |
+| - | `bin/serve` also loads a gitignored `.env` from the repo root when present |
 | `MONITOR_HOME` | Pi install directory (default: `/home/pi/gpio-build-monitor`) |
 | `MONITOR_VENV` | Virtualenv used on the Pi (default: `$MONITOR_HOME/.venv`) |
 | `MONITOR_SERVICE` | systemd unit name (default: `gpio-build-monitor`) |

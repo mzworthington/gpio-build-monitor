@@ -10,7 +10,7 @@ status on CircleCI, which only sends terminal events).
 |----------|-----|--------|
 | GitHub | `https://monitor.mzworthington.co.uk/webhooks/github` | `workflow_run` (`ping` ACK only) |
 | CircleCI | `https://monitor.mzworthington.co.uk/webhooks/circleci` | `workflow-completed`, `job-completed` |
-| Health | `https://monitor.mzworthington.co.uk/health` | — |
+| Health | `https://monitor.mzworthington.co.uk/health` | - |
 
 ## 1. Create shared secrets
 
@@ -64,7 +64,7 @@ Only if you have CircleCI integrations in `MONITOR_CONFIG`:
 ## Headless Pi
 
 The Pi can still run its own webhook listener on LAN/tunnel for GPIO wake-ups
-(`docs/configuration.md`). That is separate from the hosted Worker URLs above —
+(`docs/configuration.md`). That is separate from the hosted Worker URLs above -
 use the Worker URLs for the public website.
 
 ## Verify

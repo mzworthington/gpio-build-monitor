@@ -1,21 +1,54 @@
 # GPIO build monitor
 
-A small Raspberry Pi that sits on your desk and lights up to show CI status - so you can see at a glance whether your builds need attention, without checking email or keeping another browser tab open.
+Glanceable CI status - on the web, or glowing on your desk.
+
+**Live status:** [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk)
 
 ![Finished build monitor](build_monitor.jpg)
 
-Inspired by the information radiators we used to have in the office. [Read the story behind it →](https://mzworthington.co.uk/guides/i-built-a-build-monitor)
+Inspired by office information radiators. [Read the story →](https://mzworthington.co.uk/guides/i-built-a-build-monitor)
+
+## Two ways to run it
+
+Same aggregation logic; pick the outputs you want.
+
+| | **On the web** | **On a Pi** |
+|---|---|---|
+| **What you get** | Public status UI + live WebSocket | Desk LEDs (optional local UI) |
+| **Where it runs** | Cloudflare Worker | Raspberry Pi GPIO |
+| **See it** | [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) | Hardware on your desk |
+| **Setup** | [worker/README.md](worker/README.md) · [infra/cloudflare](infra/cloudflare/README.md) · [Webhooks](docs/webhooks.md) | [Pi setup](docs/pi-setup.md) · [Hardware](docs/hardware.md) |
+
+You can use either path alone, or both with the same `integrations.yaml` shape. The hosted site does not depend on the Pi (no tunnel required).
+
+### Web (hosted)
+
+Cloudflare Worker polls GitHub Actions / CircleCI, serves the UI, and pushes updates over WebSocket. Optional provider webhooks wake an immediate refresh.
+
+```shell
+cd worker && pnpm install && pnpm deploy
+# secrets + domain: see worker/README.md and infra/cloudflare/README.md
+```
+
+### Pi (headless)
+
+A Raspberry Pi drives LEDs from the same CI config - green / red / yellow / blue / purple at a glance, even when your laptop is closed.
+
+```shell
+git clone https://github.com/mzworthington/gpio-build-monitor.git
+cd gpio-build-monitor
+bin/bootstrap
+# then follow docs/pi-setup.md
+```
 
 ## Why
 
-- **Glanceable** - green, red, yellow, and blue LEDs instead of inbox noise or yet another tab.
-- **Always on** - runs on a Pi, not your laptop. Status is visible even when your machine is closed.
-- **Multi-provider** - GitHub Actions and CircleCI in one place, aggregated across repos.
-- **Low cost** - a Pi Zero and a handful of LEDs; the [full build came in around £20](docs/hardware.md#shopping-list).
+- **Glanceable** - lights and a dial instead of inbox noise or another tab.
+- **Always on** - hosted site stays up; Pi stays lit when your machine is shut.
+- **Multi-provider** - GitHub Actions and CircleCI, aggregated across repos.
+- **Low cost** - Pi Zero and a handful of LEDs; the [full build came in around £20](docs/hardware.md#shopping-list).
 
-## How it works
-
-The monitor fetches your configured repos, aggregates the results, and drives one or more **status outputs**. By default it polls on a fixed interval. Optionally, GitHub and CircleCI webhooks can wake a refresh immediately, with polling kept as a reconcile fallback.
+## How status maps
 
 | Light / UI | Meaning |
 |------------|---------|
@@ -26,20 +59,18 @@ The monitor fetches your configured repos, aggregates the results, and drives on
 | Purple | Connection or API error (polling continues) |
 
 ```
-integrations.yaml  →  poll CI APIs (and optional webhooks)  →  aggregate  →  GPIO LEDs and/or WebSocket UI
+integrations.yaml  →  poll CI APIs (and optional webhooks)  →  aggregate  →  GPIO LEDs and/or web UI
 ```
-
-Outputs are adapters behind a shared `StatusOutput` port, so the Pi LEDs and browser UI stay in sync when both are enabled.
 
 On a dev machine, GPIO is mocked automatically. On the Pi, run with `python -O` to use real hardware.
 
-## Quick start
+## Local development
 
 ```shell
-git clone https://github.com/worthington10TW/gpio-build-monitor
+git clone https://github.com/mzworthington/gpio-build-monitor.git
 cd gpio-build-monitor
 bin/bootstrap
-cp monitor/integrations.example.yaml monitor/integrations.yaml   # if bootstrap didn't
+cp monitor/integrations.example.yaml monitor/integrations.yaml
 # edit integrations.yaml, export GITHUB_TOKEN / CIRCLE_CI_TOKEN
 monitor check-config
 bin/serve
@@ -47,30 +78,24 @@ bin/serve
 
 See [Getting started](docs/getting-started.md) for mise, Make, and CLI details.
 
-## Public UI (Cloudflare)
-
-Two deployments:
-
-- **Hosted:** [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) — Cloudflare Worker (UI + live status). See [worker/README.md](worker/README.md) and [infra/cloudflare](infra/cloudflare/README.md).
-- **Headless:** Raspberry Pi GPIO — [docs/pi-setup.md](docs/pi-setup.md). No tunnel required for the website.
-
 ## Documentation
 
 | Guide | Contents |
 |-------|----------|
 | [Getting started](docs/getting-started.md) | Local setup, CLI, development workflow |
-| [Pi setup](docs/pi-setup.md) | Raspberry Pi + Cloudflare Tunnel checklist |
+| [Pi setup](docs/pi-setup.md) | Headless Raspberry Pi + systemd |
 | [Webhooks](docs/webhooks.md) | GitHub/CircleCI webhooks on the hosted Worker |
 | [Configuration](docs/configuration.md) | `integrations.yaml`, tokens, pins, logging |
 | [Raspberry Pi](docs/raspberry-pi.md) | GPIO reference, systemd, auto-updates |
 | [Hardware](docs/hardware.md) | Pin map, shopping list, build photos |
 | [Development](docs/development.md) | Tests, releases, CI, security scanning |
-| [Cloudflare](infra/cloudflare/README.md) | Tunnel + DNS Pulumi |
+| [Hosted Worker](worker/README.md) | Deploy the public UI |
+| [Cloudflare infra](infra/cloudflare/README.md) | Worker custom domain (Pulumi) |
 
 ## Install from GitHub
 
 ```shell
-pip install git+https://github.com/worthington10TW/gpio-build-monitor
+pip install git+https://github.com/mzworthington/gpio-build-monitor
 monitor run --help
 ```
 
