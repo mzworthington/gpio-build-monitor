@@ -1,5 +1,5 @@
 {
-  "poll_in_seconds": 30,
+  "poll_in_seconds": 60,
   "integrations": [
     {
       "type": "GITHUB",
