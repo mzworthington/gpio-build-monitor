@@ -2,6 +2,35 @@
 
 <!-- version list -->
 
+## v0.5.3 (2026-08-08)
+
+### Chores
+
+- Poll CI once per minute instead of every 15 seconds
+  ([#14](https://github.com/mzworthington/gpio-build-monitor/pull/14),
+  [`7277c8f`](https://github.com/mzworthington/gpio-build-monitor/commit/7277c8fd93ab1c23f96265b79665a27980e6f717))
+
+### Continuous Integration
+
+- Deploy Cloudflare Worker when UI or worker code changes
+  ([#13](https://github.com/mzworthington/gpio-build-monitor/pull/13),
+  [`dafa148`](https://github.com/mzworthington/gpio-build-monitor/commit/dafa1483adf243c5ae86ea50e7e7f86c6e8dbd81))
+
+- Deploy hosted Worker from the main CI/CD workflow
+  ([#13](https://github.com/mzworthington/gpio-build-monitor/pull/13),
+  [`dafa148`](https://github.com/mzworthington/gpio-build-monitor/commit/dafa1483adf243c5ae86ea50e7e7f86c6e8dbd81))
+
+- Fold Worker deploy into the main CI/CD workflow
+  ([#13](https://github.com/mzworthington/gpio-build-monitor/pull/13),
+  [`dafa148`](https://github.com/mzworthington/gpio-build-monitor/commit/dafa1483adf243c5ae86ea50e7e7f86c6e8dbd81))
+
+### Documentation
+
+- Note deploy-worker in the CI/CD job list
+  ([#13](https://github.com/mzworthington/gpio-build-monitor/pull/13),
+  [`dafa148`](https://github.com/mzworthington/gpio-build-monitor/commit/dafa1483adf243c5ae86ea50e7e7f86c6e8dbd81))
+
+
 ## v0.5.2 (2026-08-08)
 
 ### Bug Fixes
