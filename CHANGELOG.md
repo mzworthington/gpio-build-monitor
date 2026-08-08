@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.5.1 (2026-08-08)
+
+### Refactoring
+
+- Enhance documentation and clarify deployment structure
+  ([`ff3715a`](https://github.com/mzworthington/gpio-build-monitor/commit/ff3715a9f59e89c8a17ef3b7759a6b714fe596fc))
+
+
 ## v0.5.0 (2026-08-08)
 
 ### Features
