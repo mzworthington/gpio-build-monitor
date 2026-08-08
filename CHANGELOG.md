@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v0.5.2 (2026-08-08)
+
+### Bug Fixes
+
+- Publish release wheels so Pi auto-updates can install
+  ([#12](https://github.com/mzworthington/gpio-build-monitor/pull/12),
+  [`f64faae`](https://github.com/mzworthington/gpio-build-monitor/commit/f64faaed8980ccdb31e4bbe1b5dab8f1eca01cf3))
+
+
 ## v0.5.1 (2026-08-08)
 
 ### Refactoring
