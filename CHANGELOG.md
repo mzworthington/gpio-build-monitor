@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.6.1 (2026-08-09)
+
+### Refactoring
+
+- Reorganize issue and repository sections in HTML templates
+  ([`b6a6def`](https://github.com/mzworthington/gpio-build-monitor/commit/b6a6def59f3ec6799a6a58ea142d08ac056abd86))
+
+
 ## v0.6.0 (2026-08-09)
 
 ### Chores
