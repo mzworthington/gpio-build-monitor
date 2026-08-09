@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.7.0 (2026-08-09)
+
+### Features
+
+- Enhance bin/serve with WebSocket UI and HTML client support
+  ([`94dbe85`](https://github.com/mzworthington/gpio-build-monitor/commit/94dbe857468ddfff7acae45ecf911af411420b5d))
+
+
 ## v0.6.1 (2026-08-09)
 
 ### Refactoring
