@@ -12,9 +12,12 @@ status on CircleCI, which only sends terminal events).
 | CircleCI | `https://monitor.mzworthington.co.uk/webhooks/circleci` | `workflow-completed`, `job-completed` |
 | Health | `https://monitor.mzworthington.co.uk/health` | - |
 
-## 1. Create shared secrets
+## 1. (Optional) Shared secrets
 
-Pick random secrets (do not reuse the GitHub API PAT):
+Webhook signature verification is optional on the Worker. If you omit
+`GITHUB_WEBHOOK_SECRET`, deliveries are accepted without HMAC checks.
+
+To enforce signatures, pick a random secret (do not reuse the GitHub API PAT):
 
 ```bash
 openssl rand -hex 32   # → GITHUB_WEBHOOK_SECRET
@@ -46,7 +49,7 @@ For each repo (or once on the org):
 1. **Settings → Webhooks → Add webhook**
 2. Payload URL: `https://monitor.mzworthington.co.uk/webhooks/github`
 3. Content type: `application/json`
-4. Secret: same value as `GITHUB_WEBHOOK_SECRET`
+4. Secret: optional — only if you set `GITHUB_WEBHOOK_SECRET` on the Worker
 5. Events: **Let me select…** → enable **Workflow runs**
 6. Active: checked → Add webhook
 

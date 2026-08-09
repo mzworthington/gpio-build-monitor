@@ -79,27 +79,21 @@ export async function handleWebhook(
       ? secrets.GITHUB_WEBHOOK_SECRET
       : secrets.CIRCLE_CI_WEBHOOK_SECRET;
 
-  if (!secret) {
-    return {
-      decision: 'ignore',
-      response: new Response(
-        `${provider === 'github' ? 'GitHub' : 'CircleCI'} webhooks are not configured`,
-        { status: 503 },
-      ),
-    };
-  }
-
   const body = await request.arrayBuffer();
-  const ok =
-    provider === 'github'
-      ? await verifyGitHubSignature(body, secret, request.headers.get('X-Hub-Signature-256'))
-      : await verifyCircleSignature(body, secret, request.headers.get('circleci-signature'));
 
-  if (!ok) {
-    return {
-      decision: 'ignore',
-      response: new Response('invalid signature', { status: 403 }),
-    };
+  // Signature check is optional: only enforce when a Worker secret is configured.
+  if (secret) {
+    const ok =
+      provider === 'github'
+        ? await verifyGitHubSignature(body, secret, request.headers.get('X-Hub-Signature-256'))
+        : await verifyCircleSignature(body, secret, request.headers.get('circleci-signature'));
+
+    if (!ok) {
+      return {
+        decision: 'ignore',
+        response: new Response('invalid signature', { status: 403 }),
+      };
+    }
   }
 
   const eventName =
