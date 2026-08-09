@@ -92,12 +92,17 @@ class CircleCI(IntegrationAdapter, ABC):
 
     @staticmethod
     def _map_status(status: str) -> CiResult:
-        if status in {"running", "on_hold", "failing"}:
+        if status in {"running", "failing"}:
             return CiResult.RUNNING
+        if status == "on_hold":
+            return CiResult.APPROVAL
         if status == "success":
             return CiResult.PASS
         if status in {"failed", "error"}:
             return CiResult.FAIL
+        # cancelled / canceled / not_run — do not pollute the aggregate
+        if status in {"canceled", "cancelled", "not_run", "unauthorized"}:
+            return CiResult.PASS
         return CiResult.UNKNOWN
 
 

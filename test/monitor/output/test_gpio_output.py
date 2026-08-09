@@ -45,11 +45,11 @@ class TestGpioStatusOutput:
         assert call(Lights.RED) == self.board.on.call_args_list[0]
 
     @pytest.mark.asyncio
-    async def test_unknown_turns_on_green_and_red(self):
+    async def test_unknown_turns_on_red_only(self):
         await self.output.publish(Result.UNKNOWN, is_running=False)
 
-        assert call(Lights.GREEN) == self.board.on.call_args_list[0]
-        assert call(Lights.RED) == self.board.on.call_args_list[1]
+        assert call(Lights.GREEN) == self.board.off.call_args_list[1]
+        assert call(Lights.RED) == self.board.on.call_args_list[0]
 
     @pytest.mark.asyncio
     async def test_connection_error_turns_on_purple(self):
@@ -58,6 +58,14 @@ class TestGpioStatusOutput:
         assert call(Lights.PURPLE) == self.board.on.call_args_list[0]
         assert call(Lights.GREEN) == self.board.off.call_args_list[0]
         assert call(Lights.RED) == self.board.off.call_args_list[1]
+
+    @pytest.mark.asyncio
+    async def test_approval_pulses_yellow(self):
+        await self.output.publish(Result.APPROVAL, is_running=False)
+
+        assert call(Lights.GREEN) == self.board.off.call_args_list[1]
+        assert call(Lights.RED) == self.board.off.call_args_list[2]
+        self.board.pulse.assert_awaited_once_with(Lights.YELLOW)
 
     @pytest.mark.asyncio
     async def test_pulse_when_running(self):

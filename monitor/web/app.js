@@ -19,31 +19,43 @@
   const summaries = {
     PASS: "All builds passed",
     FAIL: "At least one build failed",
-    UNKNOWN: "Mixed or unknown status",
+    UNKNOWN: "Unresolved build status",
+    APPROVAL: "Waiting for human approval",
     CONNECTION_ERROR: "Could not reach a CI provider",
     NONE: "No build results yet",
     RUNNING: "Build in progress",
+    WAITING: "Waiting for another pipeline",
   };
 
   const statusWords = {
     PASS: "Passing",
     FAIL: "Failing",
-    UNKNOWN: "Mixed",
+    UNKNOWN: "Unknown",
+    APPROVAL: "Approval",
     CONNECTION_ERROR: "Offline",
     NONE: "Idle",
     RUNNING: "Running",
+    WAITING: "Waiting",
   };
 
-  const attentionStatuses = new Set(["FAIL", "CONNECTION_ERROR", "UNKNOWN"]);
-  const runningOverrides = new Set(["PASS", "NONE", "UNKNOWN"]);
+  const attentionStatuses = new Set(["FAIL", "CONNECTION_ERROR", "APPROVAL", "UNKNOWN"]);
+  const inProgressStatuses = new Set(["RUNNING", "WAITING"]);
+  const inProgressOverrides = new Set(["PASS", "NONE", "UNKNOWN"]);
   const expandedRepos = new Set();
   let lastBuildsKey = "";
   let lastStatusKey = "";
   let quietFetch = false;
 
-  function displayStatus(status, isRunning, fetching) {
+  function displayStatus(status, isRunning, fetching, builds) {
     if (fetching) return status;
-    if (isRunning && runningOverrides.has(status)) return "RUNNING";
+    if (status === "APPROVAL" || status === "FAIL" || status === "CONNECTION_ERROR") {
+      return status;
+    }
+    const buildStatuses = new Set((builds || []).map((b) => b.status));
+    if (buildStatuses.has("APPROVAL")) return "APPROVAL";
+    if (buildStatuses.has("RUNNING")) return "RUNNING";
+    if (buildStatuses.has("WAITING")) return "WAITING";
+    if (isRunning && inProgressOverrides.has(status)) return "RUNNING";
     return status;
   }
 
@@ -152,20 +164,24 @@
 
     return [...byRepo.entries()]
       .map(([repo, repoBuilds]) => {
-        const settled = repoBuilds.filter((b) => b.status !== "RUNNING");
+        const settled = repoBuilds.filter((b) => !inProgressStatuses.has(b.status));
         let status = "NONE";
-        if (settled.some((b) => b.status === "CONNECTION_ERROR")) {
-          status = "CONNECTION_ERROR";
-        } else if (settled.some((b) => b.status === "FAIL")) {
+        if (settled.some((b) => b.status === "FAIL")) {
           status = "FAIL";
+        } else if (settled.some((b) => b.status === "CONNECTION_ERROR")) {
+          status = "CONNECTION_ERROR";
+        } else if (settled.some((b) => b.status === "APPROVAL")) {
+          status = "APPROVAL";
         } else if (settled.length && settled.every((b) => b.status === "PASS")) {
           status = "PASS";
         } else if (settled.length) {
           status = "UNKNOWN";
         }
-        const isRunning = repoBuilds.some((b) => b.status === "RUNNING");
+        const isRunning = repoBuilds.some((b) => inProgressStatuses.has(b.status));
         if (status === "NONE" && isRunning) {
-          status = "RUNNING";
+          const hasRunning = repoBuilds.some((b) => b.status === "RUNNING");
+          const hasWaiting = repoBuilds.some((b) => b.status === "WAITING");
+          status = !hasRunning && hasWaiting ? "WAITING" : "RUNNING";
         }
         const workflows = [...repoBuilds].sort((a, b) =>
           String(a.workflow || "").localeCompare(String(b.workflow || "")),
@@ -358,7 +374,7 @@
       applyQuietFetch(false);
     }
 
-    const shown = displayStatus(status, isRunning, false);
+    const shown = displayStatus(status, isRunning, false, payload.builds);
     const nextStatusKey = statusKey(status, isRunning, shown);
     const nextBuildsKey = buildsKey(payload.builds);
     const statusChanged = nextStatusKey !== lastStatusKey;
@@ -366,10 +382,11 @@
 
     if (statusChanged) {
       lastStatusKey = nextStatusKey;
+      const awaiting = shown === "RUNNING" || shown === "WAITING" || shown === "APPROVAL";
       setLight("purple", status === "CONNECTION_ERROR" ? "on" : "off");
-      setLight("green", status === "PASS" || status === "UNKNOWN" ? "on" : "off");
+      setLight("green", status === "PASS" && !awaiting ? "on" : "off");
       setLight("red", status === "FAIL" || status === "UNKNOWN" ? "on" : "off");
-      setLight("yellow", isRunning ? "pulse" : "off");
+      setLight("yellow", isRunning || shown === "WAITING" || shown === "APPROVAL" ? "pulse" : "off");
       setLight("blue", "off");
 
       if (statusWord) {
@@ -380,8 +397,8 @@
         }
       }
 
-      if (shown === "RUNNING") {
-        summary.textContent = summaries.RUNNING;
+      if (shown === "RUNNING" || shown === "WAITING" || shown === "APPROVAL") {
+        summary.textContent = summaries[shown];
       } else {
         summary.textContent = summaries[status] || summaries.NONE;
         if (isRunning) {

@@ -11,12 +11,21 @@ class CiResult(Enum):
     PASS = "PASS"
     FAIL = "FAIL"
     RUNNING = "RUNNING"
+    WAITING = "WAITING"
+    APPROVAL = "APPROVAL"
     UNKNOWN = "UNKNOWN"
     CONNECTION_ERROR = "CONNECTION_ERROR"
     NONE = "NONE"
 
     def __eq__(self, other):
         return self.value == other.value
+
+
+# In-progress statuses: excluded from settled rollup; drive the yellow "run" light.
+IN_PROGRESS_VALUES = frozenset({
+    CiResult.RUNNING.value,
+    CiResult.WAITING.value,
+})
 
 
 class IntegrationType(Enum):

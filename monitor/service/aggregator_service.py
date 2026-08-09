@@ -7,13 +7,19 @@ from typing import TypedDict
 
 from aiohttp import ClientSession
 
-from monitor.ci_gateway.constants import BuildStatus, CiResult, IntegrationAdapter
+from monitor.ci_gateway.constants import (
+    IN_PROGRESS_VALUES,
+    BuildStatus,
+    CiResult,
+    IntegrationAdapter,
+)
 
 
 class Result(enum.Enum):
     PASS = "PASS"
     FAIL = "FAIL"
     UNKNOWN = "UNKNOWN"
+    APPROVAL = "APPROVAL"
     CONNECTION_ERROR = "CONNECTION_ERROR"
     NONE = "NONE"
 
@@ -29,31 +35,45 @@ class BuildDetail(TypedDict):
 
 
 def get_status(results: list[BuildStatus]) -> Result:
+    """Roll up workflow results: FAIL > fetch error > approval > PASS."""
     if len(results) == 0:
         return Result.NONE
-    if any(r['status'] == CiResult.CONNECTION_ERROR for r in results):
-        return Result.CONNECTION_ERROR
     if any(r['status'] == CiResult.FAIL for r in results):
         return Result.FAIL
+    if any(r['status'] == CiResult.CONNECTION_ERROR for r in results):
+        return Result.CONNECTION_ERROR
+    if any(r['status'] == CiResult.APPROVAL for r in results):
+        return Result.APPROVAL
     if all(r['status'] == CiResult.PASS for r in results):
         return Result.PASS
     return Result.UNKNOWN
 
 
 def get_status_from_details(builds: list[BuildDetail]) -> Result:
-    non_running = [
+    """Roll up build details.
+
+    Priority: FAIL > fetch/CONNECTION_ERROR > APPROVAL > all PASS.
+    RUNNING/WAITING are tracked via ``is_running`` and elevated in the UI.
+    """
+    settled = [
         build for build in builds
-        if build["status"] != CiResult.RUNNING.value
+        if build["status"] not in IN_PROGRESS_VALUES
     ]
-    if not non_running:
+    if not settled:
         return Result.NONE
-    if any(build["status"] == CiResult.CONNECTION_ERROR.value for build in non_running):
-        return Result.CONNECTION_ERROR
-    if any(build["status"] == CiResult.FAIL.value for build in non_running):
+    if any(build["status"] == CiResult.FAIL.value for build in settled):
         return Result.FAIL
-    if all(build["status"] == CiResult.PASS.value for build in non_running):
+    if any(build["status"] == CiResult.CONNECTION_ERROR.value for build in settled):
+        return Result.CONNECTION_ERROR
+    if any(build["status"] == CiResult.APPROVAL.value for build in settled):
+        return Result.APPROVAL
+    if all(build["status"] == CiResult.PASS.value for build in settled):
         return Result.PASS
     return Result.UNKNOWN
+
+
+def builds_in_progress(builds: list[BuildDetail]) -> bool:
+    return any(build["status"] in IN_PROGRESS_VALUES for build in builds)
 
 
 class OverallStatus(TypedDict):
@@ -64,13 +84,14 @@ class OverallStatus(TypedDict):
 
 
 def attention_builds(builds: list[BuildDetail]) -> list[BuildDetail]:
-    """Builds that should be called out in the UI (failed / error / unknown)."""
+    """Builds that should be called out in the UI (failed / error / approval / unknown)."""
     return [
         build
         for build in builds
         if build["status"] in {
             CiResult.FAIL.value,
             CiResult.CONNECTION_ERROR.value,
+            CiResult.APPROVAL.value,
             CiResult.UNKNOWN.value,
         }
     ]
@@ -94,9 +115,15 @@ def repo_summaries(builds: list[BuildDetail]) -> list[RepoSummary]:
     summaries: list[RepoSummary] = []
     for repo, repo_builds in by_repo.items():
         status = get_status_from_details(repo_builds).value
-        is_running = any(b["status"] == CiResult.RUNNING.value for b in repo_builds)
+        is_running = builds_in_progress(repo_builds)
         if status == Result.NONE.value and is_running:
-            status = CiResult.RUNNING.value
+            # Prefer WAITING when nothing is actively executing yet.
+            if any(b["status"] == CiResult.WAITING.value for b in repo_builds) and not any(
+                b["status"] == CiResult.RUNNING.value for b in repo_builds
+            ):
+                status = CiResult.WAITING.value
+            else:
+                status = CiResult.RUNNING.value
         url = f"https://github.com/{repo}" if "/" in repo else ""
         workflows = sorted(
             repo_builds,
@@ -132,7 +159,7 @@ class AggregatorService:
 
         return OverallStatus(
             type="AGGREGATED",
-            is_running=any(build["status"] == CiResult.RUNNING.value for build in builds),
+            is_running=builds_in_progress(builds),
             status=get_status_from_details(builds),
             builds=builds,
         )

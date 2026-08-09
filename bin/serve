@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Local build monitor + status UI.
+# Starts `monitor run` (GPIO mock + WebSocket) and the HTML client frontend.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -18,7 +20,128 @@ if [[ -f "$ROOT/.env" ]]; then
   set +a
 fi
 
-exec python -m monitor run \
-  --log-level "${LOG_LEVEL:-debug}" \
-  --conf "${CONF_FILE:-monitor/integrations.yaml}" \
-  "$@"
+CONF_FILE="${CONF_FILE:-monitor/integrations.yaml}"
+LOG_LEVEL="${LOG_LEVEL:-debug}"
+UI_HOST="${UI_HOST:-127.0.0.1}"
+UI_PORT="${UI_PORT:-8090}"
+# Set SERVE_CLIENT=0 to skip the Jinja HTML client (WebSocket UI alone still serves /).
+SERVE_CLIENT="${SERVE_CLIENT:-1}"
+
+monitor_pid=""
+client_pid=""
+
+cleanup() {
+  local exit_code=$?
+  trap - EXIT INT TERM
+  if [[ -n "${client_pid}" ]] && kill -0 "${client_pid}" 2>/dev/null; then
+    kill "${client_pid}" 2>/dev/null || true
+    wait "${client_pid}" 2>/dev/null || true
+  fi
+  if [[ -n "${monitor_pid}" ]] && kill -0 "${monitor_pid}" 2>/dev/null; then
+    kill "${monitor_pid}" 2>/dev/null || true
+    wait "${monitor_pid}" 2>/dev/null || true
+  fi
+  exit "${exit_code}"
+}
+trap cleanup EXIT INT TERM
+
+read_ws() {
+  python - "$CONF_FILE" <<'PY'
+import sys
+from pathlib import Path
+
+import yaml
+
+path = Path(sys.argv[1])
+if not path.is_file():
+    print(f"error\tConfig file not found: {path}", file=sys.stderr)
+    sys.exit(1)
+
+raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+ws = ((raw.get("outputs") or {}).get("websocket")) or {}
+enabled = bool(ws.get("enabled", False)) if isinstance(ws, dict) else False
+host = str((ws or {}).get("host") or "127.0.0.1")
+try:
+    port = int((ws or {}).get("port") or 8080)
+except (TypeError, ValueError):
+    port = 8080
+# Browsers on this machine should hit loopback even when the server binds 0.0.0.0.
+browse_host = "127.0.0.1" if host in {"0.0.0.0", "::", "[::]"} else host
+print(f"{'1' if enabled else '0'}\t{browse_host}\t{port}")
+PY
+}
+
+ws_info="$(read_ws)"
+IFS=$'\t' read -r ws_enabled ws_host ws_port <<<"${ws_info}"
+
+echo "Starting monitor (conf=${CONF_FILE}, log=${LOG_LEVEL})"
+python -m monitor run \
+  --log-level "${LOG_LEVEL}" \
+  --conf "${CONF_FILE}" \
+  "$@" &
+monitor_pid=$!
+
+if [[ "${ws_enabled}" != "1" ]]; then
+  echo "WebSocket UI disabled in ${CONF_FILE} (outputs.websocket.enabled)."
+  echo "Enable it to serve the status page, or run: monitor client --server <ws-url>"
+  wait "${monitor_pid}"
+  exit $?
+fi
+
+ws_url="http://${ws_host}:${ws_port}"
+echo "WebSocket status UI: ${ws_url}/"
+
+# Wait until the monitor WebSocket port accepts connections (or the monitor exits).
+python - "${ws_host}" "${ws_port}" "${monitor_pid}" <<'PY'
+import errno
+import os
+import socket
+import sys
+import time
+
+host, port_s, monitor_pid_s = sys.argv[1], sys.argv[2], sys.argv[3]
+port = int(port_s)
+monitor_pid = int(monitor_pid_s)
+deadline = time.time() + 30
+while time.time() < deadline:
+    try:
+        os.kill(monitor_pid, 0)
+    except OSError:
+        sys.exit(1)
+    try:
+        with socket.create_connection((host, port), timeout=0.5):
+            sys.exit(0)
+    except OSError as exc:
+        if exc.errno not in {errno.ECONNREFUSED, errno.ETIMEDOUT, errno.EHOSTUNREACH}:
+            pass
+    time.sleep(0.2)
+print(f"Timed out waiting for WebSocket UI on {host}:{port}", file=sys.stderr)
+sys.exit(1)
+PY
+
+if [[ "${SERVE_CLIENT}" == "0" ]]; then
+  echo "HTML client skipped (SERVE_CLIENT=0). Open ${ws_url}/"
+  wait "${monitor_pid}"
+  exit $?
+fi
+
+echo "HTML client UI:      http://${UI_HOST}:${UI_PORT}/"
+python -m monitor client \
+  --server "${ws_url}" \
+  --host "${UI_HOST}" \
+  --port "${UI_PORT}" \
+  --log-level "${LOG_LEVEL}" &
+client_pid=$!
+
+# Exit when either process stops.
+while true; do
+  if ! kill -0 "${monitor_pid}" 2>/dev/null; then
+    wait "${monitor_pid}" || true
+    exit 1
+  fi
+  if ! kill -0 "${client_pid}" 2>/dev/null; then
+    wait "${client_pid}" || true
+    exit 1
+  fi
+  sleep 1
+done

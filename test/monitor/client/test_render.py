@@ -64,6 +64,47 @@ def test_renderer_marks_pass_and_running():
     assert "app.js" in html
 
 
+def test_renderer_elevates_waiting_for_pipeline():
+    html = StatusPageRenderer().render(
+        status="PASS",
+        fetching=False,
+        is_running=True,
+        connected=True,
+        builds=[{
+            "repo": "mzworthington/edge-dns",
+            "workflow": "Pulumi",
+            "status": "WAITING",
+            "url": "",
+        }],
+    )
+
+    assert 'data-status="WAITING"' in html
+    assert ">Waiting<" in html
+    assert "Waiting for another pipeline" in html
+    assert "Passing" not in html
+
+
+def test_renderer_elevates_approval():
+    html = StatusPageRenderer().render(
+        status="APPROVAL",
+        fetching=False,
+        is_running=False,
+        connected=True,
+        builds=[{
+            "repo": "org/repo",
+            "workflow": "Deploy",
+            "status": "APPROVAL",
+            "url": "",
+        }],
+    )
+
+    assert 'data-status="APPROVAL"' in html
+    assert ">Approval<" in html
+    assert "Waiting for human approval" in html
+    assert "Needs attention" in html
+    assert "APPROVAL" in html
+
+
 def test_renderer_elevates_running_as_primary():
     html = StatusPageRenderer().render(
         status="PASS",
@@ -83,7 +124,8 @@ def test_renderer_elevates_running_as_primary():
     assert "Build in progress" in html
     assert "Passing" not in html
     assert "· build running" not in html
-    assert 'class="light on" data-light="green"' in html
+    assert 'data-light="green"' in html
+    assert 'class="light on" data-light="green"' not in html
     assert 'class="light on pulse" data-light="yellow"' in html
 
 

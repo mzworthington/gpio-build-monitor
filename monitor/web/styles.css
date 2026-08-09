@@ -52,7 +52,9 @@ body[data-status="FAIL"] {
 }
 
 body[data-status="UNKNOWN"],
-body[data-status="RUNNING"] {
+body[data-status="RUNNING"],
+body[data-status="WAITING"],
+body[data-status="APPROVAL"] {
   --ring: var(--yellow);
   --accent-wash: rgba(239, 193, 90, 0.11);
 }
@@ -291,11 +293,15 @@ h1 {
   transition: color 0.35s ease, text-shadow 0.35s ease;
 }
 
-body[data-status="RUNNING"] .status-word {
+body[data-status="RUNNING"] .status-word,
+body[data-status="WAITING"] .status-word,
+body[data-status="APPROVAL"] .status-word {
   text-shadow: 0 0 1.25rem color-mix(in srgb, var(--yellow) 55%, transparent);
 }
 
-body[data-status="RUNNING"] .status-dial-core {
+body[data-status="RUNNING"] .status-dial-core,
+body[data-status="WAITING"] .status-dial-core,
+body[data-status="APPROVAL"] .status-dial-core {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 0 2.5rem color-mix(in srgb, var(--yellow) 22%, transparent);
@@ -468,7 +474,9 @@ body[data-status="RUNNING"] .status-dial-core {
   --accent: var(--red);
 }
 
-.repo-unknown {
+.repo-unknown,
+.repo-waiting,
+.repo-approval {
   --accent: var(--yellow);
 }
 
@@ -477,7 +485,9 @@ body[data-status="RUNNING"] .status-dial-core {
 }
 
 .repo-running,
-.repo-row.is-running:not(.repo-fail):not(.repo-connection_error):not(.repo-unknown) {
+.repo-waiting,
+.repo-approval,
+.repo-row.is-running:not(.repo-fail):not(.repo-connection_error):not(.repo-unknown):not(.repo-approval) {
   --accent: var(--yellow);
 }
 
@@ -611,7 +621,9 @@ body[data-status="RUNNING"] .status-dial-core {
   --wf-accent: var(--purple);
 }
 
-.workflow-running {
+.workflow-running,
+.workflow-waiting,
+.workflow-approval {
   --wf-accent: var(--yellow);
 }
 
@@ -674,7 +686,8 @@ body[data-status="RUNNING"] .status-dial-core {
   transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
-.issue-unknown {
+.issue-unknown,
+.issue-approval {
   --accent: var(--yellow);
 }
 

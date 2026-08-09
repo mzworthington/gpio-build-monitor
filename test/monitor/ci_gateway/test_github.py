@@ -63,7 +63,7 @@ class TestGithub:
             "name": "amazing-workflow"
         }"""
         result = GitHubAction.map_result(json.loads(latest))
-        assert result["status"] == Result.RUNNING
+        assert result["status"] == Result.WAITING
 
     def test_pass(self):
         latest = """{
@@ -101,17 +101,65 @@ class TestGithub:
         result = GitHubAction.map_result(json.loads(latest))
         assert result["status"] == Result.UNKNOWN
 
-    def test_unknown_completed(self):
+    def test_action_required_is_approval(self):
         latest = """{
             "id": 448533827,
-            "status": "something",
-            "conclusion": "completed",
+            "status": "completed",
+            "conclusion": "action_required",
             "created_at": "2020-12-28T09:23:57Z",
             "html_url": "http://super-thing.com",
             "name": "amazing-workflow"
         }"""
         result = GitHubAction.map_result(json.loads(latest))
-        assert result["status"] == Result.UNKNOWN
+        assert result["status"] == Result.APPROVAL
+
+    def test_cancelled_is_ignored_as_pass(self):
+        latest = """{
+            "id": 448533827,
+            "status": "completed",
+            "conclusion": "cancelled",
+            "created_at": "2020-12-28T09:23:57Z",
+            "html_url": "http://super-thing.com",
+            "name": "Pulumi"
+        }"""
+        result = GitHubAction.map_result(json.loads(latest))
+        assert result["status"] == Result.PASS
+
+    def test_skipped_is_ignored_as_pass(self):
+        latest = """{
+            "id": 448533827,
+            "status": "completed",
+            "conclusion": "skipped",
+            "created_at": "2020-12-28T09:23:57Z",
+            "html_url": "http://super-thing.com",
+            "name": "optional"
+        }"""
+        result = GitHubAction.map_result(json.loads(latest))
+        assert result["status"] == Result.PASS
+
+    def test_timed_out_is_fail(self):
+        latest = """{
+            "id": 448533827,
+            "status": "completed",
+            "conclusion": "timed_out",
+            "created_at": "2020-12-28T09:23:57Z",
+            "html_url": "http://super-thing.com",
+            "name": "slow"
+        }"""
+        result = GitHubAction.map_result(json.loads(latest))
+        assert result["status"] == Result.FAIL
+
+    def test_waiting_for_pipeline(self):
+        latest = """{
+            "id": 448533827,
+            "status": "waiting",
+            "conclusion": null,
+            "created_at": "2020-12-28T09:23:57Z",
+            "html_url": "http://super-thing.com",
+            "name": "deploy"
+        }"""
+        result = GitHubAction.map_result(json.loads(latest))
+        assert result["status"] == Result.WAITING
 
     @pytest.mark.asyncio
     async def test_gets_latest_from_git(self):

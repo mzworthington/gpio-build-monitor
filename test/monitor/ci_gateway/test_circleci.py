@@ -47,6 +47,16 @@ class TestCircleCi:
         result = CircleCI.map_result(latest, "http://superurl.com")
         assert result["status"] == Result.RUNNING
 
+    def test_on_hold_is_approval(self):
+        latest = {
+            "id": "wf-1234",
+            "name": "blah",
+            "status": "on_hold",
+            "created_at": "2020-12-28T09:23:57Z",
+        }
+        result = CircleCI.map_result(latest, "http://superurl.com")
+        assert result["status"] == Result.APPROVAL
+
     def test_pass(self):
         latest = {
             "id": "wf-1234",

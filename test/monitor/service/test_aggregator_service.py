@@ -26,6 +26,37 @@ class StubIntegration:
 
 
 @pytest.mark.asyncio
+async def test_waiting_counts_as_in_progress():
+    integrations = [
+        StubIntegration('a', 'b', IntegrationType.GITHUB, [
+            dict(status=CiResult.PASS, type=IntegrationType.GITHUB, vcs='', id='', name='', start=''),
+        ]),
+        StubIntegration('c', 'd', IntegrationType.GITHUB, [
+            dict(status=CiResult.WAITING, type=IntegrationType.GITHUB, vcs='', id='', name='', start=''),
+        ]),
+    ]
+    async with aiohttp.ClientSession() as session:
+        result = await AggregatorService(integrations).run(session)
+    assert result["is_running"] is True
+    assert result["status"] == Result.PASS
+
+
+@pytest.mark.asyncio
+async def test_approval_elevates_status():
+    integrations = [
+        StubIntegration('a', 'b', IntegrationType.GITHUB, [
+            dict(status=CiResult.PASS, type=IntegrationType.GITHUB, vcs='', id='', name='', start=''),
+        ]),
+        StubIntegration('c', 'd', IntegrationType.GITHUB, [
+            dict(status=CiResult.APPROVAL, type=IntegrationType.GITHUB, vcs='', id='', name='Deploy', start=''),
+        ]),
+    ]
+    async with aiohttp.ClientSession() as session:
+        result = await AggregatorService(integrations).run(session)
+    assert result["status"] == Result.APPROVAL
+
+
+@pytest.mark.asyncio
 async def test_is_running():
     integrations = [
         StubIntegration('a', 'b', IntegrationType.GITHUB, [
@@ -126,6 +157,52 @@ async def test_connection_error_is_reported():
     async with aiohttp.ClientSession() as session:
         result = await AggregatorService(integrations).run(session)
     assert result["status"] == Result.CONNECTION_ERROR
+
+
+@pytest.mark.asyncio
+async def test_fail_beats_connection_error():
+    integrations = [
+        StubIntegration('a', 'b', IntegrationType.GITHUB, [
+            dict(status=CiResult.FAIL, type=IntegrationType.GITHUB, vcs='', id='', name='CI', start=''),
+        ]),
+        StubIntegration('c', 'd', IntegrationType.GITHUB, error=RuntimeError('offline')),
+    ]
+    async with aiohttp.ClientSession() as session:
+        result = await AggregatorService(integrations).run(session)
+    assert result["status"] == Result.FAIL
+
+
+@pytest.mark.asyncio
+async def test_cancelled_pass_does_not_make_mixed():
+    """Cancelled workflows map to PASS and must not produce UNKNOWN/Mixed."""
+    from monitor.ci_gateway.github import GitHubAction
+
+    cancelled = GitHubAction.map_result({
+        "id": 1,
+        "status": "completed",
+        "conclusion": "cancelled",
+        "created_at": "2020-12-28T09:23:57Z",
+        "html_url": "https://example.com",
+        "name": "Pulumi",
+    })
+    integrations = [
+        StubIntegration('a', 'b', IntegrationType.GITHUB, [
+            dict(status=CiResult.PASS, type=IntegrationType.GITHUB, vcs='', id='', name='CI', start=''),
+        ]),
+        StubIntegration('mzworthington', 'edge-dns', IntegrationType.GITHUB, [
+            dict(
+                status=cancelled["status"],
+                type=IntegrationType.GITHUB,
+                vcs=cancelled["vcs"],
+                id=cancelled["id"],
+                name=cancelled["name"],
+                start=cancelled["start"],
+            ),
+        ]),
+    ]
+    async with aiohttp.ClientSession() as session:
+        result = await AggregatorService(integrations).run(session)
+    assert result["status"] == Result.PASS
 
 
 def test_repo_summaries_groups_workflows_and_worst_status():

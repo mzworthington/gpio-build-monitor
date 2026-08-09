@@ -2,6 +2,8 @@ export type CiResult =
   | 'PASS'
   | 'FAIL'
   | 'RUNNING'
+  | 'WAITING'
+  | 'APPROVAL'
   | 'UNKNOWN'
   | 'CONNECTION_ERROR'
   | 'NONE';
@@ -9,9 +11,12 @@ export type CiResult =
 export type AggregateStatus =
   | 'PASS'
   | 'FAIL'
+  | 'APPROVAL'
   | 'UNKNOWN'
   | 'CONNECTION_ERROR'
   | 'NONE';
+
+const IN_PROGRESS = new Set<string>(['RUNNING', 'WAITING']);
 
 export interface BuildDetail {
   repo: string;
@@ -62,16 +67,21 @@ export function aggregate(builds: BuildDetail[]): {
   status: AggregateStatus;
   is_running: boolean;
 } {
-  const is_running = builds.some((b) => b.status === 'RUNNING');
-  const settled = builds.filter((b) => b.status !== 'RUNNING');
+  // Priority: FAIL > fetch error > approval > all PASS.
+  // RUNNING/WAITING elevate the dial via is_running + build statuses.
+  const is_running = builds.some((b) => IN_PROGRESS.has(b.status));
+  const settled = builds.filter((b) => !IN_PROGRESS.has(b.status));
   if (settled.length === 0) {
     return { status: 'NONE', is_running };
+  }
+  if (settled.some((b) => b.status === 'FAIL')) {
+    return { status: 'FAIL', is_running };
   }
   if (settled.some((b) => b.status === 'CONNECTION_ERROR')) {
     return { status: 'CONNECTION_ERROR', is_running };
   }
-  if (settled.some((b) => b.status === 'FAIL')) {
-    return { status: 'FAIL', is_running };
+  if (settled.some((b) => b.status === 'APPROVAL')) {
+    return { status: 'APPROVAL', is_running };
   }
   if (settled.every((b) => b.status === 'PASS')) {
     return { status: 'PASS', is_running };
@@ -102,10 +112,31 @@ function mapGithubConclusion(run: {
   conclusion: string | null;
 }): CiResult {
   const { status, conclusion } = run;
-  if (status === 'completed' && conclusion === 'failure') return 'FAIL';
-  if (status === 'completed' && conclusion === 'success') return 'PASS';
-  if (conclusion == null && (status === 'queued' || status === 'in_progress')) {
-    return 'RUNNING';
+  if (conclusion == null) {
+    if (status === 'in_progress') return 'RUNNING';
+    if (status === 'waiting' || status === 'queued' || status === 'pending') {
+      return 'WAITING';
+    }
+    return 'UNKNOWN';
+  }
+  if (status !== 'completed') return 'UNKNOWN';
+  if (
+    conclusion === 'failure' ||
+    conclusion === 'timed_out' ||
+    conclusion === 'startup_failure'
+  ) {
+    return 'FAIL';
+  }
+  if (conclusion === 'success') return 'PASS';
+  if (conclusion === 'action_required') return 'APPROVAL';
+  // cancelled / skipped / neutral / stale — ignore for the desk board
+  if (
+    conclusion === 'cancelled' ||
+    conclusion === 'skipped' ||
+    conclusion === 'neutral' ||
+    conclusion === 'stale'
+  ) {
+    return 'PASS';
   }
   return 'UNKNOWN';
 }
@@ -115,12 +146,18 @@ function mapCircleStatus(status: string): CiResult {
     case 'success':
       return 'PASS';
     case 'failed':
-    case 'failing':
+    case 'error':
       return 'FAIL';
     case 'running':
-    case 'on_hold':
-    case 'not_run':
+    case 'failing':
       return 'RUNNING';
+    case 'on_hold':
+      return 'APPROVAL';
+    case 'canceled':
+    case 'cancelled':
+    case 'not_run':
+    case 'unauthorized':
+      return 'PASS';
     default:
       return 'UNKNOWN';
   }

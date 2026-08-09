@@ -111,6 +111,8 @@ Only set the variables for providers present in your config. `monitor check-conf
 | `MONITOR_LOG_DIR` | Default log directory when `log_dir` is not set in config |
 | `LOG_LEVEL` | Log level for `bin/serve` (default: `debug`) |
 | `CONF_FILE` | Config path for `bin/serve` (default: `monitor/integrations.yaml`) |
+| `UI_HOST` / `UI_PORT` | Bind address/port for the HTML client started by `bin/serve` (defaults: `127.0.0.1` / `8090`) |
+| `SERVE_CLIENT` | Set to `0` to skip the HTML client (`bin/serve` still starts the WebSocket UI when enabled) |
 | - | `bin/serve` also loads a gitignored `.env` from the repo root when present |
 | `MONITOR_HOME` | Pi install directory (default: `/home/pi/gpio-build-monitor`) |
 | `MONITOR_VENV` | Virtualenv used on the Pi (default: `$MONITOR_HOME/.venv`) |

@@ -37,8 +37,12 @@ class GpioStatusOutput:
                 self._board.on(Lights.RED)
             case Result.UNKNOWN:
                 self._board.off(Lights.PURPLE)
-                self._board.on(Lights.GREEN)
+                self._board.off(Lights.GREEN)
                 self._board.on(Lights.RED)
+            case Result.APPROVAL:
+                self._board.off(Lights.PURPLE)
+                self._board.off(Lights.GREEN)
+                self._board.off(Lights.RED)
             case Result.CONNECTION_ERROR:
                 self._board.on(Lights.PURPLE)
                 self._board.off(Lights.GREEN)
@@ -48,7 +52,7 @@ class GpioStatusOutput:
                 self._board.off(Lights.GREEN)
                 self._board.off(Lights.RED)
 
-        if is_running:
+        if is_running or status == Result.APPROVAL:
             await self._board.pulse(Lights.YELLOW)
         else:
             self._board.off(Lights.YELLOW)

@@ -73,18 +73,40 @@ class GitHubAction(IntegrationAdapter, ABC):
 
     @staticmethod
     def map_result(latest) -> BuildStatus:
-        conclusion = latest["conclusion"]
-        status = latest["status"]
         return BuildStatus(
             type=IntegrationType.GITHUB,
             vcs=latest["html_url"],
             id=latest["id"],
             name=latest["name"],
             start=latest["created_at"],
-            status=CiResult.FAIL if status == "completed" and conclusion == "failure" else
-            CiResult.PASS if status == "completed" and conclusion == "success" else
-            CiResult.RUNNING if conclusion is None and (status == "queued" or status == "in_progress") else
-            CiResult.UNKNOWN)
+            status=GitHubAction._map_status(latest["status"], latest["conclusion"]),
+        )
+
+    @staticmethod
+    def _map_status(status: str, conclusion: str | None) -> CiResult:
+        """Map a GitHub Actions run onto the board's priority statuses.
+
+        Cancelled/skipped/neutral do not pollute the aggregate (PASS).
+        Waiting (concurrency) and approval gates stay descriptive.
+        """
+        if conclusion is None:
+            if status == "in_progress":
+                return CiResult.RUNNING
+            if status in {"waiting", "queued", "pending"}:
+                return CiResult.WAITING
+            return CiResult.UNKNOWN
+        if status != "completed":
+            return CiResult.UNKNOWN
+        if conclusion in {"failure", "timed_out", "startup_failure"}:
+            return CiResult.FAIL
+        if conclusion == "success":
+            return CiResult.PASS
+        if conclusion == "action_required":
+            return CiResult.APPROVAL
+        # cancelled / skipped / neutral / stale — ignore for the desk board
+        if conclusion in {"cancelled", "skipped", "neutral", "stale"}:
+            return CiResult.PASS
+        return CiResult.UNKNOWN
 
     @staticmethod
     def workflow_identity_key(name: str) -> str:
