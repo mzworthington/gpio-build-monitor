@@ -94,6 +94,44 @@
       </div>
     </div>
 
+
+    <section id="issues" class="issues" aria-label="Attention"{% if not issues %} hidden{% endif %}>
+      <div class="issues-head">
+        <h2>Needs attention</h2>
+        <p id="issue-count" class="issue-count">{% if issues %}{{ issues|length }} open{% endif %}</p>
+      </div>
+      <ul id="issue-list">
+        {% for issue in issues %}
+        <li class="issue issue-{{ issue.status|lower }}" style="--delay: {{ loop.index0 * 40 }}ms">
+          {% set parts = issue.repo.split('/') %}
+          {% if issue.url %}
+          <a href="{{ issue.url }}" target="_blank" rel="noopener noreferrer">
+            <span class="issue-repo">
+              {% if parts|length == 2 %}
+              <span class="issue-org">{{ parts[0] }}/</span><span class="issue-name">{{ parts[1] }}</span>
+              {% else %}
+              {{ issue.repo }}
+              {% endif %}
+            </span>
+            <span class="issue-workflow">{{ issue.workflow }}</span>
+            <span class="issue-status">{{ issue.status }}</span>
+          </a>
+          {% else %}
+          <span class="issue-repo">
+            {% if parts|length == 2 %}
+            <span class="issue-org">{{ parts[0] }}/</span><span class="issue-name">{{ parts[1] }}</span>
+            {% else %}
+            {{ issue.repo }}
+            {% endif %}
+          </span>
+          <span class="issue-workflow">{{ issue.workflow }}</span>
+          <span class="issue-status">{{ issue.status }}</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    
     <section id="repos" class="repos" aria-label="Watched repositories"{% if not repos %} hidden{% endif %}>
       <div class="repos-head">
         <h2>Repos</h2>
@@ -135,43 +173,6 @@
               {% endfor %}
             </ul>
           </details>
-        </li>
-        {% endfor %}
-      </ul>
-    </section>
-
-    <section id="issues" class="issues" aria-label="Attention"{% if not issues %} hidden{% endif %}>
-      <div class="issues-head">
-        <h2>Needs attention</h2>
-        <p id="issue-count" class="issue-count">{% if issues %}{{ issues|length }} open{% endif %}</p>
-      </div>
-      <ul id="issue-list">
-        {% for issue in issues %}
-        <li class="issue issue-{{ issue.status|lower }}" style="--delay: {{ loop.index0 * 40 }}ms">
-          {% set parts = issue.repo.split('/') %}
-          {% if issue.url %}
-          <a href="{{ issue.url }}" target="_blank" rel="noopener noreferrer">
-            <span class="issue-repo">
-              {% if parts|length == 2 %}
-              <span class="issue-org">{{ parts[0] }}/</span><span class="issue-name">{{ parts[1] }}</span>
-              {% else %}
-              {{ issue.repo }}
-              {% endif %}
-            </span>
-            <span class="issue-workflow">{{ issue.workflow }}</span>
-            <span class="issue-status">{{ issue.status }}</span>
-          </a>
-          {% else %}
-          <span class="issue-repo">
-            {% if parts|length == 2 %}
-            <span class="issue-org">{{ parts[0] }}/</span><span class="issue-name">{{ parts[1] }}</span>
-            {% else %}
-            {{ issue.repo }}
-            {% endif %}
-          </span>
-          <span class="issue-workflow">{{ issue.workflow }}</span>
-          <span class="issue-status">{{ issue.status }}</span>
-          {% endif %}
         </li>
         {% endfor %}
       </ul>
