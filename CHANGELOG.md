@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.6.0 (2026-08-09)
+
+### Chores
+
+- Update changelog
+  ([`755a47c`](https://github.com/mzworthington/gpio-build-monitor/commit/755a47c9bc1bf4fdf9a4975e0e8d26c8fa76c667))
+
+### Features
+
+- Improve Dependabot handling and enhance websocket fetching logic
+  ([`6685245`](https://github.com/mzworthington/gpio-build-monitor/commit/6685245a24bf11361b03b9ef70e29a6697825f59))
+
+
 ## v0.5.3 (2026-08-08)
 
 ### Chores
