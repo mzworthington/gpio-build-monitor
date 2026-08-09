@@ -93,3 +93,16 @@
 
 - Update changelog format and enhance semantic release configuration
   ([`b3495c4`](https://github.com/mzworthington/gpio-build-monitor/commit/b3495c4170b23de630201a09a90f0ff4de758e37))
+
+
+## v0.2.0 (2026-07-23)
+
+Baseline release before changelog automation. Features that already shipped:
+
+### Features
+
+- Poll GitHub Actions and CircleCI and aggregate status across configured repos
+- Drive desk LEDs from aggregated CI status (blue / green / red / yellow / purple)
+- Mock GPIO on non-Pi hosts so the same loop runs in local development
+- Typer CLI (`monitor run`, `monitor check-config`) with integrations config and pin map
+- Headless Pi deploy: systemd units, auto-update timer, and bootstrap/serve tooling
