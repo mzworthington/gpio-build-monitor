@@ -34,6 +34,9 @@ body {
   color: var(--ink);
   background: var(--bg);
   overflow-x: hidden;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
 }
 
 ::selection {
@@ -79,7 +82,7 @@ main {
   z-index: 1;
   width: min(38rem, 92vw);
   margin: 0 auto;
-  min-height: 100vh;
+  flex: 1;
   padding: clamp(2rem, 6vh, 3.25rem) 0 clamp(2.5rem, 7vh, 4rem);
   display: grid;
   align-content: start;
@@ -204,6 +207,38 @@ h1 {
   font-weight: 500;
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
+}
+
+.site-credit {
+  position: relative;
+  z-index: 1;
+  margin: 0 auto;
+  padding: 0 1rem 1.75rem;
+  text-align: center;
+}
+
+.site-credit p {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.site-credit a {
+  color: color-mix(in srgb, var(--ink) 78%, var(--muted));
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--ring) 35%, transparent);
+  margin-left: 0.35em;
+  transition: color 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
+}
+
+.site-credit a:hover,
+.site-credit a:focus-visible {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--ring) 70%, transparent);
+  outline: none;
 }
 
 .hero {
