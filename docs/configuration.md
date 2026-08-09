@@ -32,9 +32,6 @@ integrations:
     username: your-github-org
     repo: your-repo
     branch: main
-    excluded_workflows: []
-    excluded_workflow_patterns:
-      - "* - Update #*"
   - type: CIRCLECI
     username: your-circle-org
     repo: your-repo
@@ -62,8 +59,12 @@ integrations:
 | `integrations` | List of repos to monitor |
 | `integrations[].type` | `GITHUB` or `CIRCLECI` |
 | `integrations[].excluded_workflows` | Exact workflow names to ignore (optional) |
-| `integrations[].excluded_workflow_patterns` | fnmatch patterns for workflow names (optional), e.g. `* - Update #*` |
+| `integrations[].excluded_workflow_patterns` | fnmatch patterns for workflow names (optional) |
 | `integrations[].branch` | GitHub only: branch to monitor (default: `main`; use `*` for all branches) |
+
+### Dependabot Update runs
+
+GitHub Dependabot names each version check uniquely (`npm_and_yarn in /. - Update #123`). The monitor collapses those into one bucket per ecosystem and directory (stripping the Update ID and optional package list), then keeps the newest by `created_at`. A fixed Dependabot config shows green once a newer Update succeeds; a broken config still fails the radiator. Prefer that over excluding `* - Update #*` unless you truly do not want Dependabot on the desk light.
 
 With WebSocket enabled, open `http://<host>:8080/` for the live JS status page, or run the Python HTML client:
 

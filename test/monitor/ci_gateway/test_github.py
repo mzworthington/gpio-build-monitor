@@ -196,6 +196,92 @@ class TestGithub:
         assert len(jobs) == 1
         assert jobs[0]['name'] == 'CI'
 
+    def test_collapses_dependabot_update_ids_to_newest(self):
+        """Dependabot names each check uniquely; keep one newest per ecosystem/dir."""
+        action = GitHubAction(
+            username='super-man', repo='awesome', branch='*')
+        runs = [
+            {
+                'id': 10,
+                'name': 'npm_and_yarn in /. - Update #100',
+                'head_branch': 'main',
+                'created_at': '2020-01-01T00:00:00Z',
+                'status': 'completed',
+                'conclusion': 'failure',
+            },
+            {
+                'id': 20,
+                'name': (
+                    'npm_and_yarn in /. for lodash, undici - Update #200'
+                ),
+                'head_branch': 'main',
+                'created_at': '2020-01-03T00:00:00Z',
+                'status': 'completed',
+                'conclusion': 'success',
+            },
+            {
+                'id': 30,
+                'name': 'npm_and_yarn in /app - Update #300',
+                'head_branch': 'main',
+                'created_at': '2020-01-02T00:00:00Z',
+                'status': 'completed',
+                'conclusion': 'success',
+            },
+            {
+                'id': 1,
+                'name': 'CI',
+                'head_branch': 'main',
+                'created_at': '2020-01-04T00:00:00Z',
+                'status': 'completed',
+                'conclusion': 'success',
+            },
+        ]
+        jobs = action.get_unique_latest_jobs(runs)
+        names = {job['name'] for job in jobs}
+        assert names == {
+            'CI',
+            'npm_and_yarn in /. for lodash, undici - Update #200',
+            'npm_and_yarn in /app - Update #300',
+        }
+        by_id = {job['id']: job for job in jobs}
+        assert 10 not in by_id
+
+    def test_picks_newest_created_at_within_stable_name(self):
+        action = GitHubAction(
+            username='super-man', repo='awesome', branch='*')
+        runs = [
+            {
+                'id': 1,
+                'name': 'CI',
+                'head_branch': 'main',
+                'created_at': '2020-01-01T00:00:00Z',
+            },
+            {
+                'id': 2,
+                'name': 'CI',
+                'head_branch': 'main',
+                'created_at': '2020-01-02T00:00:00Z',
+            },
+        ]
+        jobs = action.get_unique_latest_jobs(runs)
+        assert len(jobs) == 1
+        assert jobs[0]['id'] == 2
+
+    def test_workflow_identity_key_strips_update_noise(self):
+        assert GitHubAction.workflow_identity_key('CI') == 'CI'
+        assert (
+            GitHubAction.workflow_identity_key(
+                'npm_and_yarn in /. - Update #1514087283'
+            )
+            == 'npm_and_yarn in /.'
+        )
+        assert (
+            GitHubAction.workflow_identity_key(
+                'npm_and_yarn in /app for brace-expansion, undici - Update #9'
+            )
+            == 'npm_and_yarn in /app'
+        )
+
     def test_all_branches_skips_head_filter(self):
         action = GitHubAction(
             username='super-man', repo='awesome', branch='*')

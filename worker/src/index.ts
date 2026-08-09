@@ -41,7 +41,10 @@ export class StatusHub implements DurableObject {
       const [client, server] = Object.values(pair);
       this.state.acceptWebSocket(server);
       server.send(JSON.stringify(this.payload));
-      void this.refresh();
+      // Avoid a fetch flash on every connect/reconnect; alarm owns the cadence.
+      if (this.isStale()) {
+        void this.refresh();
+      }
       return new Response(null, { status: 101, webSocket: client });
     }
 
@@ -69,13 +72,20 @@ export class StatusHub implements DurableObject {
     await this.refresh();
   }
 
+  /** True when we have never checked, or the reconcile window has elapsed. */
+  private isStale(): boolean {
+    if (this.payload.last_checked_at == null) return true;
+    if (this.payload.next_check_at == null) return true;
+    return Date.now() / 1000 >= this.payload.next_check_at;
+  }
+
   async refresh(): Promise<void> {
     const config = parseMonitorConfig(this.env.MONITOR_CONFIG);
+    // Signal fetch without resetting countdown / wiping status payload fields.
     this.payload = {
       ...this.payload,
       fetching: true,
       poll_in_seconds: config.poll_in_seconds,
-      next_check_at: null,
     };
     this.broadcast();
 

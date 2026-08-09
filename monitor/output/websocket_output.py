@@ -81,13 +81,13 @@ class WebSocketStatusOutput:
             self._site = None
 
     async def begin_fetch(self) -> None:
+        # Mid-poll signal for the fetch light / dial spinner only.
+        # Keep next_check_at so the countdown does not reset.
         self._fetching = True
-        self._next_check_at = None
         await self._broadcast(self._payload())
 
     async def end_fetch(self) -> None:
         self._fetching = False
-        await self._broadcast(self._payload())
 
     async def publish(
         self,

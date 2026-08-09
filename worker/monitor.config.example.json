@@ -5,8 +5,7 @@
       "type": "GITHUB",
       "username": "your-github-org",
       "repo": "your-repo",
-      "branch": "main",
-      "excluded_workflow_patterns": ["* - Update #*"]
+      "branch": "main"
     }
   ]
 }

@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 from abc import ABC
 from fnmatch import fnmatch
 from itertools import groupby
@@ -17,6 +18,12 @@ from monitor.ci_gateway.constants import (
 )
 
 ALL_BRANCHES = "*"
+
+# Dependabot version checks: unique Update #ID (and optional package list) per run.
+# Collapse to ecosystem + directory so a newer check supersedes a historic fail.
+_DEPENDABOT_UPDATE_KEY = re.compile(
+    r"^(?P<head>.+?)(?: for .+?)? - Update #\d+$"
+)
 
 
 class GitHubAction(IntegrationAdapter, ABC):
@@ -79,6 +86,14 @@ class GitHubAction(IntegrationAdapter, ABC):
             CiResult.RUNNING if conclusion is None and (status == "queued" or status == "in_progress") else
             CiResult.UNKNOWN)
 
+    @staticmethod
+    def workflow_identity_key(name: str) -> str:
+        """Stable key for 'latest per workflow', collapsing Dependabot Update noise."""
+        match = _DEPENDABOT_UPDATE_KEY.match(name or "")
+        if match:
+            return match.group("head")
+        return name or ""
+
     def _include_run(self, run: dict) -> bool:
         name = run.get('name') or ''
         if name in self.excluded_workflows:
@@ -102,11 +117,19 @@ class GitHubAction(IntegrationAdapter, ABC):
     def get_unique_latest_jobs(self, runs: list[dict]) -> list[dict]:
         jobs = []
         filtered = [run for run in runs if self._include_run(run)]
+        keyed = sorted(
+            filtered,
+            key=lambda run: self.workflow_identity_key(run.get("name") or ""),
+        )
         for _, group in groupby(
-            sorted(filtered, key=lambda run: run['name']),
-            key=lambda run: run['name'],
+            keyed,
+            key=lambda run: self.workflow_identity_key(run.get("name") or ""),
         ):
-            jobs.append(list(group)[0])
+            newest = max(
+                group,
+                key=lambda run: run.get("created_at") or "",
+            )
+            jobs.append(newest)
         return jobs
 
 

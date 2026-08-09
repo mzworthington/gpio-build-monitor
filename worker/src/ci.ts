@@ -88,6 +88,15 @@ function matchGlob(name: string, pattern: string): boolean {
   return new RegExp(`^${escaped}$`).test(name);
 }
 
+/** Collapse Dependabot Update #ID (+ optional package list) to ecosystem/dir. */
+const DEPENDABOT_UPDATE_KEY =
+  /^(?<head>.+?)(?: for .+?)? - Update #\d+$/;
+
+export function workflowIdentityKey(name: string): string {
+  const match = DEPENDABOT_UPDATE_KEY.exec(name || '');
+  return match?.groups?.head ?? name ?? '';
+}
+
 function mapGithubConclusion(run: {
   status: string;
   conclusion: string | null;
@@ -166,6 +175,7 @@ async function fetchGithub(
       html_url: string;
       status: string;
       conclusion: string | null;
+      created_at?: string;
       head_branch?: string;
     }>;
   };
@@ -174,7 +184,7 @@ async function fetchGithub(
   const excluded = new Set(integration.excluded_workflows ?? []);
   const patterns = integration.excluded_workflow_patterns ?? [];
   type Run = (typeof runs)[number];
-  const latestByName = new Map<string, Run>();
+  const latestByKey = new Map<string, Run>();
 
   for (const run of runs) {
     const name = run.name || '';
@@ -183,12 +193,17 @@ async function fetchGithub(
     if (branch && branch !== '*' && run.head_branch && run.head_branch !== branch) {
       continue;
     }
-    if (!latestByName.has(name)) {
-      latestByName.set(name, run);
+    const key = workflowIdentityKey(name);
+    const existing = latestByKey.get(key);
+    if (
+      !existing ||
+      (run.created_at || '') > (existing.created_at || '')
+    ) {
+      latestByKey.set(key, run);
     }
   }
 
-  return [...latestByName.values()].map((run) => ({
+  return [...latestByKey.values()].map((run) => ({
     repo,
     workflow: run.name,
     status: mapGithubConclusion(run),

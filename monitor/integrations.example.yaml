@@ -21,8 +21,6 @@ integrations:
     username: your-github-org
     repo: your-repo
     branch: main
-    excluded_workflow_patterns:
-      - "* - Update #*"
   - type: CIRCLECI
     username: your-circle-org
     repo: your-repo

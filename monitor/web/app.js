@@ -37,11 +37,35 @@
   const attentionStatuses = new Set(["FAIL", "CONNECTION_ERROR", "UNKNOWN"]);
   const runningOverrides = new Set(["PASS", "NONE", "UNKNOWN"]);
   const expandedRepos = new Set();
+  let lastBuildsKey = "";
+  let lastStatusKey = "";
+  let quietFetch = false;
 
   function displayStatus(status, isRunning, fetching) {
     if (fetching) return status;
     if (isRunning && runningOverrides.has(status)) return "RUNNING";
     return status;
+  }
+
+  function buildsKey(builds) {
+    try {
+      return JSON.stringify(builds || []);
+    } catch (_err) {
+      return "";
+    }
+  }
+
+  function statusKey(status, isRunning, shown) {
+    return `${status}|${isRunning ? 1 : 0}|${shown}`;
+  }
+
+  /** Mid-poll: show fetch light + dial spinner; leave status copy and lists alone. */
+  function applyQuietFetch(isFetching) {
+    quietFetch = Boolean(isFetching);
+    setLight("blue", quietFetch ? "on" : "off");
+    if (window.BuildMonitorTicker) {
+      window.BuildMonitorTicker.setFetching(quietFetch);
+    }
   }
 
   function setLight(name, mode) {
@@ -324,37 +348,58 @@
     const status = payload.status || "NONE";
     const fetching = Boolean(payload.fetching);
     const isRunning = Boolean(payload.is_running);
-    const shown = displayStatus(status, isRunning, fetching);
 
-    setLight("blue", fetching ? "on" : "off");
-    setLight("purple", status === "CONNECTION_ERROR" ? "on" : "off");
-    setLight("green", status === "PASS" || status === "UNKNOWN" ? "on" : "off");
-    setLight("red", status === "FAIL" || status === "UNKNOWN" ? "on" : "off");
-    setLight("yellow", isRunning ? "pulse" : "off");
-
-    if (statusWord) {
-      statusWord.textContent = fetching
-        ? "Checking"
-        : statusWords[shown] || statusWords.NONE;
-      scheduleFitStatusWord();
+    // Quiet reconcile polls: keep the current status composition stable.
+    if (fetching) {
+      applyQuietFetch(true);
+      return;
+    }
+    if (quietFetch) {
+      applyQuietFetch(false);
     }
 
-    if (fetching) {
-      summary.textContent = (summaries[status] || summaries.NONE) + " · fetching";
-    } else if (shown === "RUNNING") {
-      summary.textContent = summaries.RUNNING;
-    } else {
-      summary.textContent = summaries[status] || summaries.NONE;
-      if (isRunning) {
-        summary.textContent += " · build running";
+    const shown = displayStatus(status, isRunning, false);
+    const nextStatusKey = statusKey(status, isRunning, shown);
+    const nextBuildsKey = buildsKey(payload.builds);
+    const statusChanged = nextStatusKey !== lastStatusKey;
+    const buildsChanged = nextBuildsKey !== lastBuildsKey;
+
+    if (statusChanged) {
+      lastStatusKey = nextStatusKey;
+      setLight("purple", status === "CONNECTION_ERROR" ? "on" : "off");
+      setLight("green", status === "PASS" || status === "UNKNOWN" ? "on" : "off");
+      setLight("red", status === "FAIL" || status === "UNKNOWN" ? "on" : "off");
+      setLight("yellow", isRunning ? "pulse" : "off");
+      setLight("blue", "off");
+
+      if (statusWord) {
+        const nextWord = statusWords[shown] || statusWords.NONE;
+        if (statusWord.textContent !== nextWord) {
+          statusWord.textContent = nextWord;
+          scheduleFitStatusWord();
+        }
+      }
+
+      if (shown === "RUNNING") {
+        summary.textContent = summaries.RUNNING;
+      } else {
+        summary.textContent = summaries[status] || summaries.NONE;
+        if (isRunning) {
+          summary.textContent += " · build running";
+        }
       }
     }
-    renderRepos(payload.builds);
-    renderIssues(payload.builds);
+
+    if (buildsChanged) {
+      lastBuildsKey = nextBuildsKey;
+      renderRepos(payload.builds);
+      renderIssues(payload.builds);
+    }
 
     if (window.BuildMonitorTicker) {
       window.BuildMonitorTicker.applyTiming({
         ...payload,
+        fetching: false,
         status: shown,
       });
     }

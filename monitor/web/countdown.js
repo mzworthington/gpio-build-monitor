@@ -18,8 +18,13 @@
   let lastLabelSecond = -1;
 
   function setFetching(isFetching) {
-    fetching = Boolean(isFetching);
+    const next = Boolean(isFetching);
+    if (fetching === next) return;
+    fetching = next;
     dial.dataset.fetching = fetching ? "true" : "false";
+    if (!fetching) {
+      tick();
+    }
   }
 
   function setStatus(status) {
