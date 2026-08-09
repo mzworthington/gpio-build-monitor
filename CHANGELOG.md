@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.8.0 (2026-08-09)
+
+### Documentation
+
+- Clarify optional webhook signature verification and update instructions
+  ([`3005dc9`](https://github.com/mzworthington/gpio-build-monitor/commit/3005dc98d1f257504f58d1d8e832aa74731ef0e2))
+
+### Features
+
+- Add author credit link to DocsShell component
+  ([`f4c0d36`](https://github.com/mzworthington/gpio-build-monitor/commit/f4c0d360eb50509df7058460d61b372aba9ca6df))
+
+
 ## v0.7.0 (2026-08-09)
 
 ### Features
