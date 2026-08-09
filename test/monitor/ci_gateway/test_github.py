@@ -16,6 +16,9 @@ os.environ['GITHUB_TOKEN'] = 'secret'
 _RUNS_URL = re.compile(
     r'https://api\.github\.com/repos/super-man/awesome/actions/runs(\?.*)?'
 )
+_WORKFLOWS_URL = re.compile(
+    r'https://api\.github\.com/repos/super-man/awesome/actions/workflows(\?.*)?'
+)
 
 
 class TestGithub:
@@ -163,14 +166,17 @@ class TestGithub:
 
     @pytest.mark.asyncio
     async def test_gets_latest_from_git(self):
-        response_json = os.path.join(
-            os.path.dirname(__file__),
-            'github_response.json')
-        with open(response_json) as json_file:
+        fixture_dir = os.path.dirname(__file__)
+        with open(os.path.join(fixture_dir, 'github_response.json')) as json_file:
             data = json.load(json_file)
+        with open(
+            os.path.join(fixture_dir, 'github_workflows_response.json')
+        ) as json_file:
+            workflows = json.load(json_file)
 
         import aiohttp
         with aioresponses() as m:
+            m.get(_WORKFLOWS_URL, payload=workflows, status=200)
             m.get(_RUNS_URL, payload=data, status=200)
 
             action = GitHubAction(**{'username': 'super-man',
@@ -185,9 +191,87 @@ class TestGithub:
         assert result[0]["status"] == Result.FAIL
 
     @pytest.mark.asyncio
+    async def test_skips_runs_for_deleted_workflows(self):
+        """Runs for workflows without YAML (state=deleted) must not appear."""
+        workflows = {
+            'workflows': [
+                {
+                    'id': 1001,
+                    'name': 'CI',
+                    'path': '.github/workflows/ci.yml',
+                    'state': 'active',
+                },
+                {
+                    'id': 1002,
+                    'name': 'Legacy',
+                    'path': '.github/workflows/legacy.yml',
+                    'state': 'deleted',
+                },
+            ]
+        }
+        runs = {
+            'workflow_runs': [
+                {
+                    'id': 1,
+                    'workflow_id': 1001,
+                    'name': 'CI',
+                    'html_url': 'https://example.com/ci',
+                    'created_at': '2020-01-02T00:00:00Z',
+                    'status': 'completed',
+                    'conclusion': 'success',
+                    'head_branch': 'main',
+                },
+                {
+                    'id': 2,
+                    'workflow_id': 1002,
+                    'name': 'Legacy',
+                    'html_url': 'https://example.com/legacy',
+                    'created_at': '2020-01-03T00:00:00Z',
+                    'status': 'completed',
+                    'conclusion': 'failure',
+                    'head_branch': 'main',
+                },
+            ]
+        }
+
+        import aiohttp
+        with aioresponses() as m:
+            m.get(_WORKFLOWS_URL, payload=workflows, status=200)
+            m.get(_RUNS_URL, payload=runs, status=200)
+            action = GitHubAction(username='super-man', repo='awesome')
+            async with aiohttp.ClientSession() as session:
+                result = await action.get_latest(session)
+
+        assert len(result) == 1
+        assert result[0]['name'] == 'CI'
+        assert result[0]['status'] == Result.PASS
+
+    @pytest.mark.asyncio
+    async def test_fails_when_workflows_not_200(self):
+        import aiohttp
+        with aioresponses() as m:
+            m.get(_WORKFLOWS_URL, body='', status=403)
+            action = GitHubAction(**{'username': 'super-man',
+                                     'repo': 'awesome'})
+            async with aiohttp.ClientSession() as session:
+                with pytest.raises(APIError) as excinfo:
+                    await action.get_latest(session)
+
+        msg = (
+            "APIError: GET "
+            "https://api.github.com/repos/super-man/awesome/actions/workflows 403"
+        )
+        assert str(excinfo.value) == msg
+
+    @pytest.mark.asyncio
     async def test_fails_when_not_200(self):
         import aiohttp
         with aioresponses() as m:
+            m.get(
+                _WORKFLOWS_URL,
+                payload={'workflows': [{'id': 1, 'state': 'active'}]},
+                status=200,
+            )
             m.get(_RUNS_URL, body='', status=400)
             action = GitHubAction(**{'username': 'super-man',
                                      'repo': 'awesome'})

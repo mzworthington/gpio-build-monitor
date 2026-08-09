@@ -163,6 +163,38 @@ function mapCircleStatus(status: string): CiResult {
   }
 }
 
+function githubHeaders(token: string): HeadersInit {
+  return {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'User-Agent': 'gpio-build-monitor-worker',
+  };
+}
+
+/** Workflow IDs that still have YAML and are enabled (state=active). */
+async function fetchActiveGithubWorkflowIds(
+  repo: string,
+  token: string,
+): Promise<Set<number> | null> {
+  const url = new URL(
+    `https://api.github.com/repos/${repo}/actions/workflows`,
+  );
+  url.searchParams.set('per_page', '100');
+  const resp = await fetch(url, { headers: githubHeaders(token) });
+  if (!resp.ok) {
+    return null;
+  }
+  const payload = (await resp.json()) as {
+    workflows?: Array<{ id: number; state?: string }>;
+  };
+  return new Set(
+    (payload.workflows ?? [])
+      .filter((workflow) => workflow.state === 'active')
+      .map((workflow) => workflow.id),
+  );
+}
+
 async function fetchGithub(
   integration: IntegrationConfig,
   token: string | undefined,
@@ -179,6 +211,18 @@ async function fetchGithub(
     ];
   }
 
+  const activeIds = await fetchActiveGithubWorkflowIds(repo, token);
+  if (activeIds == null) {
+    return [
+      {
+        repo,
+        workflow: '(github workflows)',
+        status: 'CONNECTION_ERROR',
+        url: `https://github.com/${repo}`,
+      },
+    ];
+  }
+
   const url = new URL(`https://api.github.com/repos/${repo}/actions/runs`);
   url.searchParams.set('per_page', '100');
   const branch = integration.branch ?? 'main';
@@ -187,12 +231,7 @@ async function fetchGithub(
   }
 
   const resp = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'gpio-build-monitor-worker',
-    },
+    headers: githubHeaders(token),
   });
   if (!resp.ok) {
     return [
@@ -208,6 +247,7 @@ async function fetchGithub(
   const payload = (await resp.json()) as {
     workflow_runs?: Array<{
       id: number;
+      workflow_id?: number;
       name: string;
       html_url: string;
       status: string;
@@ -216,7 +256,10 @@ async function fetchGithub(
       head_branch?: string;
     }>;
   };
-  const runs = payload.workflow_runs ?? [];
+  // Drop runs for deleted/disabled workflows (YAML gone or not runnable).
+  const runs = (payload.workflow_runs ?? []).filter(
+    (run) => run.workflow_id != null && activeIds.has(run.workflow_id),
+  );
 
   const excluded = new Set(integration.excluded_workflows ?? []);
   const patterns = integration.excluded_workflow_patterns ?? [];
