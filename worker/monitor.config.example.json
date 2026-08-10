@@ -3,8 +3,8 @@
   "integrations": [
     {
       "type": "GITHUB",
-      "username": "mzworthington",
-      "repo": "steerlens",
+      "username": "your-github-org",
+      "repo": "your-repo",
       "branch": "main"
     }
   ]
