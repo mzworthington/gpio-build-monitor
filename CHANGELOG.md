@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v0.9.1 (2026-08-10)
+
+### Refactoring
+
+- Update SVG assets for improved visual consistency
+  ([`81e7b23`](https://github.com/mzworthington/gpio-build-monitor/commit/81e7b239324267ed4af660cfc2f103e6c90d4923))
+
+- Update SVG assets for improved visual consistency
+  ([`396ca1f`](https://github.com/mzworthington/gpio-build-monitor/commit/396ca1f906779b9746f90229387eaa7e6327815d))
+
+
 ## v0.9.0 (2026-08-10)
 
 ### Features
