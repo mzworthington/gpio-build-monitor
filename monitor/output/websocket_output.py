@@ -59,6 +59,9 @@ class WebSocketStatusOutput:
                 ("apple-touch-icon.png", "image/png"),
                 ("logo.svg", "image/svg+xml"),
                 ("logo.png", "image/png"),
+                ("icon-192.png", "image/png"),
+                ("icon-512.png", "image/png"),
+                ("social-share.png", "image/png"),
             ):
                 if (self._web_dir / name).is_file():
                     app.router.add_get(f"/{name}", self._asset_handler(name, content_type))

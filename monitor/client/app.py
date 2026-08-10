@@ -65,6 +65,9 @@ class HtmlStatusClient:
             ("apple-touch-icon.png", "image/png"),
             ("logo.svg", "image/svg+xml"),
             ("logo.png", "image/png"),
+            ("icon-192.png", "image/png"),
+            ("icon-512.png", "image/png"),
+            ("social-share.png", "image/png"),
         ):
             path = self._web_dir / name
             if path.is_file():

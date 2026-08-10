@@ -33,6 +33,11 @@ def test_renderer_marks_fail_lights():
     assert "app.js" in html
     assert 'href="/favicon.svg"' in html
     assert 'src="/logo.svg"' in html
+    assert 'property="og:image"' in html
+    assert "social-share.png" in html
+    assert 'name="twitter:card"' in html
+    assert 'content="summary_large_image"' in html
+    assert 'name="theme-color"' in html
     assert "Not checked yet" in html
     assert 'id="last-checked"' in html
 
