@@ -29,8 +29,8 @@ pins:
   PURPLE: 23
 integrations:
   - type: GITHUB
-    username: your-github-org
-    repo: your-repo
+    username: mzworthington
+    repo: steerlens
     branch: main
   - type: CIRCLECI
     username: your-circle-org
