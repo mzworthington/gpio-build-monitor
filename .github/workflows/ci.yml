@@ -114,6 +114,10 @@ jobs:
         working-directory: worker
         run: pnpm install --frozen-lockfile
 
+      - name: Test
+        working-directory: worker
+        run: pnpm test
+
       - name: Typecheck
         working-directory: worker
         run: pnpm typecheck
@@ -124,3 +128,30 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: pnpm deploy
+
+  worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: worker/pnpm-lock.yaml
+
+      - name: Install
+        working-directory: worker
+        run: pnpm install --frozen-lockfile
+
+      - name: Test
+        working-directory: worker
+        run: pnpm test
+
+      - name: Typecheck
+        working-directory: worker
+        run: pnpm typecheck

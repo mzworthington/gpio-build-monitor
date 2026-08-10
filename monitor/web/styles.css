@@ -209,6 +209,58 @@ h1 {
   font-variant-numeric: tabular-nums;
 }
 
+.push-controls {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: center;
+  margin-top: 0.15rem;
+}
+
+.push-toggle {
+  appearance: none;
+  margin: 0;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+  border-radius: 0.35rem;
+  background: transparent;
+  color: color-mix(in srgb, var(--ink) 82%, var(--muted));
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    color 0.2s var(--ease-out),
+    border-color 0.2s var(--ease-out),
+    background 0.2s var(--ease-out);
+}
+
+.push-toggle:hover,
+.push-toggle:focus-visible {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--ring) 55%, transparent);
+  outline: none;
+}
+
+.push-toggle:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.push-toggle[data-state="on"] {
+  border-color: color-mix(in srgb, var(--green) 45%, transparent);
+  color: color-mix(in srgb, var(--green) 85%, var(--ink));
+}
+
+.push-hint {
+  margin: 0;
+  max-width: 22rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
+  text-align: center;
+}
+
 .site-credit {
   position: relative;
   z-index: 1;
