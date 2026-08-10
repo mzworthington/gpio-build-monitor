@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v0.9.0 (2026-08-10)
+
+### Features
+
+- Add web push alerts for FAIL status on hosted UI
+  ([#19](https://github.com/mzworthington/gpio-build-monitor/pull/19),
+  [`67ebc48`](https://github.com/mzworthington/gpio-build-monitor/commit/67ebc48ce1b4a818fc4471be8bf2d01ebcadb885))
+
+
 ## v0.8.0 (2026-08-09)
 
 ### Documentation
