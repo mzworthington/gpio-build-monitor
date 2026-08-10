@@ -3,8 +3,20 @@ import {
   emptyPayload,
   fetchAllBuilds,
   parseMonitorConfig,
+  type AggregateStatus,
   type StatusPayload,
 } from './ci';
+import {
+  failureNotificationMessage,
+  hashedPushSubscriptionKey,
+  isPushSubscription,
+  parsePushSubscription,
+  sendWebPush,
+  shouldNotifyFailure,
+  SUB_KEY_PREFIX,
+  vapidFromEnv,
+  type StoredPushSubscription,
+} from './push';
 import { handleWebhook } from './webhooks';
 
 export interface Env {
@@ -15,9 +27,16 @@ export interface Env {
   CIRCLE_CI_TOKEN?: string;
   GITHUB_WEBHOOK_SECRET?: string;
   CIRCLE_CI_WEBHOOK_SECRET?: string;
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
+  VAPID_SUBJECT?: string;
 }
 
-/** Single DO that polls CI and fans out status over WebSockets. */
+const LAST_STATUS_KEY = 'last_status';
+const PUBLIC_ORIGIN_KEY = 'public_origin';
+const DEFAULT_PUBLIC_ORIGIN = 'https://monitor.mzworthington.co.uk';
+
+/** Single DO that polls CI and fans out status over WebSockets (+ optional Web Push). */
 export class StatusHub implements DurableObject {
   private readonly state: DurableObjectState;
   private readonly env: Env;
@@ -32,6 +51,7 @@ export class StatusHub implements DurableObject {
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    await this.rememberPublicOrigin(url.origin);
 
     if (url.pathname === '/ws') {
       if (request.headers.get('Upgrade') !== 'websocket') {
@@ -51,6 +71,14 @@ export class StatusHub implements DurableObject {
     if (url.pathname === '/refresh' && request.method === 'POST') {
       await this.refresh();
       return Response.json(this.payload);
+    }
+
+    if (url.pathname === '/push/subscribe' && request.method === 'POST') {
+      return this.subscribe(request);
+    }
+
+    if (url.pathname === '/push/subscribe' && request.method === 'DELETE') {
+      return this.unsubscribe(request);
     }
 
     return new Response('Not found', { status: 404 });
@@ -79,6 +107,24 @@ export class StatusHub implements DurableObject {
     return Date.now() / 1000 >= this.payload.next_check_at;
   }
 
+  private async rememberPublicOrigin(origin: string): Promise<void> {
+    // Internal stub fetches use placeholder hosts; ignore those.
+    let hostname: string;
+    try {
+      hostname = new URL(origin).hostname;
+    } catch {
+      return;
+    }
+    if (hostname === 'monitor') return;
+    await this.state.storage.put(PUBLIC_ORIGIN_KEY, origin);
+  }
+
+  private async publicOrigin(): Promise<string> {
+    return (
+      (await this.state.storage.get<string>(PUBLIC_ORIGIN_KEY)) || DEFAULT_PUBLIC_ORIGIN
+    );
+  }
+
   async refresh(): Promise<void> {
     const config = parseMonitorConfig(this.env.MONITOR_CONFIG);
     // Signal fetch without resetting countdown / wiping status payload fields.
@@ -94,6 +140,7 @@ export class StatusHub implements DurableObject {
       circleToken: this.env.CIRCLE_CI_TOKEN,
     });
     const { status, is_running } = aggregate(builds);
+    const previous = await this.state.storage.get<AggregateStatus>(LAST_STATUS_KEY);
     const now = Date.now() / 1000;
     this.payload = {
       type: 'status',
@@ -106,7 +153,78 @@ export class StatusHub implements DurableObject {
       next_check_at: now + config.poll_in_seconds,
     };
     this.broadcast();
+    await this.state.storage.put(LAST_STATUS_KEY, status);
     await this.state.storage.setAlarm(Date.now() + config.poll_in_seconds * 1000);
+
+    if (shouldNotifyFailure(previous, status)) {
+      this.state.waitUntil(this.notifyFailure());
+    }
+  }
+
+  private async subscribe(request: Request): Promise<Response> {
+    if (!vapidFromEnv(this.env)) {
+      return Response.json({ error: 'push not configured' }, { status: 503 });
+    }
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return Response.json({ error: 'invalid json' }, { status: 400 });
+    }
+    const sub = parsePushSubscription(body);
+    if (!sub) {
+      return Response.json({ error: 'invalid subscription' }, { status: 400 });
+    }
+    const key = await hashedPushSubscriptionKey(sub.endpoint);
+    await this.state.storage.put(key, sub);
+    return Response.json({ status: 'subscribed' });
+  }
+
+  private async unsubscribe(request: Request): Promise<Response> {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return Response.json({ error: 'invalid json' }, { status: 400 });
+    }
+    const endpoint =
+      body && typeof body === 'object' && typeof (body as { endpoint?: unknown }).endpoint === 'string'
+        ? (body as { endpoint: string }).endpoint
+        : null;
+    if (!endpoint) {
+      return Response.json({ error: 'endpoint required' }, { status: 400 });
+    }
+    const key = await hashedPushSubscriptionKey(endpoint);
+    await this.state.storage.delete(key);
+    return Response.json({ status: 'unsubscribed' });
+  }
+
+  private async notifyFailure(): Promise<void> {
+    const vapid = vapidFromEnv(this.env);
+    if (!vapid) return;
+
+    const message = failureNotificationMessage(
+      this.payload.builds,
+      await this.publicOrigin(),
+    );
+    const listed = await this.state.storage.list<StoredPushSubscription>({
+      prefix: SUB_KEY_PREFIX,
+    });
+
+    for (const [key, value] of listed) {
+      if (!isPushSubscription(value)) {
+        await this.state.storage.delete(key);
+        continue;
+      }
+      try {
+        const result = await sendWebPush(value, message, vapid);
+        if (result.gone) {
+          await this.state.storage.delete(key);
+        }
+      } catch {
+        // Best-effort: a single bad subscription must not block others.
+      }
+    }
   }
 
   private broadcast(): void {
@@ -131,6 +249,29 @@ export default {
 
     if (url.pathname === '/ws' || url.pathname === '/refresh') {
       return statusStub(env).fetch(request);
+    }
+
+    if (url.pathname === '/api/push/vapid-public-key') {
+      const vapid = vapidFromEnv(env);
+      if (!vapid) {
+        return Response.json({ error: 'push not configured' }, { status: 503 });
+      }
+      return Response.json({ publicKey: vapid.publicKey });
+    }
+
+    if (url.pathname === '/api/push/subscribe') {
+      // Forward to the DO so subscriptions sit with the FAIL edge trigger.
+      const method = request.method;
+      if (method !== 'POST' && method !== 'DELETE') {
+        return new Response('Method not allowed', { status: 405 });
+      }
+      return statusStub(env).fetch(
+        new Request(new URL('/push/subscribe', request.url), {
+          method,
+          headers: request.headers,
+          body: request.body,
+        }),
+      );
     }
 
     if (url.pathname === '/health') {

@@ -39,6 +39,12 @@
         class="last-checked"
         data-last-checked-at=""
       >Not checked yet</p>
+      <div id="push-controls" class="push-controls" hidden>
+        <button type="button" id="push-toggle" class="push-toggle" data-state="off">
+          Notify on failure
+        </button>
+        <p id="push-hint" class="push-hint"></p>
+      </div>
     </header>
 
     <section class="hero">
@@ -116,5 +122,6 @@
   </footer>
   <script src="/countdown.js"></script>
   <script src="/app.js"></script>
+  <script src="/push.js"></script>
 </body>
 </html>

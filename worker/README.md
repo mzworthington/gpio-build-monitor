@@ -26,10 +26,20 @@ entries entirely when you have none.
 
 Webhooks (immediate refresh): [docs/webhooks.md](../docs/webhooks.md).
 
+Failure push notifications (Chrome desktop / Android): [docs/push.md](../docs/push.md).
+
+```bash
+# after generate-vapid-keys — see docs/push.md
+pnpm exec wrangler secret put VAPID_PUBLIC_KEY --name gpio-build-monitor
+pnpm exec wrangler secret put VAPID_PRIVATE_KEY --name gpio-build-monitor
+```
+
 Local:
 
 ```bash
 pnpm dev
+pnpm test
+pnpm typecheck
 ```
 
 Infra (custom domain): [../infra/cloudflare/README.md](../infra/cloudflare/README.md).
