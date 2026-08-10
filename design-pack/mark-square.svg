@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Build monitor">
+  <!-- Full-bleed square for apple-touch / PWA (OS applies its own mask). -->
   <defs>
     <radialGradient id="wash-blue" cx="50%" cy="40%" r="60%">
       <stop offset="0%" stop-color="#6aa8ff" stop-opacity="0.55"/>
@@ -21,17 +22,15 @@
       <stop offset="100%" stop-color="#c084fc" stop-opacity="0"/>
     </radialGradient>
   </defs>
-  <rect width="128" height="128" rx="28" fill="#0b0e13"/>
+  <rect width="128" height="128" fill="#0b0e13"/>
   <circle cx="64" cy="64" r="44" fill="none" stroke="#1c2430" stroke-width="7"/>
   <circle cx="64" cy="64" r="44" fill="none" stroke="#3dd68c" stroke-width="7"
           stroke-linecap="round" stroke-dasharray="69 208" transform="rotate(-90 64 64)"/>
-  <!-- glow washes -->
   <circle cx="64" cy="20" r="18" fill="url(#wash-blue)"/>
   <circle cx="104" cy="48" r="18" fill="url(#wash-green)"/>
   <circle cx="90" cy="98" r="18" fill="url(#wash-yellow)"/>
   <circle cx="38" cy="98" r="18" fill="url(#wash-red)"/>
   <circle cx="24" cy="48" r="18" fill="url(#wash-purple)"/>
-  <!-- bulbs -->
   <circle cx="64" cy="20" r="8.5" fill="#6aa8ff"/>
   <circle cx="62.2" cy="18" r="2.8" fill="#e8f1ff" opacity="0.9"/>
   <circle cx="104" cy="48" r="8.5" fill="#3dd68c"/>

@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Build monitor">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#10151c"/>
+      <stop offset="45%" stop-color="#0b0e13"/>
+      <stop offset="100%" stop-color="#07090c"/>
+    </linearGradient>
+    <radialGradient id="wash" cx="50%" cy="0%" r="70%">
+      <stop offset="0%" stop-color="#6aa8ff" stop-opacity="0.16"/>
+      <stop offset="55%" stop-color="#3dd68c" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#0b0e13" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bulb-blue" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#6aa8ff" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#6aa8ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bulb-green" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#3dd68c" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bulb-yellow" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#efc15a" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#efc15a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bulb-red" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#ff6b6b" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#ff6b6b" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bulb-purple" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#c084fc" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#c084fc" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#wash)"/>
+
+  <!-- Soft grid -->
+  <g stroke="#f3f0e8" stroke-opacity="0.035" stroke-width="1">
+    <path d="M0 90 H1200 M0 180 H1200 M0 270 H1200 M0 360 H1200 M0 450 H1200 M0 540 H1200"/>
+    <path d="M100 0 V630 M200 0 V630 M300 0 V630 M400 0 V630 M500 0 V630 M600 0 V630 M700 0 V630 M800 0 V630 M900 0 V630 M1000 0 V630 M1100 0 V630"/>
+  </g>
+
+  <!-- Mark (right) -->
+  <g transform="translate(690, 95)">
+    <rect width="420" height="420" rx="84" fill="#131820" stroke="#1c2430" stroke-width="2"/>
+    <g transform="translate(50, 50)">
+      <circle cx="160" cy="160" r="118" fill="none" stroke="#1c2430" stroke-width="18"/>
+      <circle cx="160" cy="160" r="118" fill="none" stroke="#3dd68c" stroke-width="18"
+              stroke-linecap="round" stroke-dasharray="185 556" transform="rotate(-90 160 160)"/>
+      <circle cx="160" cy="42" r="48" fill="url(#bulb-blue)"/>
+      <circle cx="268" cy="118" r="48" fill="url(#bulb-green)"/>
+      <circle cx="230" cy="252" r="48" fill="url(#bulb-yellow)"/>
+      <circle cx="90" cy="252" r="48" fill="url(#bulb-red)"/>
+      <circle cx="52" cy="118" r="48" fill="url(#bulb-purple)"/>
+      <circle cx="160" cy="42" r="24" fill="#6aa8ff"/>
+      <circle cx="155" cy="36" r="8" fill="#e8f1ff" opacity="0.9"/>
+      <circle cx="268" cy="118" r="24" fill="#3dd68c"/>
+      <circle cx="263" cy="112" r="8" fill="#e6fff2" opacity="0.9"/>
+      <circle cx="230" cy="252" r="24" fill="#efc15a"/>
+      <circle cx="225" cy="246" r="8" fill="#fff6d6" opacity="0.9"/>
+      <circle cx="90" cy="252" r="24" fill="#ff6b6b"/>
+      <circle cx="85" cy="246" r="8" fill="#ffe0e0" opacity="0.9"/>
+      <circle cx="52" cy="118" r="24" fill="#c084fc"/>
+      <circle cx="47" cy="112" r="8" fill="#f5e8ff" opacity="0.9"/>
+    </g>
+  </g>
+
+  <!-- Wordmark (left) -->
+  <text x="88" y="250"
+        font-family="Syne, Avenir Next, ui-sans-serif, system-ui, sans-serif"
+        font-size="72" font-weight="800" fill="#f3f0e8" letter-spacing="-1.5">
+    Build monitor
+  </text>
+  <text x="88" y="318"
+        font-family="Manrope, Segoe UI, ui-sans-serif, system-ui, sans-serif"
+        font-size="28" font-weight="500" fill="#8a92a1">
+    CI you notice without looking for it
+  </text>
+  <text x="88" y="358"
+        font-family="Manrope, Segoe UI, ui-sans-serif, system-ui, sans-serif"
+        font-size="28" font-weight="500" fill="#8a92a1">
+    on the web or glowing on your desk.
+  </text>
+
+  <!-- Status legend strip -->
+  <g transform="translate(88, 430)">
+    <circle cx="10" cy="10" r="10" fill="#6aa8ff"/>
+    <text x="30" y="16" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="18" fill="#8a92a1">Fetch</text>
+    <circle cx="130" cy="10" r="10" fill="#3dd68c"/>
+    <text x="150" y="16" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="18" fill="#8a92a1">Pass</text>
+    <circle cx="240" cy="10" r="10" fill="#efc15a"/>
+    <text x="260" y="16" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="18" fill="#8a92a1">Run</text>
+    <circle cx="340" cy="10" r="10" fill="#ff6b6b"/>
+    <text x="360" y="16" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="18" fill="#8a92a1">Fail</text>
+    <circle cx="450" cy="10" r="10" fill="#c084fc"/>
+    <text x="470" y="16" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="18" fill="#8a92a1">Error</text>
+  </g>
+
+  <rect x="88" y="490" width="72" height="6" rx="3" fill="#6aa8ff"/>
+</svg>
