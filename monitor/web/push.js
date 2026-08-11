@@ -51,12 +51,12 @@
     }
     if (sub) {
       setButton('Disable failure alerts', true);
-      setHint('You’ll get a notification when status turns red.');
+      setHint('Alerts when status turns red, and again when everything is green.');
       button.dataset.state = 'on';
       return;
     }
     setButton('Notify on failure', true);
-    setHint('Chrome desktop or Android. One alert per fail edge.');
+    setHint('Chrome desktop or Android. Alerts on fail and recovery.');
     button.dataset.state = 'off';
   }
 

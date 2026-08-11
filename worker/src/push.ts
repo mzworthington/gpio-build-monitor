@@ -25,6 +25,14 @@ export function shouldNotifyFailure(
   return next === 'FAIL' && previous !== 'FAIL';
 }
 
+/** Edge-trigger: notify when aggregate recovers from FAIL to all PASS. */
+export function shouldNotifyRecovery(
+  previous: AggregateStatus | null | undefined,
+  next: AggregateStatus,
+): boolean {
+  return previous === 'FAIL' && next === 'PASS';
+}
+
 export async function hashedPushSubscriptionKey(endpoint: string): Promise<string> {
   // Hash keeps DO keys short and stable (push endpoints are long URLs).
   const digest = await crypto.subtle.digest(
@@ -58,6 +66,21 @@ export function parsePushSubscription(body: unknown): StoredPushSubscription | n
   };
 }
 
+function pushMessage(body: string, origin: string, urgency: 'high' | 'normal'): PushMessage {
+  return {
+    data: JSON.stringify({
+      title: 'Build monitor',
+      body,
+      url: origin || '/',
+    }),
+    options: {
+      // Keep long enough for a closed laptop to still receive it.
+      ttl: 60 * 60,
+      urgency,
+    },
+  };
+}
+
 export function failureNotificationMessage(
   builds: BuildDetail[],
   origin: string,
@@ -75,18 +98,11 @@ export function failureNotificationMessage(
     body = `${names[0]} and ${names.length - 1} more failed`;
   }
 
-  return {
-    data: JSON.stringify({
-      title: 'Build monitor',
-      body,
-      url: origin || '/',
-    }),
-    options: {
-      // Keep long enough for a closed laptop to still receive it.
-      ttl: 60 * 60,
-      urgency: 'high',
-    },
-  };
+  return pushMessage(body, origin, 'high');
+}
+
+export function recoveryNotificationMessage(origin: string): PushMessage {
+  return pushMessage('All builds passing', origin, 'normal');
 }
 
 export function vapidFromEnv(env: {

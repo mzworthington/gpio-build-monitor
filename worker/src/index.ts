@@ -11,12 +11,15 @@ import {
   hashedPushSubscriptionKey,
   isPushSubscription,
   parsePushSubscription,
+  recoveryNotificationMessage,
   sendWebPush,
   shouldNotifyFailure,
+  shouldNotifyRecovery,
   SUB_KEY_PREFIX,
   vapidFromEnv,
   type StoredPushSubscription,
 } from './push';
+import type { PushMessage } from '@block65/webcrypto-web-push';
 import { handleWebhook } from './webhooks';
 
 export interface Env {
@@ -158,6 +161,8 @@ export class StatusHub implements DurableObject {
 
     if (shouldNotifyFailure(previous, status)) {
       this.state.waitUntil(this.notifyFailure());
+    } else if (shouldNotifyRecovery(previous, status)) {
+      this.state.waitUntil(this.notifyRecovery());
     }
   }
 
@@ -200,13 +205,19 @@ export class StatusHub implements DurableObject {
   }
 
   private async notifyFailure(): Promise<void> {
+    await this.notifySubscribers(
+      failureNotificationMessage(this.payload.builds, await this.publicOrigin()),
+    );
+  }
+
+  private async notifyRecovery(): Promise<void> {
+    await this.notifySubscribers(recoveryNotificationMessage(await this.publicOrigin()));
+  }
+
+  private async notifySubscribers(message: PushMessage): Promise<void> {
     const vapid = vapidFromEnv(this.env);
     if (!vapid) return;
 
-    const message = failureNotificationMessage(
-      this.payload.builds,
-      await this.publicOrigin(),
-    );
     const listed = await this.state.storage.list<StoredPushSubscription>({
       prefix: SUB_KEY_PREFIX,
     });
