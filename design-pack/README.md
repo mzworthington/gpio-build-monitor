@@ -24,7 +24,8 @@ Brand assets for the GPIO build monitor UI — favicon, logo, apple-touch, and O
 | File | Purpose |
 | --- | --- |
 | `mark.svg` | Rounded logo (in-app brand mark, `logo.png`) |
-| `mark-square.svg` | Full-bleed square (apple-touch / PWA; OS masks corners) |
+| `mark-square.svg` | Full-bleed square (apple-touch / PWA; OS masks corners). Dial
+  stays inside the circular safe zone so orbs aren’t clipped. |
 | `favicon.svg` | Tab icon — **opaque full-bleed plate** (no rounded alpha; Android
   shortcuts composite transparent corners onto white) |
 | `social-share.svg` | Open Graph / Twitter card (1200×630) |
