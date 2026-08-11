@@ -85,7 +85,7 @@ See [Getting started](docs/getting-started.md) for mise, Make, and CLI details.
 | [Getting started](docs/getting-started.md) | Local setup, CLI, development workflow |
 | [Pi setup](docs/pi-setup.md) | Headless Raspberry Pi + systemd |
 | [Webhooks](docs/webhooks.md) | GitHub/CircleCI webhooks on the hosted Worker |
-| [Push notifications](docs/push.md) | Chrome/Android failure alerts (hosted Worker) |
+| [Push notifications](docs/push.md) | Chrome/Android fail + recovery alerts (hosted Worker) |
 | [Configuration](docs/configuration.md) | `integrations.yaml`, tokens, pins, logging |
 | [Raspberry Pi](docs/raspberry-pi.md) | GPIO reference, systemd, auto-updates |
 | [Hardware](docs/hardware.md) | Pin map, shopping list, build photos |

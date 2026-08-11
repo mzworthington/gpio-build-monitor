@@ -1,13 +1,15 @@
-# Web Push (failure alerts)
+# Web Push (status alerts)
 
 Optional Chrome desktop / Android alerts when the hosted monitor transitions
-into **FAIL**. Subscriptions live in the existing `StatusHub` Durable Object
-(no KV namespace, no extra Cloudflare product).
+into **FAIL**, and again when it recovers from **FAIL** to all **PASS**.
+Subscriptions live in the existing `StatusHub` Durable Object (no KV
+namespace, no extra Cloudflare product).
 
 ## Behaviour
 
 - Edge-triggered: one notification when status newly becomes `FAIL`
-- No repeat while status stays red
+- Edge-triggered: one notification when status recovers `FAIL` → `PASS`
+- No repeat while status stays red (or stays green)
 - Opt-in from the status page (“Notify on failure”)
 - Hidden automatically when VAPID secrets are not configured (local Pi UI
   included)
@@ -46,7 +48,8 @@ pnpm deploy
    Chrome (desktop or Android).
 2. Click **Notify on failure** and allow notifications.
 3. When aggregate status next moves into FAIL, you should get a system
-   notification. Clicking it focuses/opens the status page.
+   notification. When it later recovers to all PASS, you get another.
+   Clicking either focuses/opens the status page.
 
 ## API
 
