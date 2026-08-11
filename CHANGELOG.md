@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v0.10.2 (2026-08-11)
+
+### Bug Fixes
+
+- Make home-screen icon full-bleed like ArchLens
+  ([#22](https://github.com/mzworthington/gpio-build-monitor/pull/22),
+  [`ad631da`](https://github.com/mzworthington/gpio-build-monitor/commit/ad631da747c3eb843a81b653a60d512484fb8a78))
+
+
 ## v0.10.1 (2026-08-11)
 
 ### Bug Fixes
