@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v0.10.0 (2026-08-11)
+
+### Features
+
+- Notify on FAIL to PASS recovery via web push
+  ([#20](https://github.com/mzworthington/gpio-build-monitor/pull/20),
+  [`205afbd`](https://github.com/mzworthington/gpio-build-monitor/commit/205afbd3711f9e1600b6ee3374bd4e49a4fd97c5))
+
+
 ## v0.9.1 (2026-08-10)
 
 ### Refactoring
