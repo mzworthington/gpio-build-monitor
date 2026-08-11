@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v0.10.1 (2026-08-11)
+
+### Bug Fixes
+
+- Enlarge home-screen icon on a black plate
+  ([#21](https://github.com/mzworthington/gpio-build-monitor/pull/21),
+  [`56ce839`](https://github.com/mzworthington/gpio-build-monitor/commit/56ce839c7fae48a63981bd7198b28f5b494d98d1))
+
+
 ## v0.10.0 (2026-08-11)
 
 ### Features
