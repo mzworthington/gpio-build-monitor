@@ -68,6 +68,7 @@ class HtmlStatusClient:
             ("icon-192.png", "image/png"),
             ("icon-512.png", "image/png"),
             ("social-share.png", "image/png"),
+            ("manifest.webmanifest", "application/manifest+json"),
         ):
             path = self._web_dir / name
             if path.is_file():

@@ -62,6 +62,7 @@ class WebSocketStatusOutput:
                 ("icon-192.png", "image/png"),
                 ("icon-512.png", "image/png"),
                 ("social-share.png", "image/png"),
+                ("manifest.webmanifest", "application/manifest+json"),
             ):
                 if (self._web_dir / name).is_file():
                     app.router.add_get(f"/{name}", self._asset_handler(name, content_type))

@@ -6,7 +6,7 @@ Brand assets for the GPIO build monitor UI — favicon, logo, apple-touch, and O
 
 | Token | Value | Role |
 | --- | --- | --- |
-| Background | `#0b0e13` | Surfaces / icon plate |
+| Background | `#000000` | Icon plate (UI surfaces stay `#0b0e13`) |
 | Ink | `#f3f0e8` | Headings |
 | Muted | `#8a92a1` | Taglines |
 | Fetch | `#6aa8ff` | Blue LED |
@@ -40,9 +40,11 @@ monitor/web/
   icon-192.png
   icon-512.png
   social-share.png
+  manifest.webmanifest
 ```
 
-`index.html` and `templates/status.html.j2` wire favicon, apple-touch, theme-color, and `og:` / `twitter:` image meta to `/social-share.png`.
+`index.html` and `templates/status.html.j2` wire favicon, apple-touch, theme-color,
+web manifest (maskable PWA icons), and `og:` / `twitter:` image meta to `/social-share.png`.
 
 ## Regenerate PNGs
 
