@@ -55,6 +55,7 @@ class WebSocketStatusOutput:
                 ("countdown.js", "application/javascript"),
                 ("styles.css", "text/css"),
                 ("favicon.svg", "image/svg+xml"),
+                ("favicon.png", "image/png"),
                 ("favicon-32.png", "image/png"),
                 ("apple-touch-icon.png", "image/png"),
                 ("logo.svg", "image/svg+xml"),
