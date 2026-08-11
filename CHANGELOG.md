@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v0.10.3 (2026-08-11)
+
+### Bug Fixes
+
+- Inset dial so circular masks don't clip orbs
+  ([#23](https://github.com/mzworthington/gpio-build-monitor/pull/23),
+  [`c2d5ed3`](https://github.com/mzworthington/gpio-build-monitor/commit/c2d5ed340885e769eef2f4c395d37844787d583d))
+
+
 ## v0.10.2 (2026-08-11)
 
 ### Bug Fixes
