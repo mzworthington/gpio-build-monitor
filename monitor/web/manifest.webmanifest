@@ -3,27 +3,21 @@
   "short_name": "Build monitor",
   "description": "CI status lights for your desk and phone",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#000000",
-  "theme_color": "#0b0e13",
+  "theme_color": "#000000",
+  "lang": "en",
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
+      "type": "image/png"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
+      "type": "image/png"
     },
     {
       "src": "/icon-512.png",

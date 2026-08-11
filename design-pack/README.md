@@ -25,7 +25,8 @@ Brand assets for the GPIO build monitor UI — favicon, logo, apple-touch, and O
 | --- | --- |
 | `mark.svg` | Rounded logo (in-app brand mark, `logo.png`) |
 | `mark-square.svg` | Full-bleed square (apple-touch / PWA; OS masks corners) |
-| `favicon.svg` | Tab icon (simplified for 16–32px) |
+| `favicon.svg` | Tab icon — **opaque full-bleed plate** (no rounded alpha; Android
+  shortcuts composite transparent corners onto white) |
 | `social-share.svg` | Open Graph / Twitter card (1200×630) |
 
 ## Shipped to the app
@@ -33,6 +34,7 @@ Brand assets for the GPIO build monitor UI — favicon, logo, apple-touch, and O
 ```text
 monitor/web/
   favicon.svg
+  favicon.png
   favicon-32.png
   logo.svg
   logo.png
@@ -44,7 +46,8 @@ monitor/web/
 ```
 
 `index.html` and `templates/status.html.j2` wire favicon, apple-touch, theme-color,
-web manifest (maskable PWA icons), and `og:` / `twitter:` image meta to `/social-share.png`.
+web manifest (maskable PWA icon, ArchLens-style), and `og:` / `twitter:` image meta
+to `/social-share.png`.
 
 ## Regenerate PNGs
 

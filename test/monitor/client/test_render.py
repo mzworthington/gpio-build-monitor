@@ -32,6 +32,7 @@ def test_renderer_marks_fail_lights():
     assert "countdown.js" in html
     assert "app.js" in html
     assert 'href="/favicon.svg"' in html
+    assert 'href="/favicon.png"' in html
     assert 'href="/manifest.webmanifest"' in html
     assert 'src="/logo.svg"' in html
     assert 'property="og:image"' in html

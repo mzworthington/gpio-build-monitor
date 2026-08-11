@@ -61,6 +61,7 @@ class HtmlStatusClient:
             ("countdown.js", "application/javascript"),
             ("app.js", "application/javascript"),
             ("favicon.svg", "image/svg+xml"),
+            ("favicon.png", "image/png"),
             ("favicon-32.png", "image/png"),
             ("apple-touch-icon.png", "image/png"),
             ("logo.svg", "image/svg+xml"),
