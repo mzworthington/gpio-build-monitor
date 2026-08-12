@@ -3,6 +3,7 @@
   "workflow_runs": [
     {
       "id": 448533827,
+      "workflow_id": 1001,
       "name": "CI",
       "html_url": "https://github.com/worthington10TW/gpio-build-monitor/actions/runs/448533827",
       "created_at": "2020-12-28T09:23:57Z",
