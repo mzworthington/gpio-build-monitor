@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.11.0 (2026-08-12)
+
+### Features
+
+- Remove logo from header to give more screen realestate
+  ([`698d608`](https://github.com/mzworthington/gpio-build-monitor/commit/698d6086223db98790fd21fede48266e73bc4b61))
+
+
 ## v0.10.3 (2026-08-11)
 
 ### Bug Fixes
