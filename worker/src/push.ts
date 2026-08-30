@@ -29,8 +29,27 @@ export function shouldNotifyFailure(
 export function shouldNotifyRecovery(
   previous: AggregateStatus | null | undefined,
   next: AggregateStatus,
+  isRunning: boolean,
 ): boolean {
+  // In-progress rebuilds drop the failed run from the settled rollup, which
+  // can look like PASS before the new run finishes. Wait until it settles.
+  if (isRunning) return false;
   return previous === 'FAIL' && next === 'PASS';
+}
+
+/**
+ * Status stored for the next edge-trigger comparison.
+ * Hold FAIL while a rebuild is in flight so recovery can still fire after settle.
+ */
+export function statusToRemember(
+  previous: AggregateStatus | null | undefined,
+  next: AggregateStatus,
+  isRunning: boolean,
+): AggregateStatus {
+  if (isRunning && previous === 'FAIL' && next !== 'FAIL') {
+    return 'FAIL';
+  }
+  return next;
 }
 
 export async function hashedPushSubscriptionKey(endpoint: string): Promise<string> {

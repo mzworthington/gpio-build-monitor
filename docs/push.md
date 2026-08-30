@@ -9,6 +9,8 @@ namespace, no extra Cloudflare product).
 
 - Edge-triggered: one notification when status newly becomes `FAIL`
 - Edge-triggered: one notification when status recovers `FAIL` → `PASS`
+  after in-progress rebuilds have settled (not when a failed job merely
+  starts running again)
 - No repeat while status stays red (or stays green)
 - Opt-in from the status page (“Notify on failure”)
 - Hidden automatically when VAPID secrets are not configured (local Pi UI
@@ -48,7 +50,8 @@ pnpm deploy
    Chrome (desktop or Android).
 2. Click **Notify on failure** and allow notifications.
 3. When aggregate status next moves into FAIL, you should get a system
-   notification. When it later recovers to all PASS, you get another.
+   notification. When it later recovers to all PASS (and nothing is still
+   building), you get another.
    Clicking either focuses/opens the status page.
 
 ## API

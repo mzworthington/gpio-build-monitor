@@ -15,6 +15,7 @@ import {
   sendWebPush,
   shouldNotifyFailure,
   shouldNotifyRecovery,
+  statusToRemember,
   SUB_KEY_PREFIX,
   vapidFromEnv,
   type StoredPushSubscription,
@@ -156,12 +157,15 @@ export class StatusHub implements DurableObject {
       next_check_at: now + config.poll_in_seconds,
     };
     this.broadcast();
-    await this.state.storage.put(LAST_STATUS_KEY, status);
+    await this.state.storage.put(
+      LAST_STATUS_KEY,
+      statusToRemember(previous, status, is_running),
+    );
     await this.state.storage.setAlarm(Date.now() + config.poll_in_seconds * 1000);
 
     if (shouldNotifyFailure(previous, status)) {
       this.state.waitUntil(this.notifyFailure());
-    } else if (shouldNotifyRecovery(previous, status)) {
+    } else if (shouldNotifyRecovery(previous, status, is_running)) {
       this.state.waitUntil(this.notifyRecovery());
     }
   }
