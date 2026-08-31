@@ -1,0 +1,17 @@
+{
+  "total_count": 2,
+  "workflows": [
+    {
+      "id": 1001,
+      "name": "CI",
+      "path": ".github/workflows/ci.yml",
+      "state": "active"
+    },
+    {
+      "id": 1002,
+      "name": "Legacy",
+      "path": ".github/workflows/legacy.yml",
+      "state": "deleted"
+    }
+  ]
+}
