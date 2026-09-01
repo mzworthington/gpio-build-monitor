@@ -52,7 +52,7 @@ const worker = new cloudflare.Worker('monitor', {
     enabled: true,
     logs: {
       enabled: true,
-      invocationLogs: true,
+      invocationLogs: false,
     },
   },
 });
