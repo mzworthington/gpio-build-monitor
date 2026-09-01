@@ -19,7 +19,8 @@ This stack owns the **hosted** path only. Zone lifecycle stays in
 Script + static UI assets are **not** updated by Pulumi. They ship via
 `wrangler deploy` from [`worker/`](../../worker/) — locally or through the
 `deploy-worker` job in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
-on every push to `main`.
+on every push to `main`. That job injects the shared `mzworthington.co.uk` RUM
+beacon into `monitor/web/index.html` before deploy.
 
 Config accepts either `workerName` / `workerHostnames` or the Pages-shaped
 aliases (`pagesProjectName` / `pagesHostnames`) so the shared edge-dns bootstrap
