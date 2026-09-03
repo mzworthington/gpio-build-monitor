@@ -18,7 +18,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from menu_bar import DEFAULT_DASHBOARD, DEFAULT_STATUS_URL, plugin_output  # noqa: E402
+from menu_bar import (  # noqa: E402
+    DEFAULT_DASHBOARD,
+    DEFAULT_STATUS_URL,
+    plugin_output,
+    snapshot_headers,
+)
 
 TIMEOUT_SECONDS = 10
 
@@ -41,7 +46,7 @@ def _error_output(message: str) -> str:
 def main() -> None:
     status_url = os.environ.get("GPIO_MONITOR_STATUS_URL", DEFAULT_STATUS_URL)
     dashboard_url = os.environ.get("GPIO_MONITOR_DASHBOARD_URL", DEFAULT_DASHBOARD)
-    request = urllib.request.Request(status_url, headers={"Accept": "application/json"})
+    request = urllib.request.Request(status_url, headers=snapshot_headers())
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
             payload = json.loads(response.read().decode("utf-8"))

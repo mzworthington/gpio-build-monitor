@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from macos.menu_bar import plugin_output, title_for
+from macos.menu_bar import plugin_output, snapshot_headers, title_for
 
 
 def test_title_maps_like_gpio_lights():
@@ -65,3 +65,9 @@ def test_plugin_output_lists_builds_and_dashboard():
     assert "org/app CI FAIL | href=https://github.com/org/app/actions/1 color=red" in lines
     assert "Open monitor | href=https://monitor.mzworthington.co.uk" in lines
     assert "Refresh | refresh=true" in lines
+
+
+def test_snapshot_headers_identify_the_client():
+    headers = snapshot_headers()
+    assert headers["Accept"] == "application/json"
+    assert "gpio-build-monitor" in headers["User-Agent"]

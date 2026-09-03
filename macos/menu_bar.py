@@ -7,6 +7,17 @@ from typing import Any
 
 DEFAULT_DASHBOARD = "https://monitor.mzworthington.co.uk"
 DEFAULT_STATUS_URL = f"{DEFAULT_DASHBOARD}/status"
+SNAPSHOT_USER_AGENT = (
+    "gpio-build-monitor/1.0 (+https://github.com/mzworthington/gpio-build-monitor)"
+)
+
+
+def snapshot_headers() -> dict[str, str]:
+    # Cloudflare 403s python-urllib when Accept is set without a User-Agent.
+    return {
+        "Accept": "application/json",
+        "User-Agent": SNAPSHOT_USER_AGENT,
+    }
 
 _BUILD_COLORS = {
     "FAIL": "red",
