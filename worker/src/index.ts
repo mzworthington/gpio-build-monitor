@@ -22,6 +22,7 @@ import {
 } from './push';
 import type { PushMessage } from '@block65/webcrypto-web-push';
 import { posthogConfigResponse } from './posthogConfig';
+import { isStatusHubPath } from './statusHubRoutes';
 import { handleWebhook } from './webhooks';
 
 export interface Env {
@@ -78,6 +79,18 @@ export class StatusHub implements DurableObject {
     if (url.pathname === '/refresh' && request.method === 'POST') {
       await this.refresh();
       return Response.json(this.payload);
+    }
+
+    if (url.pathname === '/status') {
+      if (request.method !== 'GET') {
+        return new Response('Method not allowed', { status: 405 });
+      }
+      if (this.isStale()) {
+        void this.refresh();
+      }
+      return Response.json(this.payload, {
+        headers: { 'Cache-Control': 'no-store' },
+      });
     }
 
     if (url.pathname === '/push/subscribe' && request.method === 'POST') {
@@ -265,7 +278,7 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
-    if (url.pathname === '/ws' || url.pathname === '/refresh') {
+    if (isStatusHubPath(url.pathname)) {
       return statusStub(env).fetch(request);
     }
 

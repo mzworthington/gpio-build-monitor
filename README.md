@@ -8,18 +8,18 @@ Glanceable CI status - on the web, or glowing on your desk.
 
 Inspired by office information radiators. [Read the story →](https://mzworthington.co.uk/guides/i-built-a-build-monitor)
 
-## Two ways to run it
+## Ways to run it
 
 Same aggregation logic; pick the outputs you want.
 
-| | **On the web** | **On a Pi** |
-|---|---|---|
-| **What you get** | Public status UI + live WebSocket | Desk LEDs (optional local UI) |
-| **Where it runs** | Cloudflare Worker | Raspberry Pi GPIO |
-| **See it** | [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) | Hardware on your desk |
-| **Setup** | [worker/README.md](worker/README.md) · [infra/cloudflare](infra/cloudflare/README.md) · [Webhooks](docs/webhooks.md) | [Pi setup](docs/pi-setup.md) · [Hardware](docs/hardware.md) |
+| | **On the web** | **On a Pi** | **On a Mac** |
+|---|---|---|---|
+| **What you get** | Public status UI + live WebSocket | Desk LEDs (optional local UI) | Menu bar extra |
+| **Where it runs** | Cloudflare Worker | Raspberry Pi GPIO | [SwiftBar](docs/macos.md) plugin |
+| **See it** | [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) | Hardware on your desk | Top toolbar (polls `/status`) |
+| **Setup** | [worker/README.md](worker/README.md) · [infra/cloudflare](infra/cloudflare/README.md) · [Webhooks](docs/webhooks.md) | [Pi setup](docs/pi-setup.md) · [Hardware](docs/hardware.md) | [Mac menu bar](docs/macos.md) |
 
-You can use either path alone, or both with the same `integrations.yaml` shape. The hosted site does not depend on the Pi (no tunnel required).
+You can use any path alone, or combine them with the same `integrations.yaml` shape. The hosted site does not depend on the Pi (no tunnel required). The Mac extra reads the hosted (or local) snapshot — it does not poll GitHub itself.
 
 ### Web (hosted)
 
@@ -86,6 +86,7 @@ See [Getting started](docs/getting-started.md) for mise, Make, and CLI details.
 | [Pi setup](docs/pi-setup.md) | Headless Raspberry Pi + systemd |
 | [Webhooks](docs/webhooks.md) | GitHub/CircleCI webhooks on the hosted Worker |
 | [Push notifications](docs/push.md) | Chrome/Android fail + recovery alerts (hosted Worker) |
+| [Mac menu bar](docs/macos.md) | SwiftBar extra from `GET /status` |
 | [Configuration](docs/configuration.md) | `integrations.yaml`, tokens, pins, logging |
 | [Raspberry Pi](docs/raspberry-pi.md) | GPIO reference, systemd, auto-updates |
 | [Hardware](docs/hardware.md) | Pin map, shopping list, build photos |

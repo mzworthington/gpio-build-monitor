@@ -9,7 +9,7 @@ repos:
     hooks:
       - id: pytest
         name: pytest
-        entry: .venv/bin/python -m pytest test/monitor -q
+        entry: .venv/bin/python -m pytest test -q
         language: system
         pass_filenames: false
         stages: [pre-push]

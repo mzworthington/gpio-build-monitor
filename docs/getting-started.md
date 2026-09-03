@@ -88,3 +88,5 @@ python -m monitor check-config
 On your development machine, Python runs without `-O`, so the mock GPIO module is used. On the Pi, run with `python -O` so the real `RPi.GPIO` library is loaded.
 
 See [Raspberry Pi](raspberry-pi.md) for hardware setup and systemd.
+
+Menu bar on a Mac: [Mac menu bar](macos.md) (SwiftBar + `GET /status`).

@@ -34,7 +34,7 @@ lint: bootstrap ## Run ruff linter
 	./$(VENV)/bin/ruff check monitor test
 
 test: bootstrap lint ## Run pytest with junit formatting
-	./$(VENV)/bin/python -m pytest test/monitor -v --junitxml=junit/test-results.xml
+	./$(VENV)/bin/python -m pytest test -v --junitxml=junit/test-results.xml
 
 build: bootstrap ## Create sdist and wheel without running tests
 	rm -rf build/

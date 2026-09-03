@@ -28,6 +28,8 @@ Webhooks (immediate refresh): [docs/webhooks.md](../docs/webhooks.md).
 
 Failure push notifications (Chrome desktop / Android): [docs/push.md](../docs/push.md).
 
+Mac menu bar (SwiftBar): [docs/macos.md](../docs/macos.md). Snapshot: `GET /status` (same JSON as the first `/ws` message).
+
 ```bash
 # after generate-vapid-keys — see docs/push.md
 pnpm exec wrangler secret put VAPID_PUBLIC_KEY --name gpio-build-monitor

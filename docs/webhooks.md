@@ -75,6 +75,8 @@ use the Worker URLs for the public website.
 ```bash
 curl -sS https://monitor.mzworthington.co.uk/health
 # {"status":"ok"}
+curl -sS https://monitor.mzworthington.co.uk/status | head
+# {"type":"status","fetching":false,"status":"...
 ```
 
 In GitHub → webhook → Recent Deliveries, `ping` / `workflow_run` should be `200`.

@@ -65,3 +65,24 @@ async def test_websocket_broadcasts_status_and_serves_ui(tmp_path):
                     published["last_checked_at"] + 12
                     == published["next_check_at"]
                 )
+
+
+@pytest.mark.asyncio
+async def test_status_snapshot_matches_websocket_payload():
+    port = _free_port()
+
+    async with WebSocketStatusOutput(
+        host="127.0.0.1",
+        port=port,
+        poll_in_seconds=12,
+    ) as output:
+        await output.publish(Result.PASS, is_running=False)
+        async with ClientSession() as session:
+            async with session.get(f"http://127.0.0.1:{port}/status") as response:
+                assert response.status == 200
+                body = await response.json()
+                assert body["type"] == "status"
+                assert body["status"] == "PASS"
+                assert body["is_running"] is False
+                assert body["fetching"] is False
+                assert body["poll_in_seconds"] == 12

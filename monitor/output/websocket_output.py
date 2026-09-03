@@ -48,6 +48,7 @@ class WebSocketStatusOutput:
     async def start(self) -> None:
         app = web.Application()
         app.router.add_get("/ws", self._websocket_handler)
+        app.router.add_get("/status", self._status_handler)
         if self._web_dir.is_dir():
             app.router.add_get("/", self._index_handler)
             for name, content_type in (
@@ -120,6 +121,9 @@ class WebSocketStatusOutput:
             "last_checked_at": self._last_checked_at,
             "next_check_at": self._next_check_at,
         }
+
+    async def _status_handler(self, _request: web.Request) -> web.Response:
+        return web.json_response(self._payload(), headers={"Cache-Control": "no-store"})
 
     async def _index_handler(self, _request: web.Request) -> web.FileResponse:
         return web.FileResponse(self._web_dir / "index.html")
