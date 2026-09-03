@@ -21,6 +21,7 @@ import {
   type StoredPushSubscription,
 } from './push';
 import type { PushMessage } from '@block65/webcrypto-web-push';
+import { posthogConfigResponse } from './posthogConfig';
 import { handleWebhook } from './webhooks';
 
 export interface Env {
@@ -34,6 +35,8 @@ export interface Env {
   VAPID_PUBLIC_KEY?: string;
   VAPID_PRIVATE_KEY?: string;
   VAPID_SUBJECT?: string;
+  POSTHOG_TOKEN?: string;
+  POSTHOG_HOST?: string;
 }
 
 const LAST_STATUS_KEY = 'last_status';
@@ -287,6 +290,14 @@ export default {
           body: request.body,
         }),
       );
+    }
+
+    if (url.pathname === '/posthog-config.json') {
+      return posthogConfigResponse(env);
+    }
+
+    if (url.pathname === '/privacy' || url.pathname === '/privacy/') {
+      return env.ASSETS.fetch(new URL('/privacy.html', request.url));
     }
 
     if (url.pathname === '/health') {

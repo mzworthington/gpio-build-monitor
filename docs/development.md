@@ -45,6 +45,7 @@ cd ../infra/cloudflare && pnpm install && pulumi up
 - Bootstrap, lint, and pytest
 - JUnit report upload
 - On `main` only: `deploy-worker` (`wrangler deploy` for `monitor.mzworthington.co.uk`)
+- `POSTHOG_TOKEN` GitHub Actions secret is baked onto the Worker on deploy. Privacy notice: `/privacy`. Enable **Cookieless server hash mode** in PostHog or cookieless events are dropped. An agent cannot create the GitHub secret.
 - On `main` only: `release` when application code changed since the last tag
 
 ### Releases

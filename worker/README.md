@@ -32,6 +32,10 @@ Failure push notifications (Chrome desktop / Android): [docs/push.md](../docs/pu
 # after generate-vapid-keys — see docs/push.md
 pnpm exec wrangler secret put VAPID_PUBLIC_KEY --name gpio-build-monitor
 pnpm exec wrangler secret put VAPID_PRIVATE_KEY --name gpio-build-monitor
+# PostHog project API key (public phc_). Also set GitHub Actions secret POSTHOG_TOKEN
+# so CI can refresh the Worker secret on deploy. Enable cookieless server hash mode
+# in the PostHog project or events are dropped.
+echo -n "$POSTHOG_TOKEN" | pnpm exec wrangler secret put POSTHOG_TOKEN --name gpio-build-monitor
 ```
 
 Local:

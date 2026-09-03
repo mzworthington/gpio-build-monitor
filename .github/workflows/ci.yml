@@ -127,7 +127,12 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: pnpm deploy
+          POSTHOG_TOKEN: ${{ secrets.POSTHOG_TOKEN }}
+        run: |
+          if [ -n "${POSTHOG_TOKEN:-}" ]; then
+            printf '%s' "$POSTHOG_TOKEN" | pnpm exec wrangler secret put POSTHOG_TOKEN --name gpio-build-monitor
+          fi
+          pnpm deploy
 
   worker:
     runs-on: ubuntu-latest

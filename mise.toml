@@ -1,5 +1,6 @@
 [tools]
 python = "3.12"
+pulumi = "3.261.0"
 
 [env]
 _.python.venv = { path = ".venv", create = true }

@@ -293,6 +293,33 @@ h1 {
   outline: none;
 }
 
+.privacy-page {
+  position: relative;
+  z-index: 1;
+  width: min(40rem, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2.5rem 0 2rem;
+}
+
+.privacy-page article {
+  text-align: left;
+}
+
+.privacy-page h1,
+.privacy-page h2 {
+  font-family: var(--font-display);
+}
+
+.privacy-page p,
+.privacy-page li {
+  color: color-mix(in srgb, var(--ink) 88%, var(--muted));
+  line-height: 1.55;
+}
+
+.privacy-page a {
+  color: var(--blue);
+}
+
 .hero {
   display: grid;
   justify-items: center;

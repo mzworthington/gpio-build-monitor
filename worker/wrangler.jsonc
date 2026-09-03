@@ -16,6 +16,9 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   },
+  "vars": {
+    "POSTHOG_HOST": "https://a.mzworthington.co.uk"
+  },
   "durable_objects": {
     "bindings": [
       {
