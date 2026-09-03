@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.13.0 (2026-09-03)
+
+### Bug Fixes
+
+- **ci**: Skip semantic-release when nothing to cut
+  ([`7674a12`](https://github.com/mzworthington/gpio-build-monitor/commit/7674a12ff4d16bffc8dbc986feea415e28b36518))
+
+### Features
+
+- Swiftbar plugin
+  ([`34190dd`](https://github.com/mzworthington/gpio-build-monitor/commit/34190dda1f323651260eaf3ac30d3341355ad4d4))
+
+
 ## v0.12.0 (2026-09-03)
 
 ### Chores
