@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# Do not cancel an in-flight main release when another push lands.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -76,6 +81,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           export PATH="$PWD/.venv/bin:$PATH"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -84,11 +90,15 @@ jobs:
             git tag "v${VERSION}"
             echo "Seeded baseline tag v${VERSION} from pyproject.toml"
           fi
-          if .venv/bin/semantic-release version --print 2>&1 | grep -q "No release will be made"; then
-            .venv/bin/semantic-release version --patch
-          else
-            .venv/bin/semantic-release version
+          print_log="$(.venv/bin/semantic-release version --print 2>&1 || true)"
+          printf '%s\n' "$print_log"
+          if printf '%s\n' "$print_log" | grep -qiE 'No release will be made|No release will be created'; then
+            echo "No semantic-release version to cut; skipping publish."
+            exit 0
           fi
+          .venv/bin/semantic-release version
+          git fetch origin main
+          git pull --ff-only origin main
           # `version` builds dist/ and creates the GitHub Release; `publish` uploads
           # the wheel/sdist assets that bin/update installs on the Pi.
           .venv/bin/semantic-release publish
