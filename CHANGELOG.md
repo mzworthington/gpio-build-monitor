@@ -2,6 +2,37 @@
 
 <!-- version list -->
 
+## v0.12.0 (2026-09-03)
+
+### Chores
+
+- Remove Web Analytics beacon injection from CI workflow
+  ([`fd32908`](https://github.com/mzworthington/gpio-build-monitor/commit/fd329083e74ba094c9fcdb7230529407da109be5))
+
+- Update .gitignore to include MCP configuration and backup files
+  ([`0002a31`](https://github.com/mzworthington/gpio-build-monitor/commit/0002a317a8cec22162d27c9a50c37b6c5c6e640e))
+
+- Update documentation for Waykit integration and clarify setup instructions
+  ([`b7932d2`](https://github.com/mzworthington/gpio-build-monitor/commit/b7932d2a06b8ddb41c0e33fe773d7a30f53420ec))
+
+- Update link in AGENTS.md to reflect Waykit repository
+  ([`dc2e621`](https://github.com/mzworthington/gpio-build-monitor/commit/dc2e6219af0b19671fac09cacb1c4e7a816ccacf))
+
+### Features
+
+- Enhance recovery notification logic for in-progress builds
+  ([`95dff6d`](https://github.com/mzworthington/gpio-build-monitor/commit/95dff6d29c7081e282595d93d9408b57cc1d5572))
+
+- Inject Web Analytics beacon into CI workflow and update documentation
+  ([`7c69169`](https://github.com/mzworthington/gpio-build-monitor/commit/7c69169092accdd44e2bb5b4c16e4f52e1432b18))
+
+- Integrate PostHog for analytics tracking and add privacy routing
+  ([`33f1cee`](https://github.com/mzworthington/gpio-build-monitor/commit/33f1cee6f33e65cf889e34329c924cdeaa0c8290))
+
+- Reduce worker logging noise
+  ([`21aecb5`](https://github.com/mzworthington/gpio-build-monitor/commit/21aecb527c627afdf11ca67d904f879bc2a6b29b))
+
+
 ## v0.11.0 (2026-08-12)
 
 ### Features
