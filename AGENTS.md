@@ -2,19 +2,34 @@
 
 Standards and lifecycle agents live in `~/.agents` ([Waykit](https://github.com/mzworthington/waykit)).
 
-Before starting work, read:
+Start from `~/.agents/AGENTS.md` (thin index). **Do not** bulk-read philosophy, SOPs, or skills up front.
 
-- `~/.agents/AGENTS.md` - bootstrap and lifecycle routing
-- `~/.agents/CODING_PHILOSOPHY.md` - hexagonal architecture, DDD, vertical slices, clean code
-- `~/.agents/skills/profile-iac/SKILL.md` - secure IaC (when touching `infra/`)
-- `~/.agents/skills/framework-pulumi/SKILL.md` - Pulumi patterns (when touching `infra/`)
+| Situation | Load |
+|-----------|------|
+| Any task | `~/.agents/AGENTS.md` invariants + phase table |
+| Architecture / new structure | `CODING_PHILOSOPHY.md` (or kit-knowledge `get_philosophy_section`) |
+| Feature lifecycle | `skills/agent-orchestrator` |
+| Bug / CI / live symptom | `skills/agent-debug` |
+| Cloudflare Worker / DNS / RUM | `skills/agent-cloudflare-ops` (`wk mcp cloudflare-ops --project`) |
+| Infra under `infra/` | `skills/profile-iac` then `skills/framework-pulumi` |
+| Handshake / kit bootstrap | `wk align .`. Community files: `wk doctor .` |
+| SOP / handover lookup | kit-knowledge MCP |
+| Durable project facts | memory MCP (glossary, SLOs, prefs — never secrets) |
 
-## Toolchain
+Phase handovers: `~/.agents/handover/gpio-build-monitor/`.
 
-- Declared in `mise.toml` (Python). Cloudflare infra uses Node/pnpm under `infra/cloudflare` and `worker/`.
+For bugs and failed jobs, use `agent-debug`. Do not open the full feature lifecycle unless RCA needs a new capability.
 
 ## Project notes
 
 - Raspberry Pi owns headless GPIO + CI polling (`monitor/` Python package).
 - Hosted status UI is a Cloudflare Worker (`worker/`) on `monitor.mzworthington.co.uk` (`infra/cloudflare` Pulumi).
-- Before handover of infra changes: `cd infra/cloudflare && pnpm install && pnpm typecheck` (and `pulumi preview` with stack selected when credentials are available).
+- Conventional commit-msg: `.githooks/commit-msg` (`git config core.hooksPath .githooks` once per clone).
+
+## Toolchain
+
+Declared in `mise.toml` (Python). Cloudflare infra uses Node/pnpm under `infra/cloudflare` and `worker/`.
+
+MCP: kit `default` in `.cursor/mcp.json`. Do not stack Cloudflare onto that file. For live CF work, `wk mcp cloudflare-ops --project`, then restore `wk mcp default --project`.
+
+Before handover of infra changes: `cd infra/cloudflare && pnpm install && pnpm typecheck` (and `pulumi preview` with stack selected when credentials are available).

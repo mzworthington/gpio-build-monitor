@@ -158,3 +158,9 @@ infra/cloudflare/.pulumi/
 infra/cloudflare/Pulumi.*.yaml
 !infra/cloudflare/Pulumi.prod.yaml.example
 !infra/cloudflare/Pulumi.yaml
+
+# Antigravity workspace MCP (wk mcp --project / wk init)
+.agents/mcp_config.json
+
+# wk mcp backups of host MCP files
+**/*.bak.*
