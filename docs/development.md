@@ -12,6 +12,7 @@ Python dependencies are in `pyproject.toml`. Git hooks use [pre-commit](https://
 | Hook | Runs |
 |------|------|
 | `pre-commit` | `ruff check --fix` |
+| `commit-msg` | Conventional Commits subject |
 | `pre-push` | `pytest` |
 
 `bin/bootstrap` installs hooks automatically. To reinstall manually:
@@ -19,6 +20,7 @@ Python dependencies are in `pyproject.toml`. Git hooks use [pre-commit](https://
 ```shell
 pre-commit install
 pre-commit install --hook-type pre-push
+pre-commit install --hook-type commit-msg
 ```
 
 ## Cloudflare

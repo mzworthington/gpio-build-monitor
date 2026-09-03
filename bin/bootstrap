@@ -30,6 +30,7 @@ python -m pip install -e ".[dev]"
 
 pre-commit install
 pre-commit install --hook-type pre-push
+pre-commit install --hook-type commit-msg
 echo "Git hooks installed via pre-commit"
 
 echo "Bootstrap complete. Activate with: source .venv/bin/activate"

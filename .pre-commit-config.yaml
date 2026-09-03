@@ -13,3 +13,9 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
+
+      - id: conventional-commit
+        name: conventional commit subject
+        entry: .githooks/commit-msg
+        language: system
+        stages: [commit-msg]
