@@ -17,7 +17,7 @@ concurrency:
 jobs:
   align:
     name: Waykit align
-    # Requires align-consumer.yml on waykit main (MZW-27). Pin uses:/kit_ref to a tag after that release.
+    # Pin uses:/kit_ref to a vX.Y.Z tag once that Waykit release should freeze.
     uses: mzworthington/waykit/.github/workflows/align-consumer.yml@main
 
   test:
