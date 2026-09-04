@@ -35,13 +35,18 @@ GPIO_MONITOR_DASHBOARD_URL=http://127.0.0.1:8080
 
 ## How the title maps
 
-| Menu bar | Meaning |
-|----------|---------|
-| Green `PASS` | All settled builds passed |
-| Red `FAIL` / `UNK` | A build failed (red wins over a running rebuild) |
-| Yellow `RUN` / `WAIT` | Something is running or waiting for approval |
-| Purple `ERR` | Snapshot fetch failed, or CI connection error |
-| Blue `…` | First fetch, nothing cached yet |
-| Gray `IDLE` | No builds yet |
+The extra is an SF Symbol (not `RUN`/`PASS` text). Hover for the short label; colours match the desk LEDs.
 
-Click the extra for per-build links and **Open monitor**.
+| Symbol | Hover | Meaning |
+|--------|-------|---------|
+| Green check | `PASS` | All settled builds passed |
+| Red octagon | `FAIL` / `UNK` | A build failed (red wins over a running rebuild) |
+| Yellow arrows | `RUN` | Something is running |
+| Yellow hand | `WAIT` | Waiting for approval |
+| Purple warning | `ERR` | Snapshot fetch failed, or CI connection error |
+| Blue ellipsis | `…` | First fetch, nothing cached yet |
+| Gray circle | `IDLE` | No builds yet |
+
+The dropdown splits **Needs attention** (failures, errors, approval, unknown) from **Watched** repos. Each repo is a submenu of workflows; the repo name is the short GitHub name, with **Open on GitHub** at the bottom of the submenu.
+
+Click **Open monitor** for the hosted dashboard.
