@@ -2,6 +2,30 @@
 
 <!-- version list -->
 
+## v0.14.0 (2026-09-05)
+
+### Bug Fixes
+
+- **ci**: Retrigger Waykit align after reusable workflow landed
+  ([`3c03438`](https://github.com/mzworthington/gpio-build-monitor/commit/3c034384452aa2f615f5bc3d3ce73220f3f78e3b))
+
+### Features
+
+- Swiftbar plugin
+  ([`4c7e9aa`](https://github.com/mzworthington/gpio-build-monitor/commit/4c7e9aa7c7b55b3b6e380602a29517433b60ae2f))
+
+- **ci**: Add Waykit align job to CI workflow
+  ([`eb5a016`](https://github.com/mzworthington/gpio-build-monitor/commit/eb5a016d0296fad5b659b9686ee8615e38a9f9d6))
+
+### Refactoring
+
+- Clean up GPIO mock implementation
+  ([`8352ea3`](https://github.com/mzworthington/gpio-build-monitor/commit/8352ea3d91bea681ed48a4753dfd98d3e8656153))
+
+- Update macOS plugin to use SF Symbols for build status and enhance documentation
+  ([`285a483`](https://github.com/mzworthington/gpio-build-monitor/commit/285a4830d7179a13569b6cf954ad95f5e425ca80))
+
+
 ## v0.13.0 (2026-09-03)
 
 ### Bug Fixes
