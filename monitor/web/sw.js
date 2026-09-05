@@ -25,7 +25,6 @@ self.addEventListener('push', (event) => {
       }
     }
   } catch (_err) {
-    // Fall through to defaults.
   }
 
   event.waitUntil(

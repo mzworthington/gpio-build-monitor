@@ -99,7 +99,6 @@
         body: JSON.stringify({ endpoint: sub.endpoint }),
       });
     } catch (_err) {
-      // Still unsubscribe locally.
     }
     await sub.unsubscribe();
     await refreshUi(reg);

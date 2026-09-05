@@ -31,7 +31,6 @@ _mode = 0
 
 channel_config = {}
 
-# flags
 setModeDone = False
 
 
@@ -43,14 +42,12 @@ class Channel:
         self.pull_up_down = pull_up_down
 
 
-# GPIO LIBRARY Functions
 def setmode(mode):
     """
     Set up numbering mode to use for channels.
     BOARD - Use Raspberry Pi board numbers
     BCM   - Use Broadcom GPIO 00..nn numbers
     """
-    # GPIO = GPIO()
     time.sleep(1)
     if (mode == BCM):
         setModeDone = True
@@ -142,7 +139,6 @@ def gpio_function(channel):
 
 
 class PWM:
-    # initialise PWM channel
     def __init__(self, channel, frequency):
         """
         x.__init__(...) initializes x; see help(type(x)) for signature
