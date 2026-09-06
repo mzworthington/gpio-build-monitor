@@ -54,12 +54,38 @@ describe('sleepSeconds', () => {
 });
 
 describe('snapshotEtag', () => {
-  it('ignores fetch timestamps', () => {
-    const first = snapshotEtag(failPayload);
-    const second = snapshotEtag({ ...failPayload, fetching: false, last_checked_at: 999 });
-    expect(first).toBe(second);
-    expect(first.startsWith('W/"')).toBe(true);
-    expect(snapshotEtag({ ...failPayload, status: 'PASS' })).not.toBe(first);
+  it('changes when only pr_count changes', () => {
+    const zero = snapshotEtag({
+      ...failPayload,
+      status: 'PASS',
+      is_running: false,
+      builds: [
+        {
+          repo: 'acme/web',
+          workflow: 'CI',
+          status: 'PASS',
+          url: 'https://example.com/1',
+          pr_count: 0,
+          pr_url: 'https://github.com/acme/web/pulls',
+        },
+      ],
+    });
+    const four = snapshotEtag({
+      ...failPayload,
+      status: 'PASS',
+      is_running: false,
+      builds: [
+        {
+          repo: 'acme/web',
+          workflow: 'CI',
+          status: 'PASS',
+          url: 'https://example.com/1',
+          pr_count: 4,
+          pr_url: 'https://github.com/acme/web/pulls',
+        },
+      ],
+    });
+    expect(zero).not.toBe(four);
   });
 });
 
@@ -69,6 +95,36 @@ describe('einkPayload', () => {
     expect(compact.fetching).toBe(false);
     expect(compact.sleep_seconds).toBe(120);
     expect(compact.builds.map((build) => build.workflow)).toEqual(['CI', 'CI']);
+  });
+
+  it('keeps open_prs when workflows are green', () => {
+    const compact = einkPayload({
+      type: 'status',
+      fetching: false,
+      status: 'PASS',
+      is_running: false,
+      builds: [
+        {
+          repo: 'acme/web',
+          workflow: 'CI',
+          status: 'PASS',
+          url: 'https://example.com/1',
+          pr_count: 4,
+          pr_url: 'https://github.com/acme/web/pulls',
+        },
+      ],
+      poll_in_seconds: 30,
+      last_checked_at: 100,
+      next_check_at: 130,
+    });
+    expect(compact.builds).toEqual([]);
+    expect(compact.open_prs).toEqual([
+      {
+        repo: 'acme/web',
+        pr_count: 4,
+        pr_url: 'https://github.com/acme/web/pulls',
+      },
+    ]);
   });
 });
 

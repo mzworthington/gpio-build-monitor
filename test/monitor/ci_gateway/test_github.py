@@ -19,6 +19,9 @@ _RUNS_URL = re.compile(
 _WORKFLOWS_URL = re.compile(
     r'https://api\.github\.com/repos/super-man/awesome/actions/workflows(\?.*)?'
 )
+_PULLS_URL = re.compile(
+    r'https://api\.github\.com/repos/super-man/awesome/pulls(\?.*)?'
+)
 
 
 class TestGithub:
@@ -476,3 +479,32 @@ class TestGithub:
         ]
         jobs = action.get_unique_latest_jobs(runs)
         assert len(jobs) == 1
+
+    @pytest.mark.asyncio
+    async def test_open_pull_requests_counts_ready_and_draft(self):
+        import aiohttp
+        with aioresponses() as m:
+            m.get(
+                _PULLS_URL,
+                payload=[
+                    {'number': 1, 'draft': False},
+                    {'number': 2, 'draft': True},
+                ],
+                status=200,
+            )
+            action = GitHubAction(username='super-man', repo='awesome')
+            async with aiohttp.ClientSession() as session:
+                count, url = await action.open_pull_requests(session)
+        assert count == 2
+        assert url == 'https://github.com/super-man/awesome/pulls'
+
+    @pytest.mark.asyncio
+    async def test_open_pull_requests_returns_absent_on_error(self):
+        import aiohttp
+        with aioresponses() as m:
+            m.get(_PULLS_URL, body='', status=500, repeat=True)
+            action = GitHubAction(username='super-man', repo='awesome')
+            async with aiohttp.ClientSession() as session:
+                count, url = await action.open_pull_requests(session)
+        assert count is None
+        assert url is None

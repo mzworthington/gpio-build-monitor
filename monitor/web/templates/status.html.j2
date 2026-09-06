@@ -182,6 +182,9 @@
                 {% endif %}
               </span>
               <span class="repo-meta">{% if repo.workflow_count == 1 %}1 workflow{% else %}{{ repo.workflow_count }} workflows{% endif %}{% if repo.is_running %} · running{% endif %}</span>
+              {% if repo.pr_count is not none %}
+              <a class="repo-prs" href="{{ repo.pr_url }}" target="_blank" rel="noopener noreferrer" title="Open pull requests for {{ repo.repo }}" aria-label="{{ repo.pr_count }} open pull requests for {{ repo.repo }}">{{ repo.pr_count }} PR{% if repo.pr_count != 1 %}s{% endif %}</a>
+              {% endif %}
               <span class="repo-status">{{ repo.status }}</span>
               {% if repo.url %}
               <a class="repo-external" href="{{ repo.url }}" target="_blank" rel="noopener noreferrer" title="Open {{ repo.repo }} on GitHub" aria-label="Open {{ repo.repo }} on GitHub">↗</a>

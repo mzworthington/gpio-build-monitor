@@ -15,6 +15,8 @@ constexpr std::size_t kEtagCap = 40;
 constexpr std::size_t kStatusCap = 24;
 constexpr std::size_t kWorkflowCap = 64;
 constexpr std::size_t kMaxBuilds = 16;
+constexpr std::size_t kRepoCap = 48;
+constexpr uint8_t kMaxOpenPrs = 8;
 
 uint8_t bump_fail_streak(uint8_t fail_streak);
 uint32_t backoff_sleep(uint32_t base, uint8_t fail_streak);
@@ -27,6 +29,11 @@ struct BuildRow {
   char workflow[kWorkflowCap];
 };
 
+struct OpenPrRow {
+  char repo[kRepoCap];
+  uint32_t pr_count;
+};
+
 struct Snapshot {
   char status[kStatusCap];
   bool is_running;
@@ -34,6 +41,8 @@ struct Snapshot {
   bool has_sleep_seconds;
   BuildRow builds[kMaxBuilds];
   uint8_t build_count;
+  OpenPrRow open_prs[kMaxOpenPrs];
+  uint8_t open_pr_count;
 };
 
 bool parse_snapshot(const char* json, Snapshot* out);

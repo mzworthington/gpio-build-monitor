@@ -6,6 +6,9 @@ from typing import TypedDict
 
 from aiohttp import ClientSession
 
+OpenPullRequests = tuple[int | None, str | None]
+
+
 
 class CiResult(Enum):
     PASS = "PASS"
@@ -53,6 +56,9 @@ class IntegrationAdapter(ABC):
     @abstractmethod
     async def get_latest(self, session: ClientSession) -> list[BuildStatus]:
         logging.info(f'Initiating integration {self.get_type()}')
+
+    async def open_pull_requests(self, session: ClientSession) -> OpenPullRequests:
+        return None, None
 
 
 class APIError(Exception):

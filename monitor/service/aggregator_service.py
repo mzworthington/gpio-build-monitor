@@ -3,7 +3,7 @@
 import asyncio
 import enum
 import logging
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from aiohttp import ClientSession
 
@@ -32,6 +32,8 @@ class BuildDetail(TypedDict):
     workflow: str
     status: str
     url: str
+    pr_count: NotRequired[int | None]
+    pr_url: NotRequired[str | None]
 
 
 def get_status(results: list[BuildStatus]) -> Result:
@@ -103,6 +105,8 @@ class RepoSummary(TypedDict):
     workflow_count: int
     is_running: bool
     url: str
+    pr_count: int | None
+    pr_url: str | None
     workflows: list[BuildDetail]
 
 
@@ -125,6 +129,16 @@ def repo_summaries(builds: list[BuildDetail]) -> list[RepoSummary]:
             else:
                 status = CiResult.RUNNING.value
         url = f"https://github.com/{repo}" if "/" in repo else ""
+        pr_count = next(
+            (build.get("pr_count") for build in repo_builds if build.get("pr_count") is not None),
+            None,
+        )
+        pr_url = next(
+            (build.get("pr_url") for build in repo_builds if build.get("pr_url")),
+            None,
+        )
+        if pr_count is not None and not pr_url and "/" in repo:
+            pr_url = f"https://github.com/{repo}/pulls"
         workflows = sorted(
             repo_builds,
             key=lambda item: (item.get("workflow") or "").lower(),
@@ -135,6 +149,8 @@ def repo_summaries(builds: list[BuildDetail]) -> list[RepoSummary]:
             "workflow_count": len(repo_builds),
             "is_running": is_running,
             "url": url,
+            "pr_count": pr_count,
+            "pr_url": pr_url,
             "workflows": workflows,
         })
 
@@ -170,9 +186,19 @@ class AggregatorService:
         integration: IntegrationAdapter,
     ) -> list[BuildDetail]:
         repo = f"{integration.username}/{integration.repo}"
-        try:
-            results = await integration.get_latest(session)
-        except Exception:
+        latest, pull_requests = await asyncio.gather(
+            integration.get_latest(session),
+            integration.open_pull_requests(session),
+            return_exceptions=True,
+        )
+        pr_count: int | None = None
+        pr_url: str | None = None
+        if isinstance(pull_requests, Exception):
+            logging.exception("Failed to fetch pull requests for %s", repo)
+        else:
+            pr_count, pr_url = pull_requests
+
+        if isinstance(latest, Exception):
             logging.exception("Failed to fetch build status for %s", repo)
             return [
                 BuildDetail(
@@ -180,6 +206,8 @@ class AggregatorService:
                     workflow="(fetch)",
                     status=CiResult.CONNECTION_ERROR.value,
                     url="",
+                    pr_count=pr_count,
+                    pr_url=pr_url,
                 )
             ]
 
@@ -189,6 +217,8 @@ class AggregatorService:
                 workflow=build["name"],
                 status=build["status"].value,
                 url=build["vcs"],
+                pr_count=pr_count,
+                pr_url=pr_url,
             )
-            for build in results
+            for build in latest
         ]

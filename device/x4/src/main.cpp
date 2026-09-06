@@ -93,6 +93,15 @@ static void draw_status(const x4::CyclePlan& plan) {
         break;
       }
     }
+    for (uint8_t i = 0; i < plan.snapshot.open_pr_count; ++i) {
+      if (y > 450) {
+        break;
+      }
+      display.setCursor(16, y);
+      display.printf("%u PRs %s", static_cast<unsigned>(plan.snapshot.open_prs[i].pr_count),
+                     plan.snapshot.open_prs[i].repo);
+      y += 18;
+    }
   } while (display.nextPage());
 }
 

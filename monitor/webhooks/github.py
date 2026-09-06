@@ -5,7 +5,7 @@ import hmac
 
 from monitor.webhooks.constants import RefreshDecision, WebhookProvider
 
-REFRESH_EVENTS = frozenset({"workflow_run"})
+REFRESH_EVENTS = frozenset({"workflow_run", "pull_request"})
 
 
 class GitHubWebhook(WebhookProvider):

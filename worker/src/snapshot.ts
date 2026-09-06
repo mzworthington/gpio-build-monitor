@@ -23,23 +23,51 @@ export function sleepSeconds(status: AggregateStatus, isRunning: boolean): numbe
   return SLEEP_SETTLED_SECONDS;
 }
 
+export function openPrGlances(
+  builds: StatusPayload['builds'],
+): Array<{ repo: string; pr_count: number; pr_url: string }> {
+  const glances: Array<{ repo: string; pr_count: number; pr_url: string }> = [];
+  const seen = new Set<string>();
+  for (const build of builds) {
+    const repo = build.repo || '';
+    if (!repo || seen.has(repo) || build.pr_count == null) {
+      continue;
+    }
+    const numeric = Number(build.pr_count);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      continue;
+    }
+    seen.add(repo);
+    glances.push({
+      repo,
+      pr_count: numeric,
+      pr_url: build.pr_url || `https://github.com/${repo}/pulls`,
+    });
+  }
+  return glances;
+}
+
 export function snapshotEtag(payload: StatusPayload): string {
   const body = JSON.stringify({
     builds: payload.builds,
     is_running: payload.is_running,
+    open_prs: openPrGlances(payload.builds),
     status: payload.status,
   });
   const digest = hexSha256(body).slice(0, 16);
   return `W/"${digest}"`;
 }
 
-export function einkPayload(payload: StatusPayload): StatusPayload & { sleep_seconds: number } {
+export function einkPayload(
+  payload: StatusPayload,
+): StatusPayload & { sleep_seconds: number; open_prs: ReturnType<typeof openPrGlances> } {
   return {
     type: 'status',
     fetching: false,
     status: payload.status,
     is_running: payload.is_running,
     builds: payload.builds.filter((build) => GLANCEABLE.has(build.status)),
+    open_prs: openPrGlances(payload.builds),
     poll_in_seconds: payload.poll_in_seconds,
     last_checked_at: payload.last_checked_at,
     next_check_at: payload.next_check_at,

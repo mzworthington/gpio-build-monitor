@@ -9,12 +9,23 @@ from monitor.service.aggregator_service import AggregatorService, Result, repo_s
 
 
 class StubIntegration:
-    def __init__(self, username, repo, integration_type, results=None, error=None):
+    def __init__(
+        self,
+        username,
+        repo,
+        integration_type,
+        results=None,
+        error=None,
+        prs=(None, None),
+        pr_error=None,
+    ):
         self.username = username
         self.repo = repo
         self.integration_type = integration_type
         self.results = results or []
         self.error = error
+        self.prs = prs
+        self.pr_error = pr_error
 
     def get_type(self):
         return self.integration_type
@@ -23,6 +34,11 @@ class StubIntegration:
         if self.error:
             raise self.error
         return self.results
+
+    async def open_pull_requests(self, session):
+        if self.pr_error:
+            raise self.pr_error
+        return self.prs
 
 
 @pytest.mark.asyncio
@@ -112,12 +128,16 @@ async def test_contains_failed():
             "workflow": "CI",
             "status": "PASS",
             "url": "",
+            "pr_count": None,
+            "pr_url": None,
         },
         {
             "repo": "c/d",
             "workflow": "CI",
             "status": "FAIL",
             "url": "https://example.com/fail",
+            "pr_count": None,
+            "pr_url": None,
         },
     ]
 
@@ -234,6 +254,8 @@ def test_repo_summaries_groups_workflows_and_worst_status():
             "workflow_count": 2,
             "is_running": False,
             "url": "https://github.com/mzworthington/archlens",
+            "pr_count": None,
+            "pr_url": None,
             "workflows": [
                 {
                     "repo": "mzworthington/archlens",
@@ -255,6 +277,8 @@ def test_repo_summaries_groups_workflows_and_worst_status():
             "workflow_count": 1,
             "is_running": False,
             "url": "https://github.com/mzworthington/edge-dns",
+            "pr_count": None,
+            "pr_url": None,
             "workflows": [
                 {
                     "repo": "mzworthington/edge-dns",
@@ -265,3 +289,79 @@ def test_repo_summaries_groups_workflows_and_worst_status():
             ],
         },
     ]
+
+
+@pytest.mark.asyncio
+async def test_github_pr_count_does_not_change_aggregate_status():
+    integrations = [
+        StubIntegration(
+            'a',
+            'b',
+            IntegrationType.GITHUB,
+            [
+                dict(
+                    status=CiResult.PASS,
+                    type=IntegrationType.GITHUB,
+                    vcs='',
+                    id='',
+                    name='CI',
+                    start='',
+                ),
+            ],
+            prs=(3, 'https://github.com/a/b/pulls'),
+        ),
+    ]
+    async with aiohttp.ClientSession() as session:
+        result = await AggregatorService(integrations).run(session)
+    assert result["status"] == Result.PASS
+    assert result["builds"][0]["pr_count"] == 3
+    assert result["builds"][0]["pr_url"] == "https://github.com/a/b/pulls"
+
+
+@pytest.mark.asyncio
+async def test_failed_pr_fetch_leaves_workflows_intact():
+    integrations = [
+        StubIntegration(
+            'a',
+            'b',
+            IntegrationType.GITHUB,
+            [
+                dict(
+                    status=CiResult.PASS,
+                    type=IntegrationType.GITHUB,
+                    vcs='',
+                    id='',
+                    name='CI',
+                    start='',
+                ),
+            ],
+            pr_error=RuntimeError('prs down'),
+        ),
+    ]
+    async with aiohttp.ClientSession() as session:
+        result = await AggregatorService(integrations).run(session)
+    assert result["status"] == Result.PASS
+    assert result["builds"][0]["pr_count"] is None
+
+
+def test_repo_summaries_keeps_github_pr_count_over_circle_null():
+    summaries = repo_summaries([
+        {
+            "repo": "acme/web",
+            "workflow": "CI",
+            "status": "PASS",
+            "url": "https://github.com/acme/web/actions/1",
+            "pr_count": 2,
+            "pr_url": "https://github.com/acme/web/pulls",
+        },
+        {
+            "repo": "acme/web",
+            "workflow": "build",
+            "status": "PASS",
+            "url": "https://github.com/acme/web",
+            "pr_count": None,
+            "pr_url": None,
+        },
+    ])
+    assert summaries[0]["pr_count"] == 2
+    assert summaries[0]["pr_url"] == "https://github.com/acme/web/pulls"

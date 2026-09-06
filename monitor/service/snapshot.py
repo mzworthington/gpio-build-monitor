@@ -49,6 +49,29 @@ def sleep_seconds(status: str | Result, *, is_running: bool) -> int:
     return SLEEP_SETTLED_SECONDS
 
 
+def open_pr_glances(builds: Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any]]:
+    glances: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for build in builds or []:
+        repo = str(build.get("repo") or "")
+        count = build.get("pr_count")
+        if not repo or repo in seen or count is None:
+            continue
+        try:
+            numeric = int(count)
+        except (TypeError, ValueError):
+            continue
+        if numeric <= 0:
+            continue
+        seen.add(repo)
+        glances.append({
+            "repo": repo,
+            "pr_count": numeric,
+            "pr_url": build.get("pr_url") or f"https://github.com/{repo}/pulls",
+        })
+    return glances
+
+
 def snapshot_etag(
     status: str | Result,
     *,
@@ -61,6 +84,7 @@ def snapshot_etag(
         {
             "builds": list(builds or []),
             "is_running": is_running,
+            "open_prs": open_pr_glances(builds),
             "status": value,
         },
         separators=(",", ":"),
@@ -84,13 +108,15 @@ def eink_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     status = str(payload.get("status") or Result.NONE.value)
     is_running = bool(payload.get("is_running"))
     raw_builds = payload.get("builds")
-    builds = eink_builds(raw_builds if isinstance(raw_builds, list) else [])
+    raw_list = raw_builds if isinstance(raw_builds, list) else []
+    builds = eink_builds(raw_list)
     return {
         "type": "status",
         "fetching": False,
         "status": status,
         "is_running": is_running,
         "builds": builds,
+        "open_prs": open_pr_glances(raw_list),
         "poll_in_seconds": payload.get("poll_in_seconds"),
         "last_checked_at": payload.get("last_checked_at"),
         "next_check_at": payload.get("next_check_at"),

@@ -23,6 +23,8 @@ export interface BuildDetail {
   workflow: string;
   status: string;
   url: string;
+  pr_count?: number | null;
+  pr_url?: string | null;
 }
 
 export interface StatusPayload {
@@ -244,7 +246,10 @@ async function fetchGithub(
     url.searchParams.set('branch', branch);
   }
 
-  const resp = await githubGet(url, token);
+  const [resp, pullGlance] = await Promise.all([
+    githubGet(url, token),
+    fetchGithubOpenPulls(repo, token),
+  ]);
   if (!resp.ok) {
     return [
       {
@@ -300,7 +305,31 @@ async function fetchGithub(
     workflow: run.name,
     status: mapGithubConclusion(run),
     url: run.html_url,
+    pr_count: pullGlance.count,
+    pr_url: pullGlance.url,
   }));
+}
+
+async function fetchGithubOpenPulls(
+  repo: string,
+  token: string,
+): Promise<{ count: number | null; url: string | null }> {
+  const url = new URL(`https://api.github.com/repos/${repo}/pulls`);
+  url.searchParams.set('state', 'open');
+  url.searchParams.set('per_page', '100');
+  try {
+    const resp = await githubGet(url, token);
+    if (!resp.ok) {
+      return { count: null, url: null };
+    }
+    const payload = (await resp.json()) as unknown;
+    if (!Array.isArray(payload)) {
+      return { count: null, url: null };
+    }
+    return { count: payload.length, url: `https://github.com/${repo}/pulls` };
+  } catch {
+    return { count: null, url: null };
+  }
 }
 
 async function fetchCircle(

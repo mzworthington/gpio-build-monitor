@@ -57,7 +57,7 @@ export async function verifyCircleSignature(
 export function decideGitHub(eventName: string | null): WebhookDecision {
   if (!eventName) return 'ignore';
   if (eventName === 'ping') return 'ack';
-  if (eventName === 'workflow_run') return 'refresh';
+  if (eventName === 'workflow_run' || eventName === 'pull_request') return 'refresh';
   return 'ignore';
 }
 

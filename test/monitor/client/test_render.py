@@ -194,6 +194,47 @@ def test_renderer_lists_watched_repos():
     assert "CI" in html
 
 
+def test_renderer_shows_open_pr_count_and_hides_absent():
+    html = StatusPageRenderer().render(
+        status="PASS",
+        connected=True,
+        builds=[
+            {
+                "repo": "acme/web",
+                "workflow": "CI",
+                "status": "PASS",
+                "url": "https://github.com/acme/web/actions",
+                "pr_count": 2,
+                "pr_url": "https://github.com/acme/web/pulls",
+            },
+            {
+                "repo": "acme/ops",
+                "workflow": "build",
+                "status": "PASS",
+                "url": "https://github.com/acme/ops/actions",
+                "pr_count": 0,
+                "pr_url": "https://github.com/acme/ops/pulls",
+            },
+            {
+                "repo": "acme/circle",
+                "workflow": "build",
+                "status": "PASS",
+                "url": "https://github.com/acme/circle",
+                "pr_count": None,
+                "pr_url": None,
+            },
+        ],
+    )
+
+    assert 'href="https://github.com/acme/web/pulls"' in html
+    assert 'aria-label="2 open pull requests for acme/web"' in html
+    assert "2 PRs" in html
+    assert 'href="https://github.com/acme/ops/pulls"' in html
+    assert "0 PRs" in html
+    assert "acme/circle" in html
+    assert html.count("repo-prs") == 2
+
+
 def test_renderer_shows_last_checked_time():
     html = StatusPageRenderer().render(
         status="PASS",

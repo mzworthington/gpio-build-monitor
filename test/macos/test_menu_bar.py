@@ -121,6 +121,42 @@ def test_plugin_output_groups_attention_and_repos():
     assert any(line.startswith("Refresh") and "refresh=true" in line for line in lines)
 
 
+def test_plugin_output_shows_open_prs_only_when_positive():
+    text = plugin_output(
+        {
+            "status": "PASS",
+            "is_running": False,
+            "fetching": False,
+            "builds": [
+                {
+                    "repo": "acme/web",
+                    "workflow": "CI",
+                    "status": "PASS",
+                    "url": "https://github.com/acme/web/actions/1",
+                    "pr_count": 2,
+                    "pr_url": "https://github.com/acme/web/pulls",
+                },
+                {
+                    "repo": "acme/ops",
+                    "workflow": "CI",
+                    "status": "PASS",
+                    "url": "https://github.com/acme/ops/actions/1",
+                    "pr_count": 0,
+                    "pr_url": "https://github.com/acme/ops/pulls",
+                },
+            ],
+        },
+    )
+    assert any(
+        "-- 2 open PRs" in line and "href=https://github.com/acme/web/pulls" in line
+        for line in text.splitlines()
+    )
+    assert "open PR" not in "\n".join(
+        line for line in text.splitlines() if line.startswith("ops") or line.startswith("--") and "ops" in line
+    )
+    assert "-- 0 open" not in text
+
+
 def test_plugin_output_empty_builds():
     text = plugin_output(
         {"status": "NONE", "is_running": False, "fetching": False, "builds": []},

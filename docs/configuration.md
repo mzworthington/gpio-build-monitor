@@ -94,7 +94,7 @@ When `webhooks.enabled` is `true`, the monitor listens for:
 
 | Provider | Path | Events that refresh |
 |----------|------|---------------------|
-| GitHub | `POST /webhooks/github` | `workflow_run` (`ping` is acknowledged only) |
+| GitHub | `POST /webhooks/github` | `workflow_run`, `pull_request` (`ping` is acknowledged only) |
 | CircleCI | `POST /webhooks/circleci` | `workflow-completed`, `job-completed` |
 
 A valid event breaks out of the wait and calls the same CI APIs as a timed poll. Status is still loaded via `get_latest()` so adapters remain the source of truth. CircleCI outbound webhooks are terminal-only, so the reconcile poll is still needed for the yellow “running” LED.

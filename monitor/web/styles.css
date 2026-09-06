@@ -611,10 +611,10 @@ body[data-status="APPROVAL"] .status-dial-core {
 
 .repo-summary {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto 1fr auto auto auto;
   grid-template-areas:
     "chevron name status external"
-    "chevron meta status external";
+    "chevron meta prs external";
   gap: 0.2rem 0.7rem;
   align-items: center;
   padding: 0.85rem 0.95rem;
@@ -706,6 +706,28 @@ body[data-status="APPROVAL"] .status-dial-core {
 }
 
 .repo-external:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ring) 70%, white);
+  outline-offset: 2px;
+}
+
+.repo-prs {
+  grid-area: prs;
+  justify-self: start;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  color: var(--accent);
+  border-radius: 0.3rem;
+  padding: 0.1rem 0.35rem;
+}
+
+.repo-prs:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.repo-prs:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--ring) 70%, white);
   outline-offset: 2px;
 }
@@ -941,6 +963,7 @@ body[data-status="APPROVAL"] .status-dial-core {
     grid-template-areas:
       "chevron name external"
       "chevron meta external"
+      "chevron prs external"
       "chevron status external";
     gap: 0.3rem 0.65rem;
   }

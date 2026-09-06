@@ -211,6 +211,25 @@ def plugin_output(
             }
             lines.append(_line(_short_repo(repo), **params))
             lines.extend(_workflow_line(build, nested=True) for build in workflows)
+            pr_count = next(
+                (build.get("pr_count") for build in workflows if build.get("pr_count") is not None),
+                None,
+            )
+            if pr_count is not None and int(pr_count) > 0:
+                pr_url = next(
+                    (str(build.get("pr_url") or "") for build in workflows if build.get("pr_url")),
+                    "",
+                )
+                if not pr_url and "/" in repo:
+                    pr_url = f"https://github.com/{repo}/pulls"
+                noun = "open PR" if int(pr_count) == 1 else "open PRs"
+                lines.append(
+                    _line(
+                        f"-- {pr_count} {noun}",
+                        sfimage="arrow.triangle.branch",
+                        href=pr_url,
+                    )
+                )
             if "/" in repo:
                 lines.append(_line("-- Open on GitHub", href=f"https://github.com/{repo}"))
         lines.append("---")

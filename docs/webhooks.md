@@ -8,7 +8,7 @@ status on CircleCI, which only sends terminal events).
 
 | Provider | URL | Events |
 |----------|-----|--------|
-| GitHub | `https://monitor.mzworthington.co.uk/webhooks/github` | `workflow_run` (`ping` ACK only) |
+| GitHub | `https://monitor.mzworthington.co.uk/webhooks/github` | `workflow_run`, `pull_request` (`ping` ACK only) |
 | CircleCI | `https://monitor.mzworthington.co.uk/webhooks/circleci` | `workflow-completed`, `job-completed` |
 | Health | `https://monitor.mzworthington.co.uk/health` | - |
 
@@ -50,10 +50,12 @@ For each repo (or once on the org):
 2. Payload URL: `https://monitor.mzworthington.co.uk/webhooks/github`
 3. Content type: `application/json`
 4. Secret: optional — only if you set `GITHUB_WEBHOOK_SECRET` on the Worker
-5. Events: **Let me select…** → enable **Workflow runs**
+5. Events: **Let me select…** → enable **Workflow runs** and **Pull requests**
 6. Active: checked → Add webhook
 
-GitHub sends a `ping`; the Worker returns ACK. A `workflow_run` triggers refresh.
+GitHub sends a `ping`; the Worker returns ACK. A `workflow_run` or `pull_request`
+triggers refresh. Pull-request deliveries do not change CI lights; they refresh
+the open-PR count on the snapshot.
 
 ## 3. Register CircleCI (optional)
 
@@ -79,6 +81,6 @@ curl -sS https://monitor.mzworthington.co.uk/status | head
 # {"type":"status","fetching":false,"status":"...
 ```
 
-In GitHub → webhook → Recent Deliveries, `ping` / `workflow_run` should be `200`.
+In GitHub → webhook → Recent Deliveries, `ping` / `workflow_run` / `pull_request` should be `200`.
 On the site, status should update shortly after a workflow finishes (without
 waiting for the full poll interval).

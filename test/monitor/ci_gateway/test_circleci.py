@@ -147,3 +147,11 @@ class TestCircleCi:
             "APIError: GET "
             f"{pipelines_url} 400"
         )
+
+    @pytest.mark.asyncio
+    async def test_open_pull_requests_are_absent(self):
+        action = CircleCI(username='super-man', repo='awesome')
+        async with aiohttp.ClientSession() as session:
+            count, url = await action.open_pull_requests(session)
+        assert count is None
+        assert url is None

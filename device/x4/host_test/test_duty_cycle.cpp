@@ -113,6 +113,26 @@ void test_parse_snapshot_compact_payload() {
   CHECK_STREQ(snap.builds[1].workflow, "Lint");
 }
 
+void test_parse_snapshot_open_prs_when_workflows_are_green() {
+  const char* json =
+      "{"
+      "\"status\":\"PASS\","
+      "\"is_running\":false,"
+      "\"builds\":[],"
+      "\"open_prs\":["
+      "{\"repo\":\"acme/web\",\"pr_count\":4,\"pr_url\":\"https://github.com/acme/web/pulls\"}"
+      "],"
+      "\"sleep_seconds\":900"
+      "}";
+  x4::Snapshot snap = {};
+  CHECK(x4::parse_snapshot(json, &snap));
+  CHECK_STREQ(snap.status, "PASS");
+  CHECK_EQ(snap.build_count, 0);
+  CHECK_EQ(snap.open_pr_count, 1);
+  CHECK_STREQ(snap.open_prs[0].repo, "acme/web");
+  CHECK_EQ(snap.open_prs[0].pr_count, 4);
+}
+
 void test_parse_snapshot_defaults_and_rejects_garbage() {
   x4::Snapshot snap = {};
   CHECK(x4::parse_snapshot("{}", &snap));
@@ -237,6 +257,7 @@ int main() {
   test_copy_etag_rejects_empty_and_overflow();
   test_parse_retry_after();
   test_parse_snapshot_compact_payload();
+  test_parse_snapshot_open_prs_when_workflows_are_green();
   test_parse_snapshot_defaults_and_rejects_garbage();
   test_wifi_failure_does_not_redraw();
   test_http_error_backs_off_from_retry_after();

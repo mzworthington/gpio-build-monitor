@@ -133,6 +133,29 @@ class GitHubAction(IntegrationAdapter, ABC):
         logging.info('Response %s', response)
         return response
 
+    async def open_pull_requests(self, session: ClientSession) -> tuple[int | None, str | None]:
+        base = 'https://api.github.com'
+        url = f'{base}/repos/{self.username}/{self.repo}/pulls'
+        try:
+            payload = await self._get_json(
+                session,
+                url,
+                {'state': 'open', 'per_page': '100'},
+            )
+        except APIError:
+            logging.warning(
+                'GitHub pull requests unavailable for %s/%s',
+                self.username,
+                self.repo,
+            )
+            return None, None
+        if not isinstance(payload, list):
+            return None, None
+        return (
+            len(payload),
+            f'https://github.com/{self.username}/{self.repo}/pulls',
+        )
+
     @staticmethod
     def map_result(latest) -> BuildStatus:
         return BuildStatus(

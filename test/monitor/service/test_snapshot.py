@@ -76,6 +76,58 @@ def test_eink_payload_keeps_only_glanceable_builds():
     assert payload["builds"][1]["status"] == "RUNNING"
 
 
+def test_eink_payload_keeps_open_prs_when_workflows_are_green():
+    payload = eink_payload(
+        {
+            "type": "status",
+            "fetching": False,
+            "status": "PASS",
+            "is_running": False,
+            "builds": [
+                {
+                    "repo": "acme/web",
+                    "workflow": "CI",
+                    "status": "PASS",
+                    "url": "https://example.com/1",
+                    "pr_count": 4,
+                    "pr_url": "https://github.com/acme/web/pulls",
+                },
+            ],
+            "poll_in_seconds": 30,
+            "last_checked_at": 100.0,
+            "next_check_at": 130.0,
+        }
+    )
+    assert payload["builds"] == []
+    assert payload["open_prs"] == [
+        {
+            "repo": "acme/web",
+            "pr_count": 4,
+            "pr_url": "https://github.com/acme/web/pulls",
+        }
+    ]
+
+
+def test_snapshot_etag_changes_when_only_pr_count_changes():
+    builds = [
+        {
+            "repo": "acme/web",
+            "workflow": "CI",
+            "status": "PASS",
+            "url": "https://example.com/1",
+            "pr_count": 0,
+            "pr_url": "https://github.com/acme/web/pulls",
+        }
+    ]
+    first = snapshot_etag("PASS", is_running=False, builds=builds)
+    second = snapshot_etag(
+        "PASS",
+        is_running=False,
+        builds=[{**builds[0], "pr_count": 2}],
+    )
+    assert first != second
+
+
 def test_snapshot_headers_include_retry_after_and_etag():
     headers = snapshot_headers(
         "PASS",

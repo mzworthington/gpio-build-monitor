@@ -94,11 +94,12 @@ fields:
 | Field / header | Role |
 |----------------|------|
 | `status`, `is_running`, `builds` | Glanceable roll-up (same enum as the LEDs) |
+| `open_prs` | Repos with open PR count **> 0** (shown even when all workflows are PASS) |
 | `sleep_seconds` | Seconds to deep-sleep after this sample |
 | `Retry-After` | Same value, so a 304 still carries the interval |
-| `ETag` | Weak hash of status + running + builds (not `fetching` or timestamps) |
+| `ETag` | Weak hash of status + running + builds + open PR glances (not `fetching` or timestamps) |
 | `If-None-Match` | Device sends last ETag; `304` means skip the panel |
-| `GET /status?view=eink` | Drops passing workflows; keeps FAIL / error / approval / unknown / running / waiting |
+| `GET /status?view=eink` | Drops passing workflows; keeps FAIL / error / approval / unknown / running / waiting; keeps `open_prs` |
 
 No GitHub or CircleCI tokens on the device. Credentials are Wi-Fi SSID/PSK
 only.

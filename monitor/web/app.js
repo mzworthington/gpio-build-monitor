@@ -192,6 +192,10 @@
           workflow_count: repoBuilds.length,
           is_running: isRunning,
           url: repo.includes("/") ? `https://github.com/${repo}` : "",
+          pr_count: repoBuilds.find((b) => b.pr_count != null)?.pr_count ?? null,
+          pr_url:
+            repoBuilds.find((b) => b.pr_url)?.pr_url ||
+            (repo.includes("/") ? `https://github.com/${repo}/pulls` : ""),
           workflows,
         };
       })
@@ -287,7 +291,25 @@
       status.className = "repo-status";
       status.textContent = entry.status || "";
 
-      summary.append(chevron, name, meta, status);
+      summary.append(chevron, name, meta);
+      if (entry.pr_count != null) {
+        const prs = document.createElement("a");
+        prs.className = "repo-prs";
+        prs.href = entry.pr_url || `https://github.com/${entry.repo}/pulls`;
+        prs.target = "_blank";
+        prs.rel = "noopener noreferrer";
+        prs.title = `Open pull requests for ${entry.repo}`;
+        prs.setAttribute(
+          "aria-label",
+          `${entry.pr_count} open pull requests for ${entry.repo}`,
+        );
+        prs.textContent = `${entry.pr_count} PR${entry.pr_count === 1 ? "" : "s"}`;
+        prs.addEventListener("click", (event) => {
+          event.stopPropagation();
+        });
+        summary.append(prs);
+      }
+      summary.append(status);
 
       if (entry.url) {
         const link = document.createElement("a");

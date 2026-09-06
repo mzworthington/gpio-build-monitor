@@ -36,6 +36,10 @@ def test_github_decide_workflow_run_refreshes():
     assert GitHubWebhook().decide("workflow_run") is RefreshDecision.REFRESH
 
 
+def test_github_decide_pull_request_refreshes():
+    assert GitHubWebhook().decide("pull_request") is RefreshDecision.REFRESH
+
+
 def test_github_decide_ping_acks():
     assert GitHubWebhook().decide("ping") is RefreshDecision.ACK
 
