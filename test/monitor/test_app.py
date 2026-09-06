@@ -21,17 +21,24 @@ async def run(mocked_pwm):
     data = {
         "workflow_runs": [
             dict(id=448533827,
+                 workflow_id=1001,
                  name="CI",
                  created_at="2020-12-28T09:23:57Z",
                  html_url="http://cheese.com",
                  status="in_progress",
                  conclusion=None),
             dict(id=448533828,
+                 workflow_id=1001,
                  name="Another",
                  created_at="2020-12-28T09:23:57Z",
                  html_url="http://cheese.com",
                  status="completed",
                  conclusion="success")
+        ]
+    }
+    workflows = {
+        "workflows": [
+            dict(id=1001, name="CI", path=".github/workflows/ci.yml", state="active"),
         ]
     }
 
@@ -41,6 +48,9 @@ async def run(mocked_pwm):
         repo="awesome")]
 
     with aioresponses() as m:
+        m.get(re.compile(
+            r"https://api\.github\.com/repos/super-man/awesome/actions/workflows(\?.*)?"
+        ), payload=workflows, status=200)
         m.get(re.compile(
             r"https://api\.github\.com/repos/super-man/awesome/actions/runs(\?.*)?"
         ), payload=data, status=200)
