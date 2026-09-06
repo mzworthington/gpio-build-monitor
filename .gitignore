@@ -153,6 +153,7 @@ worker/.wrangler/
 device/x4/include/secrets.h
 device/x4/.pio/
 device/x4/host_test/duty_cycle_test
+device/x4/host_test/duty_cycle_test.dSYM/
 
 # Pulumi (infra/cloudflare)
 infra/cloudflare/node_modules/
