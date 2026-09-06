@@ -90,3 +90,5 @@ On your development machine, Python runs without `-O`, so the mock GPIO module i
 See [Raspberry Pi](raspberry-pi.md) for hardware setup and systemd.
 
 Menu bar on a Mac: [Mac menu bar](macos.md) (SwiftBar + `GET /status`).
+
+Battery e-ink (Xteink X4): [Xteink X4](xteink-x4.md) (firmware + `GET /status?view=eink`).

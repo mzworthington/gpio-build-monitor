@@ -45,6 +45,7 @@ async def test_websocket_broadcasts_status_and_serves_ui(tmp_path):
                     "poll_in_seconds": 12,
                     "last_checked_at": None,
                     "next_check_at": None,
+                    "sleep_seconds": 900,
                 }
 
                 await output.begin_fetch()
@@ -60,6 +61,7 @@ async def test_websocket_broadcasts_status_and_serves_ui(tmp_path):
                 assert published["is_running"] is True
                 assert published["builds"] == []
                 assert published["poll_in_seconds"] == 12
+                assert published["sleep_seconds"] == 120
                 assert isinstance(published["last_checked_at"], (int, float))
                 assert (
                     published["last_checked_at"] + 12
@@ -86,3 +88,41 @@ async def test_status_snapshot_matches_websocket_payload():
                 assert body["is_running"] is False
                 assert body["fetching"] is False
                 assert body["poll_in_seconds"] == 12
+                assert body["sleep_seconds"] == 900
+                etag = response.headers["ETag"]
+                assert etag.startswith('W/"')
+                assert response.headers["Retry-After"] == "900"
+
+        async with ClientSession() as session:
+            async with session.get(
+                f"http://127.0.0.1:{port}/status",
+                headers={"If-None-Match": etag},
+            ) as not_modified:
+                assert not_modified.status == 304
+                assert not_modified.headers["Retry-After"] == "900"
+                assert await not_modified.read() == b""
+
+        await output.publish(
+            Result.FAIL,
+            is_running=False,
+            builds=[
+                {
+                    "repo": "acme/web",
+                    "workflow": "CI",
+                    "status": "FAIL",
+                    "url": "https://example.com/1",
+                },
+                {
+                    "repo": "acme/web",
+                    "workflow": "Deploy",
+                    "status": "PASS",
+                    "url": "https://example.com/2",
+                },
+            ],
+        )
+        async with ClientSession() as session:
+            async with session.get(f"http://127.0.0.1:{port}/status?view=eink") as compact:
+                assert compact.status == 200
+                body = await compact.json()
+                assert body["sleep_seconds"] == 180
+                assert [build["workflow"] for build in body["builds"]] == ["CI"]

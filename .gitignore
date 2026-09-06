@@ -149,6 +149,10 @@ app.log
 worker/node_modules/
 worker/.wrangler/
 
+# Xteink X4 local secrets
+device/x4/include/secrets.h
+device/x4/.pio/
+
 # Pulumi (infra/cloudflare)
 infra/cloudflare/node_modules/
 infra/cloudflare/bin/

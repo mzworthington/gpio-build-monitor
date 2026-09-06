@@ -10,6 +10,7 @@ from pathlib import Path
 from aiohttp import WSMsgType, web
 
 from monitor.service.aggregator_service import BuildDetail, Result
+from monitor.service.snapshot import eink_payload, etag_matches, sleep_seconds, snapshot_headers
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
@@ -120,10 +121,20 @@ class WebSocketStatusOutput:
             "poll_in_seconds": self._poll_in_seconds,
             "last_checked_at": self._last_checked_at,
             "next_check_at": self._next_check_at,
+            "sleep_seconds": sleep_seconds(self._status, is_running=self._is_running),
         }
 
-    async def _status_handler(self, _request: web.Request) -> web.Response:
-        return web.json_response(self._payload(), headers={"Cache-Control": "no-store"})
+    async def _status_handler(self, request: web.Request) -> web.Response:
+        headers = snapshot_headers(
+            self._status,
+            is_running=self._is_running,
+            builds=self._builds,
+        )
+        if etag_matches(request.headers.get("If-None-Match"), headers["ETag"]):
+            return web.Response(status=304, headers=headers)
+        payload = self._payload()
+        body = eink_payload(payload) if request.query.get("view") == "eink" else payload
+        return web.json_response(body, headers=headers)
 
     async def _index_handler(self, _request: web.Request) -> web.FileResponse:
         return web.FileResponse(self._web_dir / "index.html")
