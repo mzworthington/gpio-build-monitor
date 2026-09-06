@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v0.15.0 (2026-09-06)
+
+### Features
+
+- Add xteink x4 deep-sleep snapshot client
+  ([#26](https://github.com/mzworthington/gpio-build-monitor/pull/26),
+  [`d31b502`](https://github.com/mzworthington/gpio-build-monitor/commit/d31b502cde91e0e0b4547917c2dbcbe0f22d1046))
+
+- Xteink X4 deep-sleep e-ink client
+  ([#26](https://github.com/mzworthington/gpio-build-monitor/pull/26),
+  [`d31b502`](https://github.com/mzworthington/gpio-build-monitor/commit/d31b502cde91e0e0b4547917c2dbcbe0f22d1046))
+
+### Testing
+
+- Add native tests for the x4 duty cycle
+  ([#26](https://github.com/mzworthington/gpio-build-monitor/pull/26),
+  [`d31b502`](https://github.com/mzworthington/gpio-build-monitor/commit/d31b502cde91e0e0b4547917c2dbcbe0f22d1046))
+
+
 ## v0.14.2 (2026-09-06)
 
 ### Bug Fixes
