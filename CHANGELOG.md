@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.16.0 (2026-09-06)
+
+### Documentation
+
+- Update reamde inc diagrams
+  ([`8d9f1b6`](https://github.com/mzworthington/gpio-build-monitor/commit/8d9f1b6f56b7b1d43b3826c0af2fa6ad2e00bbc0))
+
+### Features
+
+- **monitor**: Show GitHub open pull request counts on the snapshot (MZW-90)
+  ([`4dfd8cb`](https://github.com/mzworthington/gpio-build-monitor/commit/4dfd8cb7963bfc8d6fc88e4a88437ad036b4ea9e))
+
+
 ## v0.15.0 (2026-09-06)
 
 ### Features
