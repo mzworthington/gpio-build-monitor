@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+
+"""Snapshot query model for battery and always-on clients.
+
+The hosted Worker (and local WebSocket adapter) expose aggregated CI status
+over HTTP. Always-on clients (browser, Mac menu bar) use the full payload.
+Battery clients (Xteink X4) sample the same port, then deep-sleep using
+``sleep_seconds`` / ``Retry-After``.
+"""
+
+from collections.abc import Mapping, Sequence
+from hashlib import sha256
+from json import dumps
+from typing import Any
+
+from monitor.service.aggregator_service import Result
+
+# Seconds the device should remain in deep sleep after a successful sample.
+# The hub keeps polling on its own cadence; these values are for the radio.
+SLEEP_RUNNING_SECONDS = 120
+SLEEP_ATTENTION_SECONDS = 180
+SLEEP_FETCH_ERROR_SECONDS = 300
+SLEEP_SETTLED_SECONDS = 900
+
+_GLANCEABLE = frozenset({
+    "FAIL",
+    "CONNECTION_ERROR",
+    "APPROVAL",
+    "UNKNOWN",
+    "RUNNING",
+    "WAITING",
+})
+
+
+def sleep_seconds(status: str | Result, *, is_running: bool) -> int:
+    """How long a battery client should deep-sleep after this snapshot.
+
+    Running builds win so the panel catches completion. Failures and
+    approvals stay shorter than green so the desk still feels live.
+    Connection errors back off to avoid a Wi-Fi death spiral.
+    """
+    value = status.value if isinstance(status, Result) else status
+    if is_running:
+        return SLEEP_RUNNING_SECONDS
+    if value in {Result.FAIL.value, Result.UNKNOWN.value, Result.APPROVAL.value}:
+        return SLEEP_ATTENTION_SECONDS
+    if value == Result.CONNECTION_ERROR.value:
+        return SLEEP_FETCH_ERROR_SECONDS
+    return SLEEP_SETTLED_SECONDS
+
+
+def snapshot_etag(
+    status: str | Result,
+    *,
+    is_running: bool,
+    builds: Sequence[Mapping[str, Any]] | None = None,
+) -> str:
+    """Weak ETag of glance-relevant fields (not fetch timestamps)."""
+    value = status.value if isinstance(status, Result) else status
+    body = dumps(
+        {
+            "builds": list(builds or []),
+            "is_running": is_running,
+            "status": value,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    digest = sha256(body.encode("utf-8")).hexdigest()[:16]
+    return f'W/"{digest}"'
+
+
+def eink_builds(builds: Sequence[Mapping[str, Any]] | None) -> list[Mapping[str, Any]]:
+    """Keep failures, in-progress, and other attention rows for the panel."""
+    return [
+        build
+        for build in (builds or [])
+        if str(build.get("status")) in _GLANCEABLE
+    ]
+
+
+def eink_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Compact snapshot: same keys, but only glanceable builds."""
+    status = str(payload.get("status") or Result.NONE.value)
+    is_running = bool(payload.get("is_running"))
+    raw_builds = payload.get("builds")
+    builds = eink_builds(raw_builds if isinstance(raw_builds, list) else [])
+    return {
+        "type": "status",
+        "fetching": False,
+        "status": status,
+        "is_running": is_running,
+        "builds": builds,
+        "poll_in_seconds": payload.get("poll_in_seconds"),
+        "last_checked_at": payload.get("last_checked_at"),
+        "next_check_at": payload.get("next_check_at"),
+        "sleep_seconds": sleep_seconds(status, is_running=is_running),
+    }
+
+
+def snapshot_headers(
+    status: str | Result,
+    *,
+    is_running: bool,
+    builds: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, str]:
+    seconds = sleep_seconds(status, is_running=is_running)
+    return {
+        "Cache-Control": "no-store",
+        "ETag": snapshot_etag(status, is_running=is_running, builds=builds),
+        "Retry-After": str(seconds),
+    }
+
+
+def etag_matches(if_none_match: str | None, etag: str) -> bool:
+    if not if_none_match:
+        return False
+    offered = {part.strip() for part in if_none_match.split(",") if part.strip()}
+    return "*" in offered or etag in offered

@@ -175,3 +175,10 @@ jobs:
       - name: Typecheck
         working-directory: worker
         run: pnpm typecheck
+
+  x4:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Native duty-cycle tests
+        run: make test-x4

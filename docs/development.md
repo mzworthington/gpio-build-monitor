@@ -5,6 +5,7 @@
 ```shell
 make lint           # ruff
 make test           # ruff + pytest
+make test-x4        # native C++ tests for the Xteink X4 duty cycle
 ```
 
 Python dependencies are in `pyproject.toml`. Git hooks use [pre-commit](https://pre-commit.com/):

@@ -1,0 +1,257 @@
+#include "duty_cycle.hpp"
+
+#include <cstdio>
+#include <cstring>
+
+namespace {
+
+int g_checks = 0;
+int g_fails = 0;
+
+void check(bool cond, const char* expr, const char* file, int line) {
+  ++g_checks;
+  if (!cond) {
+    ++g_fails;
+    std::fprintf(stderr, "FAIL %s:%d: %s\n", file, line, expr);
+  }
+}
+
+#define CHECK(cond) check(static_cast<bool>(cond), #cond, __FILE__, __LINE__)
+
+#define CHECK_EQ(a, b) \
+  do { \
+    const auto _va = (a); \
+    const auto _vb = (b); \
+    ++g_checks; \
+    if (_va != _vb) { \
+      ++g_fails; \
+      std::fprintf(stderr, "FAIL %s:%d: %s == %s (%u != %u)\n", __FILE__, __LINE__, #a, #b, \
+                   static_cast<unsigned>(_va), static_cast<unsigned>(_vb)); \
+    } \
+  } while (0)
+
+#define CHECK_STREQ(a, b) \
+  do { \
+    const char* _sa = (a); \
+    const char* _sb = (b); \
+    ++g_checks; \
+    if (_sa == nullptr || _sb == nullptr || std::strcmp(_sa, _sb) != 0) { \
+      ++g_fails; \
+      std::fprintf(stderr, "FAIL %s:%d: %s == %s (%s != %s)\n", __FILE__, __LINE__, #a, #b, \
+                   _sa ? _sa : "(null)", _sb ? _sb : "(null)"); \
+    } \
+  } while (0)
+
+void test_backoff_doubles_then_caps() {
+  CHECK_EQ(x4::bump_fail_streak(0), 1);
+  CHECK_EQ(x4::bump_fail_streak(3), 4);
+  CHECK_EQ(x4::bump_fail_streak(4), 4);
+  CHECK_EQ(x4::backoff_sleep(300, 1), 600);
+  CHECK_EQ(x4::backoff_sleep(300, 4), 1800);
+  CHECK_EQ(x4::backoff_sleep(900, 4), 1800);
+}
+
+void test_usb_cap_only_when_charging() {
+  CHECK_EQ(x4::apply_usb_sleep_cap(900, false), 900);
+  CHECK_EQ(x4::apply_usb_sleep_cap(900, true), 60);
+  CHECK_EQ(x4::apply_usb_sleep_cap(45, true), 45);
+}
+
+void test_copy_etag_rejects_empty_and_overflow() {
+  char dest[x4::kEtagCap];
+  std::memset(dest, 0x5a, sizeof(dest));
+  CHECK(!x4::copy_etag(dest, sizeof(dest), nullptr));
+  CHECK(!x4::copy_etag(dest, sizeof(dest), ""));
+  CHECK(x4::copy_etag(dest, sizeof(dest), "W/\"abc\""));
+  CHECK_STREQ(dest, "W/\"abc\"");
+
+  char too_long[x4::kEtagCap + 8];
+  std::memset(too_long, 'x', x4::kEtagCap);
+  too_long[x4::kEtagCap] = '\0';
+  CHECK(!x4::copy_etag(dest, sizeof(dest), too_long));
+  CHECK_STREQ(dest, "W/\"abc\"");
+
+  char exact[x4::kEtagCap];
+  std::memset(exact, 'y', x4::kEtagCap - 1);
+  exact[x4::kEtagCap - 1] = '\0';
+  CHECK(x4::copy_etag(dest, sizeof(dest), exact));
+}
+
+void test_parse_retry_after() {
+  CHECK_EQ(x4::parse_retry_after(nullptr), 0);
+  CHECK_EQ(x4::parse_retry_after(""), 0);
+  CHECK_EQ(x4::parse_retry_after("120"), 120);
+  CHECK_EQ(x4::parse_retry_after("nope"), 0);
+}
+
+void test_parse_snapshot_compact_payload() {
+  const char* json =
+      "{"
+      "\"type\":\"status\","
+      "\"fetching\":false,"
+      "\"status\":\"FAIL\","
+      "\"is_running\":true,"
+      "\"builds\":["
+      "{\"repo\":\"acme/web\",\"workflow\":\"CI\",\"status\":\"FAIL\",\"url\":\"https://example.com/1\"},"
+      "{\"repo\":\"acme/api\",\"workflow\":\"Lint\",\"status\":\"RUNNING\",\"url\":\"https://example.com/3\"}"
+      "],"
+      "\"poll_in_seconds\":30,"
+      "\"last_checked_at\":1710000000.5,"
+      "\"next_check_at\":1710000030.5,"
+      "\"sleep_seconds\":120"
+      "}";
+  x4::Snapshot snap = {};
+  CHECK(x4::parse_snapshot(json, &snap));
+  CHECK_STREQ(snap.status, "FAIL");
+  CHECK(snap.is_running);
+  CHECK(snap.has_sleep_seconds);
+  CHECK_EQ(snap.sleep_seconds, 120);
+  CHECK_EQ(snap.build_count, 2);
+  CHECK_STREQ(snap.builds[0].status, "FAIL");
+  CHECK_STREQ(snap.builds[0].workflow, "CI");
+  CHECK_STREQ(snap.builds[1].status, "RUNNING");
+  CHECK_STREQ(snap.builds[1].workflow, "Lint");
+}
+
+void test_parse_snapshot_defaults_and_rejects_garbage() {
+  x4::Snapshot snap = {};
+  CHECK(x4::parse_snapshot("{}", &snap));
+  CHECK_STREQ(snap.status, "UNKNOWN");
+  CHECK(!snap.is_running);
+  CHECK(!snap.has_sleep_seconds);
+  CHECK_EQ(snap.build_count, 0);
+
+  CHECK(!x4::parse_snapshot("", &snap));
+  CHECK(!x4::parse_snapshot("{", &snap));
+  CHECK(!x4::parse_snapshot("[]", &snap));
+  CHECK(!x4::parse_snapshot(nullptr, &snap));
+}
+
+void test_wifi_failure_does_not_redraw() {
+  x4::Fetch fetch = {0, nullptr, nullptr, nullptr};
+  x4::CyclePlan plan = x4::plan_cycle(0, 3, fetch, false);
+  CHECK(plan.panel == x4::PanelAction::Leave);
+  CHECK_EQ(plan.fail_streak, 1);
+  CHECK_EQ(plan.updates_since_full, 3);
+  CHECK(!plan.store_etag);
+  CHECK_EQ(plan.sleep_seconds, 600);
+}
+
+void test_http_error_backs_off_from_retry_after() {
+  x4::Fetch fetch = {503, "180", nullptr, nullptr};
+  x4::CyclePlan plan = x4::plan_cycle(1, 0, fetch, false);
+  CHECK(plan.panel == x4::PanelAction::Leave);
+  CHECK_EQ(plan.fail_streak, 2);
+  CHECK_EQ(plan.sleep_seconds, 720);
+  CHECK(!plan.store_etag);
+}
+
+void test_not_modified_skips_panel_and_clears_streak() {
+  x4::Fetch fetch = {304, "900", "W/\"abc\"", nullptr};
+  x4::CyclePlan plan = x4::plan_cycle(3, 5, fetch, false);
+  CHECK(plan.panel == x4::PanelAction::Leave);
+  CHECK_EQ(plan.fail_streak, 0);
+  CHECK_EQ(plan.updates_since_full, 5);
+  CHECK(plan.store_etag);
+  CHECK_EQ(plan.sleep_seconds, 900);
+}
+
+void test_bad_json_does_not_redraw() {
+  x4::Fetch fetch = {200, "120", "W/\"x\"", "{not json"};
+  x4::CyclePlan plan = x4::plan_cycle(0, 0, fetch, false);
+  CHECK(plan.panel == x4::PanelAction::Leave);
+  CHECK_EQ(plan.fail_streak, 1);
+  CHECK(!plan.store_etag);
+}
+
+void test_fail_uses_full_refresh_and_json_sleep() {
+  x4::Fetch fetch = {
+      200,
+      "900",
+      "W/\"fail\"",
+      "{\"status\":\"FAIL\",\"is_running\":false,\"sleep_seconds\":180,"
+      "\"builds\":[{\"workflow\":\"CI\",\"status\":\"FAIL\"}]}",
+  };
+  x4::CyclePlan plan = x4::plan_cycle(2, 1, fetch, false);
+  CHECK(plan.panel == x4::PanelAction::Full);
+  CHECK_EQ(plan.fail_streak, 0);
+  CHECK_EQ(plan.updates_since_full, 0);
+  CHECK(plan.store_etag);
+  CHECK_EQ(plan.sleep_seconds, 180);
+  CHECK_STREQ(plan.snapshot.status, "FAIL");
+  CHECK_EQ(plan.snapshot.build_count, 1);
+}
+
+void test_pass_uses_partial_until_full_refresh_every() {
+  x4::Fetch fetch = {
+      200,
+      nullptr,
+      "W/\"pass\"",
+      "{\"status\":\"PASS\",\"is_running\":false,\"sleep_seconds\":900}",
+  };
+  x4::CyclePlan partial = x4::plan_cycle(0, 0, fetch, false);
+  CHECK(partial.panel == x4::PanelAction::Partial);
+  CHECK_EQ(partial.updates_since_full, 1);
+
+  x4::CyclePlan full = x4::plan_cycle(0, x4::kFullRefreshEvery, fetch, false);
+  CHECK(full.panel == x4::PanelAction::Full);
+  CHECK_EQ(full.updates_since_full, 0);
+}
+
+void test_running_json_sleep_beats_retry_after() {
+  x4::Fetch fetch = {
+      200,
+      "900",
+      "W/\"run\"",
+      "{\"status\":\"PASS\",\"is_running\":true,\"sleep_seconds\":120}",
+  };
+  x4::CyclePlan plan = x4::plan_cycle(0, 0, fetch, false);
+  CHECK_EQ(plan.sleep_seconds, 120);
+  CHECK(plan.snapshot.is_running);
+  CHECK(plan.panel == x4::PanelAction::Partial);
+}
+
+void test_charging_caps_green_sleep() {
+  x4::Fetch fetch = {
+      200,
+      nullptr,
+      "W/\"pass\"",
+      "{\"status\":\"PASS\",\"is_running\":false,\"sleep_seconds\":900}",
+  };
+  x4::CyclePlan plan = x4::plan_cycle(0, 0, fetch, true);
+  CHECK_EQ(plan.sleep_seconds, 60);
+  CHECK(plan.panel == x4::PanelAction::Partial);
+}
+
+void test_missing_sleep_falls_back_to_default() {
+  x4::Fetch fetch = {304, nullptr, "W/\"z\"", nullptr};
+  x4::CyclePlan plan = x4::plan_cycle(0, 0, fetch, false);
+  CHECK_EQ(plan.sleep_seconds, 900);
+}
+
+}  // namespace
+
+int main() {
+  test_backoff_doubles_then_caps();
+  test_usb_cap_only_when_charging();
+  test_copy_etag_rejects_empty_and_overflow();
+  test_parse_retry_after();
+  test_parse_snapshot_compact_payload();
+  test_parse_snapshot_defaults_and_rejects_garbage();
+  test_wifi_failure_does_not_redraw();
+  test_http_error_backs_off_from_retry_after();
+  test_not_modified_skips_panel_and_clears_streak();
+  test_bad_json_does_not_redraw();
+  test_fail_uses_full_refresh_and_json_sleep();
+  test_pass_uses_partial_until_full_refresh_every();
+  test_running_json_sleep_beats_retry_after();
+  test_charging_caps_green_sleep();
+  test_missing_sleep_falls_back_to_default();
+
+  if (g_fails != 0) {
+    std::fprintf(stderr, "%d/%d checks failed\n", g_fails, g_checks);
+    return 1;
+  }
+  std::printf("%d checks passed\n", g_checks);
+  return 0;
+}

@@ -12,14 +12,14 @@ Inspired by office information radiators. [Read the story →](https://mzworthin
 
 Same aggregation logic; pick the outputs you want.
 
-| | **On the web** | **On a Pi** | **On a Mac** |
-|---|---|---|---|
-| **What you get** | Public status UI + live WebSocket | Desk LEDs (optional local UI) | Menu bar extra |
-| **Where it runs** | Cloudflare Worker | Raspberry Pi GPIO | [SwiftBar](docs/macos.md) plugin |
-| **See it** | [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) | Hardware on your desk | Top toolbar (polls `/status`) |
-| **Setup** | [worker/README.md](worker/README.md) · [infra/cloudflare](infra/cloudflare/README.md) · [Webhooks](docs/webhooks.md) | [Pi setup](docs/pi-setup.md) · [Hardware](docs/hardware.md) | [Mac menu bar](docs/macos.md) |
+| | **On the web** | **On a Pi** | **On a Mac** | **On an X4** |
+|---|---|---|---|---|
+| **What you get** | Public status UI + live WebSocket | Desk LEDs (optional local UI) | Menu bar extra | Pocket e-ink, deep sleep |
+| **Where it runs** | Cloudflare Worker | Raspberry Pi GPIO | [SwiftBar](docs/macos.md) plugin | ESP32-C3 firmware |
+| **See it** | [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) | Hardware on your desk | Top toolbar (polls `/status`) | 4.26" panel (samples `/status?view=eink`) |
+| **Setup** | [worker/README.md](worker/README.md) · [infra/cloudflare](infra/cloudflare/README.md) · [Webhooks](docs/webhooks.md) | [Pi setup](docs/pi-setup.md) · [Hardware](docs/hardware.md) | [Mac menu bar](docs/macos.md) | [Xteink X4](docs/xteink-x4.md) |
 
-You can use any path alone, or combine them with the same `integrations.yaml` shape. The hosted site does not depend on the Pi (no tunnel required). The Mac extra reads the hosted (or local) snapshot — it does not poll GitHub itself.
+You can use any path alone, or combine them with the same `integrations.yaml` shape. The hosted site does not depend on the Pi (no tunnel required). The Mac extra and the Xteink X4 read the hosted (or local) snapshot — they do not poll GitHub themselves. The X4 then deep-sleeps; it is not a second always-on poller.
 
 ### Web (hosted)
 
@@ -87,6 +87,7 @@ See [Getting started](docs/getting-started.md) for mise, Make, and CLI details.
 | [Webhooks](docs/webhooks.md) | GitHub/CircleCI webhooks on the hosted Worker |
 | [Push notifications](docs/push.md) | Chrome/Android fail + recovery alerts (hosted Worker) |
 | [Mac menu bar](docs/macos.md) | SwiftBar extra from `GET /status` |
+| [Xteink X4](docs/xteink-x4.md) | Battery e-ink client: snapshot + deep sleep |
 | [Configuration](docs/configuration.md) | `integrations.yaml`, tokens, pins, logging |
 | [Raspberry Pi](docs/raspberry-pi.md) | GPIO reference, systemd, auto-updates |
 | [Hardware](docs/hardware.md) | Pin map, shopping list, build photos |

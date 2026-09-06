@@ -22,6 +22,7 @@ import {
 } from './push';
 import type { PushMessage } from '@block65/webcrypto-web-push';
 import { posthogConfigResponse } from './posthogConfig';
+import { statusSnapshotResponse } from './snapshot';
 import { isStatusHubPath } from './statusHubRoutes';
 import { handleWebhook } from './webhooks';
 
@@ -88,9 +89,7 @@ export class StatusHub implements DurableObject {
       if (this.isStale()) {
         void this.refresh();
       }
-      return Response.json(this.payload, {
-        headers: { 'Cache-Control': 'no-store' },
-      });
+      return statusSnapshotResponse(request, this.payload);
     }
 
     if (url.pathname === '/push/subscribe' && request.method === 'POST') {
