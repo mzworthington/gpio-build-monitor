@@ -39,6 +39,19 @@ empty UA strings.
 
 Do not hold non-RTC GPIOs across deep sleep; that leaks milliamps on ESP32-C3.
 
+## Native tests
+
+Duty-cycle logic (sleep backoff, ETag copy, snapshot JSON, redraw vs skip) lives in
+`src/duty_cycle.cpp` and is tested on the host — no X4 required:
+
+```shell
+make test-x4   # from the repo root
+# or: make -C device/x4 test
+```
+
+CI runs the same target. The sketch in `src/main.cpp` stays Arduino-only (Wi-Fi,
+panel, deep sleep).
+
 ## What it does
 
 Each boot: connect Wi-Fi, `GET` the snapshot with `If-None-Match`, redraw only

@@ -4,7 +4,7 @@ VENV := .venv
 # default target, when make executed without arguments
 all: bootstrap
 
-.PHONY: help all bootstrap venv run test build publish clean serve lint
+.PHONY: help all bootstrap venv run test test-x4 build publish clean serve lint
 
 help:
 	@IFS=$$'\n' ; \
@@ -35,6 +35,9 @@ lint: bootstrap ## Run ruff linter
 
 test: bootstrap lint ## Run pytest with junit formatting
 	./$(VENV)/bin/python -m pytest test -v --junitxml=junit/test-results.xml
+
+test-x4: ## Native tests for the Xteink X4 duty cycle (no hardware)
+	$(MAKE) -C device/x4 test
 
 build: bootstrap ## Create sdist and wheel without running tests
 	rm -rf build/

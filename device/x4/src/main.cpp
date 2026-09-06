@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <ArduinoJson.h>
 #include <GxEPD2_BW.h>
 #include <HTTPClient.h>
 #include <SPI.h>
@@ -8,6 +7,8 @@
 #include <cstring>
 #include <esp_sleep.h>
 #include <esp_wifi.h>
+
+#include "duty_cycle.hpp"
 
 #if __has_include("secrets.h")
 #include "secrets.h"
@@ -29,33 +30,15 @@
 #define USER_AGENT "gpio-build-monitor-x4/0.1 (+https://github.com/mzworthington/gpio-build-monitor)"
 #define WIFI_TIMEOUT_MS 15000
 #define HTTP_TIMEOUT_MS 10000
-#define MAX_SLEEP_SECONDS 1800
-#define DEFAULT_SLEEP_SECONDS 900
-#define FETCH_ERROR_SLEEP_SECONDS 300
-#define FULL_REFRESH_EVERY 8
 
 GxEPD2_BW<GxEPD2_426_GDEQ0426T82, GxEPD2_426_GDEQ0426T82::HEIGHT> display(
     GxEPD2_426_GDEQ0426T82(EPD_CS, EPD_DC, EPD_RST, EPD_BUSY));
 
-RTC_DATA_ATTR char last_etag[40] = "";
+RTC_DATA_ATTR char last_etag[x4::kEtagCap] = "";
 RTC_DATA_ATTR uint8_t fail_streak = 0;
 RTC_DATA_ATTR uint8_t updates_since_full = 0;
 
-static void store_etag(const String &etag) {
-  if (etag.length() == 0 || etag.length() >= sizeof(last_etag)) {
-    return;
-  }
-  strncpy(last_etag, etag.c_str(), sizeof(last_etag) - 1);
-  last_etag[sizeof(last_etag) - 1] = '\0';
-}
-
-static uint32_t backoff_sleep(uint32_t base) {
-  uint32_t seconds = base << fail_streak;
-  if (seconds > MAX_SLEEP_SECONDS) {
-    seconds = MAX_SLEEP_SECONDS;
-  }
-  return seconds;
-}
+static bool is_charging() { return digitalRead(USB_DETECT_GPIO) == HIGH; }
 
 static void radio_off() {
   WiFi.disconnect(true, true);
@@ -65,12 +48,9 @@ static void radio_off() {
 
 static void enter_deep_sleep(uint32_t seconds) {
   radio_off();
-  if (digitalRead(USB_DETECT_GPIO) == HIGH && seconds > 60) {
-    seconds = 60;
-  }
   Serial.printf("deep sleep %u s\n", seconds);
   Serial.flush();
-  esp_sleep_enable_timer_wakeup((uint64_t)seconds * 1000000ULL);
+  esp_sleep_enable_timer_wakeup(static_cast<uint64_t>(seconds) * 1000000ULL);
   esp_deep_sleep_enable_gpio_wakeup(1ULL << POWER_BUTTON_GPIO, ESP_GPIO_WAKEUP_GPIO_LOW);
   // Do not gpio_deep_sleep_hold_en(): non-RTC pins leak on ESP32-C3.
   esp_deep_sleep_start();
@@ -86,31 +66,28 @@ static bool wifi_connect() {
   return WiFi.status() == WL_CONNECTED;
 }
 
-static void draw_status(const char *status, bool is_running, JsonArray builds, int http_code) {
+static void draw_status(const x4::CyclePlan& plan) {
   display.setRotation(3);
   display.setTextColor(GxEPD_BLACK);
-  const bool full = http_code == 200 && (updates_since_full >= FULL_REFRESH_EVERY || strcmp(status, "FAIL") == 0);
-  if (full) {
+  if (plan.panel == x4::PanelAction::Full) {
     display.setFullWindow();
-    updates_since_full = 0;
   } else {
     display.setPartialWindow(0, 0, display.width(), display.height());
-    updates_since_full++;
   }
   display.firstPage();
   do {
     display.fillScreen(GxEPD_WHITE);
     display.setCursor(16, 48);
     display.setTextSize(3);
-    if (is_running) {
+    if (plan.snapshot.is_running) {
       display.print("RUN ");
     }
-    display.print(status);
+    display.print(plan.snapshot.status);
     display.setTextSize(1);
     int y = 90;
-    for (JsonObject build : builds) {
+    for (uint8_t i = 0; i < plan.snapshot.build_count; ++i) {
       display.setCursor(16, y);
-      display.printf("%s %s", build["status"] | "?", build["workflow"] | "?");
+      display.printf("%s %s", plan.snapshot.builds[i].status, plan.snapshot.builds[i].workflow);
       y += 18;
       if (y > 450) {
         break;
@@ -119,16 +96,16 @@ static void draw_status(const char *status, bool is_running, JsonArray builds, i
   } while (display.nextPage());
 }
 
-static int fetch_snapshot(String *body, String *etag, uint32_t *sleep_seconds) {
+static int fetch_snapshot(String* body, String* etag, String* retry_after) {
   HTTPClient http;
   WiFiClient client;
   WiFiClientSecure secure;
 #if STATUS_HTTPS
   // Bring-up only: replace with the Worker certificate for a real install.
   secure.setInsecure();
-  WiFiClient &stream = secure;
+  WiFiClient& stream = secure;
 #else
-  WiFiClient &stream = client;
+  WiFiClient& stream = client;
 #endif
   String url;
 #if STATUS_HTTPS
@@ -141,25 +118,31 @@ static int fetch_snapshot(String *body, String *etag, uint32_t *sleep_seconds) {
   http.begin(stream, url);
   http.addHeader("Accept", "application/json");
   http.addHeader("User-Agent", USER_AGENT);
-  const char *header_keys[] = {"ETag", "Retry-After"};
+  const char* header_keys[] = {"ETag", "Retry-After"};
   http.collectHeaders(header_keys, 2);
   if (last_etag[0] != '\0') {
     http.addHeader("If-None-Match", last_etag);
   }
   const int code = http.GET();
-  const String retry = http.header("Retry-After");
-  if (retry.length() > 0) {
-    *sleep_seconds = retry.toInt();
-  }
-  const String new_etag = http.header("ETag");
-  if (new_etag.length() > 0 && new_etag.length() < sizeof(last_etag)) {
-    *etag = new_etag;
-  }
+  *retry_after = http.header("Retry-After");
+  *etag = http.header("ETag");
   if (code == 200) {
     *body = http.getString();
   }
   http.end();
   return code;
+}
+
+static void apply_plan(const x4::CyclePlan& plan, const char* etag) {
+  fail_streak = plan.fail_streak;
+  updates_since_full = plan.updates_since_full;
+  if (plan.store_etag) {
+    x4::copy_etag(last_etag, sizeof(last_etag), etag);
+  }
+  if (plan.panel != x4::PanelAction::Leave) {
+    draw_status(plan);
+  }
+  enter_deep_sleep(plan.sleep_seconds);
 }
 
 void setup() {
@@ -172,41 +155,18 @@ void setup() {
   SPISettings spi_settings(40000000, MSBFIRST, SPI_MODE0);
   display.init(115200, true, 2, false, SPI, spi_settings);
 
-  uint32_t sleep_seconds = DEFAULT_SLEEP_SECONDS;
+  const bool charging = is_charging();
   if (!wifi_connect()) {
-    fail_streak = fail_streak + 1 > 4 ? 4 : fail_streak + 1;
-    enter_deep_sleep(backoff_sleep(FETCH_ERROR_SLEEP_SECONDS));
+    apply_plan(x4::plan_cycle(fail_streak, updates_since_full, {0, nullptr, nullptr, nullptr}, charging),
+               nullptr);
   }
 
   String body;
   String etag;
-  const int code = fetch_snapshot(&body, &etag, &sleep_seconds);
-  if (code == 304) {
-    fail_streak = 0;
-    store_etag(etag);
-    enter_deep_sleep(sleep_seconds > 0 ? sleep_seconds : DEFAULT_SLEEP_SECONDS);
-  }
-  if (code != 200) {
-    fail_streak = fail_streak + 1 > 4 ? 4 : fail_streak + 1;
-    enter_deep_sleep(backoff_sleep(sleep_seconds > 0 ? sleep_seconds : DEFAULT_SLEEP_SECONDS));
-  }
-
-  JsonDocument doc;
-  const DeserializationError err = deserializeJson(doc, body);
-  if (err) {
-    fail_streak = fail_streak + 1 > 4 ? 4 : fail_streak + 1;
-    enter_deep_sleep(backoff_sleep(DEFAULT_SLEEP_SECONDS));
-  }
-
-  fail_streak = 0;
-  const char *status = doc["status"] | "UNKNOWN";
-  const bool is_running = doc["is_running"] | false;
-  if (doc["sleep_seconds"].is<uint32_t>()) {
-    sleep_seconds = doc["sleep_seconds"].as<uint32_t>();
-  }
-  draw_status(status, is_running, doc["builds"].as<JsonArray>(), code);
-  store_etag(etag);
-  enter_deep_sleep(sleep_seconds > 0 ? sleep_seconds : DEFAULT_SLEEP_SECONDS);
+  String retry_after;
+  const int code = fetch_snapshot(&body, &etag, &retry_after);
+  const x4::Fetch fetch = {code, retry_after.c_str(), etag.c_str(), body.c_str()};
+  apply_plan(x4::plan_cycle(fail_streak, updates_since_full, fetch, charging), etag.c_str());
 }
 
 void loop() {

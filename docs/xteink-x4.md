@@ -110,5 +110,8 @@ Sketch in [`device/x4/`](../device/x4/). Stack is Arduino/PlatformIO + GxEPD2
 CircuitPython fits the board but leaves too little SRAM for HTTPS plus an
 800×480 framebuffer.
 
+Host tests (`make test-x4`) cover the sleep / ETag / snapshot parser without
+flashing a device.
+
 Flash notes, pin map, and bring-up: [`device/x4/README.md`](../device/x4/README.md).
 Back up the factory image before the first upload.
