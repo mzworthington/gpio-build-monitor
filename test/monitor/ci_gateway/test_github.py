@@ -250,7 +250,7 @@ class TestGithub:
     async def test_fails_when_workflows_not_200(self):
         import aiohttp
         with aioresponses() as m:
-            m.get(_WORKFLOWS_URL, body='', status=403)
+            m.get(_WORKFLOWS_URL, body='', status=403, repeat=True)
             action = GitHubAction(**{'username': 'super-man',
                                      'repo': 'awesome'})
             async with aiohttp.ClientSession() as session:
@@ -281,6 +281,55 @@ class TestGithub:
 
         msg = "APIError: GET https://api.github.com/repos/super-man/awesome/actions/runs 400"
         assert str(excinfo.value) == msg
+
+    @pytest.mark.asyncio
+    async def test_retries_runs_without_auth_after_github_403(self):
+        from aioresponses import CallbackResult
+
+        workflows = {
+            'workflows': [
+                {
+                    'id': 1001,
+                    'name': 'CI',
+                    'state': 'active',
+                },
+            ]
+        }
+        runs = {
+            'workflow_runs': [
+                {
+                    'id': 1,
+                    'workflow_id': 1001,
+                    'name': 'CI',
+                    'html_url': 'https://example.com/ci',
+                    'created_at': '2020-01-02T00:00:00Z',
+                    'status': 'completed',
+                    'conclusion': 'success',
+                    'head_branch': 'main',
+                },
+            ]
+        }
+
+        def runs_cb(_url, **kwargs):
+            headers = kwargs.get('headers') or {}
+            if headers.get('Authorization'):
+                return CallbackResult(
+                    status=403,
+                    payload={'message': 'API rate limit exceeded'},
+                )
+            return CallbackResult(status=200, payload=runs)
+
+        import aiohttp
+        with aioresponses() as m:
+            m.get(_WORKFLOWS_URL, payload=workflows, status=200)
+            m.get(_RUNS_URL, callback=runs_cb, repeat=True)
+            action = GitHubAction(username='super-man', repo='awesome')
+            async with aiohttp.ClientSession() as session:
+                result = await action.get_latest(session)
+
+        assert len(result) == 1
+        assert result[0]['name'] == 'CI'
+        assert result[0]['status'] == Result.PASS
 
     def test_filters_other_head_branches(self):
         action = GitHubAction(

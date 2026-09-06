@@ -42,12 +42,47 @@ class GitHubAction(IntegrationAdapter, ABC):
     def filters_by_branch(self) -> bool:
         return bool(self.branch) and self.branch != ALL_BRANCHES
 
-    def _auth_headers(self) -> dict[str, str]:
+    def _public_headers(self) -> dict[str, str]:
         return {
-            'Authorization': f'Bearer {self.token}',
             'Accept': 'application/vnd.github+json',
             'X-GitHub-Api-Version': '2022-11-28',
+            'User-Agent': 'gpio-build-monitor',
         }
+
+    def _auth_headers(self) -> dict[str, str]:
+        return {
+            **self._public_headers(),
+            'Authorization': f'Bearer {self.token}',
+        }
+
+    async def _get_json(
+        self,
+        session: ClientSession,
+        url: str,
+        params: dict[str, str],
+    ) -> object:
+        attempts = []
+        if self.token:
+            attempts.append(self._auth_headers())
+        attempts.append(self._public_headers())
+
+        last_status = 0
+        for index, headers in enumerate(attempts):
+            resp = await session.get(url, params=params, headers=headers)
+            last_status = resp.status
+            if resp.status == 200:
+                return await resp.json()
+            await resp.release()
+            if resp.status not in {401, 403}:
+                break
+            if index < len(attempts) - 1:
+                logging.warning(
+                    'GitHub %s returned %s; retrying without credentials',
+                    url,
+                    resp.status,
+                )
+
+        raise APIError('GET', url, last_status)
 
     async def _active_workflow_ids(self, session: ClientSession) -> set[int]:
         """Workflow IDs that still have YAML and are enabled (state=active).
@@ -57,16 +92,8 @@ class GitHubAction(IntegrationAdapter, ABC):
         base = 'https://api.github.com'
         url = f'{base}/repos/{self.username}/{self.repo}/actions/workflows'
         logging.debug('Calling %s', url)
-        resp = await session.get(
-            url,
-            params={'per_page': '100'},
-            headers=self._auth_headers(),
-        )
-        if resp.status != 200:
-            raise APIError('GET', url, resp.status)
-
-        payload = await resp.json()
-        workflows = payload.get('workflows') or []
+        payload = await self._get_json(session, url, {'per_page': '100'})
+        workflows = payload.get('workflows') or [] if isinstance(payload, dict) else []
         active_ids = {
             workflow['id']
             for workflow in workflows
@@ -91,19 +118,13 @@ class GitHubAction(IntegrationAdapter, ABC):
 
         logging.debug('Calling %s (branch=%s)', url, self.branch)
 
-        resp = await session.get(
-            url,
-            params=params,
-            headers=self._auth_headers(),
+        payload = await self._get_json(session, url, params)
+        workflow_runs = (
+            payload.get('workflow_runs') or [] if isinstance(payload, dict) else []
         )
-
-        if resp.status != 200:
-            raise APIError('GET', url, resp.status)
-
-        payload = await resp.json()
         runs = [
             run
-            for run in (payload.get('workflow_runs') or [])
+            for run in workflow_runs
             if run.get('workflow_id') in active_ids
         ]
         runs = self.get_unique_latest_jobs(runs)

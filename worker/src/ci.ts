@@ -163,13 +163,27 @@ function mapCircleStatus(status: string): CiResult {
   }
 }
 
-function githubHeaders(token: string): HeadersInit {
+function githubPublicHeaders(): HeadersInit {
   return {
-    Authorization: `Bearer ${token}`,
     Accept: 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28',
     'User-Agent': 'gpio-build-monitor-worker',
   };
+}
+
+function githubHeaders(token: string): HeadersInit {
+  return {
+    ...githubPublicHeaders(),
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+async function githubGet(url: URL, token: string): Promise<Response> {
+  const authed = await fetch(url, { headers: githubHeaders(token) });
+  if (authed.ok || (authed.status !== 401 && authed.status !== 403)) {
+    return authed;
+  }
+  return fetch(url, { headers: githubPublicHeaders() });
 }
 
 /** Workflow IDs that still have YAML and are enabled (state=active). */
@@ -181,7 +195,7 @@ async function fetchActiveGithubWorkflowIds(
     `https://api.github.com/repos/${repo}/actions/workflows`,
   );
   url.searchParams.set('per_page', '100');
-  const resp = await fetch(url, { headers: githubHeaders(token) });
+  const resp = await githubGet(url, token);
   if (!resp.ok) {
     return null;
   }
@@ -230,9 +244,7 @@ async function fetchGithub(
     url.searchParams.set('branch', branch);
   }
 
-  const resp = await fetch(url, {
-    headers: githubHeaders(token),
-  });
+  const resp = await githubGet(url, token);
   if (!resp.ok) {
     return [
       {

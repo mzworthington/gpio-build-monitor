@@ -71,6 +71,10 @@ disabled workflows are ignored, so orphaned pipelines no longer appear on the
 board. CircleCI is unchanged. Use `excluded_workflows` /
 `excluded_workflow_patterns` for additional name-based filtering.
 
+If an authenticated call returns 401 or 403 (rate limit or a PAT without
+Actions read), the poller retries the same public endpoints without
+credentials so public repos still light the board.
+
 ### Dependabot Update runs
 
 GitHub Dependabot names each version check uniquely (`npm_and_yarn in /. - Update #123`). The monitor collapses those into one bucket per ecosystem and directory (stripping the Update ID and optional package list), then keeps the newest by `created_at`. A fixed Dependabot config shows green once a newer Update succeeds; a broken config still fails the radiator. Prefer that over excluding `* - Update #*` unless you truly do not want Dependabot on the desk light.
