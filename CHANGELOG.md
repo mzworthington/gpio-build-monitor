@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v0.14.1 (2026-09-06)
+
+### Bug Fixes
+
+- Show only active GitHub Actions workflows
+  ([#15](https://github.com/mzworthington/gpio-build-monitor/pull/15),
+  [`0f2abd0`](https://github.com/mzworthington/gpio-build-monitor/commit/0f2abd004b09ce62049016a6fa90d78a73a2ce70))
+
+### Continuous Integration
+
+- Bump the github-actions group across 1 directory with 2 updates
+  ([#18](https://github.com/mzworthington/gpio-build-monitor/pull/18),
+  [`bdf9758`](https://github.com/mzworthington/gpio-build-monitor/commit/bdf9758532008e28cc682051109f8dcab9b6bdb3))
+
+### Testing
+
+- Mock active GitHub workflows in board integration tests
+  ([#15](https://github.com/mzworthington/gpio-build-monitor/pull/15),
+  [`0f2abd0`](https://github.com/mzworthington/gpio-build-monitor/commit/0f2abd004b09ce62049016a6fa90d78a73a2ce70))
+
+
 ## v0.14.0 (2026-09-05)
 
 ### Bug Fixes
