@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.14.2 (2026-09-06)
+
+### Bug Fixes
+
+- Retry public GitHub Actions when the PAT is 403
+  ([`48541b6`](https://github.com/mzworthington/gpio-build-monitor/commit/48541b6c1b8bba8153c032f10792ae4f8441692a))
+
+
 ## v0.14.1 (2026-09-06)
 
 ### Bug Fixes
