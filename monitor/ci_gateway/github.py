@@ -42,8 +42,48 @@ class GitHubAction(IntegrationAdapter, ABC):
     def filters_by_branch(self) -> bool:
         return bool(self.branch) and self.branch != ALL_BRANCHES
 
+    def _auth_headers(self) -> dict[str, str]:
+        return {
+            'Authorization': f'Bearer {self.token}',
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+        }
+
+    async def _active_workflow_ids(self, session: ClientSession) -> set[int]:
+        """Workflow IDs that still have YAML and are enabled (state=active).
+
+        Deleted workflows remain in run history but can never run again; hide them.
+        """
+        base = 'https://api.github.com'
+        url = f'{base}/repos/{self.username}/{self.repo}/actions/workflows'
+        logging.debug('Calling %s', url)
+        resp = await session.get(
+            url,
+            params={'per_page': '100'},
+            headers=self._auth_headers(),
+        )
+        if resp.status != 200:
+            raise APIError('GET', url, resp.status)
+
+        payload = await resp.json()
+        workflows = payload.get('workflows') or []
+        active_ids = {
+            workflow['id']
+            for workflow in workflows
+            if workflow.get('state') == 'active' and workflow.get('id') is not None
+        }
+        logging.debug(
+            'Active workflows for %s/%s: %s',
+            self.username,
+            self.repo,
+            sorted(active_ids),
+        )
+        return active_ids
+
     async def get_latest(self, session: ClientSession) -> list[BuildStatus]:
         base = 'https://api.github.com'
+        active_ids = await self._active_workflow_ids(session)
+
         url = f'{base}/repos/{self.username}/{self.repo}/actions/runs'
         params: dict[str, str] = {'per_page': '100'}
         if self.filters_by_branch:
@@ -54,18 +94,19 @@ class GitHubAction(IntegrationAdapter, ABC):
         resp = await session.get(
             url,
             params=params,
-            headers={
-                'Authorization': f'Bearer {self.token}',
-                'Accept': 'application/vnd.github+json',
-                'X-GitHub-Api-Version': '2022-11-28',
-            },
+            headers=self._auth_headers(),
         )
 
         if resp.status != 200:
             raise APIError('GET', url, resp.status)
 
         payload = await resp.json()
-        runs = self.get_unique_latest_jobs(payload.get('workflow_runs') or [])
+        runs = [
+            run
+            for run in (payload.get('workflow_runs') or [])
+            if run.get('workflow_id') in active_ids
+        ]
+        runs = self.get_unique_latest_jobs(runs)
         response = list(map(GitHubAction.map_result, runs))
         logging.info('Called %s (branch=%s)', url, self.branch)
         logging.info('Response %s', response)

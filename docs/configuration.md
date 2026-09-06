@@ -62,6 +62,15 @@ integrations:
 | `integrations[].excluded_workflow_patterns` | fnmatch patterns for workflow names (optional) |
 | `integrations[].branch` | GitHub only: branch to monitor (default: `main`; use `*` for all branches) |
 
+### Active GitHub Actions only
+
+For GitHub integrations, the monitor lists workflows via
+`GET /repos/{owner}/{repo}/actions/workflows` and keeps only those with
+`state: active` (YAML still present and enabled). Recent runs for deleted or
+disabled workflows are ignored, so orphaned pipelines no longer appear on the
+board. CircleCI is unchanged. Use `excluded_workflows` /
+`excluded_workflow_patterns` for additional name-based filtering.
+
 ### Dependabot Update runs
 
 GitHub Dependabot names each version check uniquely (`npm_and_yarn in /. - Update #123`). The monitor collapses those into one bucket per ecosystem and directory (stripping the Update ID and optional package list), then keeps the newest by `created_at`. A fixed Dependabot config shows green once a newer Update succeeds; a broken config still fails the radiator. Prefer that over excluding `* - Update #*` unless you truly do not want Dependabot on the desk light.
