@@ -44,7 +44,27 @@ pioarduino’s esptool zip (that zip’s postinstall script fails on 6.2).
 Do not pin `espressif32@6.10` plus a standalone GCC 13 — that mix fails to
 link `_cleanup_r`. First download of the Arduino core can take a few minutes.
 
-Wake the X3 to the home screen. Use a **4-pin** pogo data cable (not charge-only).
+Wake the X3 with the **power** button. After a USB or SD flash, that boots
+this sketch from flash — not CrossPoint — every time. You should see
+**Build monitor / Connecting**, then the status page.
+
+Leave `update.bin` off the card once the image is installed. Power + top-left
+only when you intend to flash; that combo rewrites flash from the card.
+
+## Buttons
+
+| Action | What happens |
+|--------|----------------|
+| Power (short) | Wakes the unit from off |
+| Power (hold ~1.2s) | Draws **Off**, waits for release, then GPIO 13 LOW (battery latch) |
+
+Unplug the pogo cable to test off. Magnetic USB keeps the 3.3 V rail up, so
+GPIO 13 LOW cannot look like a shutdown while charging. On battery the MCU
+loses power (RTC included); power is a hard-wired pulse back onto the rail.
+| Next page (or any page key) | Draws **Refreshing**, then fetches `/status` again |
+
+Page keys are an ADC ladder on GPIO 1 (and GPIO 2). They cannot wake a fully
+powered-off chip; press **power** first.
 
 USB-locked units: copy `.pio/build/xteink-x3/firmware.bin` to the card root as
 `update.bin` and hold **Power + top-left** at boot.
@@ -63,7 +83,8 @@ empty UA strings.
 | EPD SCLK / MOSI / CS / DC / RST / BUSY | 8 / 10 / 21 / 4 / 5 / 6 |
 | I²C SCL / SDA | 0 / 20 (BQ27220 at 0x55) |
 | Power button (deep-sleep wakeup) | 3 (LOW = pressed) |
-| Page keys (refresh) | ADC GPIO 1 (resistor ladder; next/any page key) |
+| Page keys (refresh) | ADC GPIO 1 and 2 (resistor ladders) |
+| Power latch | 13 HIGH = on; hold LOW to shut down |
 
 SPI is 10 MHz. GPIO 0/20 are **not** the X4 battery/USB pins. Newer X3 panels
 with a UC8279d controller are not in this sketch.

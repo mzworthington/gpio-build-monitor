@@ -207,6 +207,7 @@ bool parse_build_object(const char** pp, BuildRow* row) {
   *pp = p;
   std::strcpy(row->status, "?");
   std::strcpy(row->workflow, "?");
+  std::strcpy(row->repo, "?");
   p = skip_ws(*pp);
   if (*p == '}') {
     *pp = p + 1;
@@ -228,6 +229,10 @@ bool parse_build_object(const char** pp, BuildRow* row) {
       }
     } else if (std::strcmp(key, "workflow") == 0) {
       if (!parse_string(pp, row->workflow, sizeof(row->workflow))) {
+        return false;
+      }
+    } else if (std::strcmp(key, "repo") == 0) {
+      if (!parse_string(pp, row->repo, sizeof(row->repo))) {
         return false;
       }
     } else if (!skip_value(pp)) {

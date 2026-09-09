@@ -27,6 +27,7 @@ uint32_t parse_retry_after(const char* header);
 struct BuildRow {
   char status[kStatusCap];
   char workflow[kWorkflowCap];
+  char repo[kRepoCap];
 };
 
 struct OpenPrRow {

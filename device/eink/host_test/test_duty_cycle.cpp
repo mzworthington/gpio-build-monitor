@@ -110,8 +110,10 @@ void test_parse_snapshot_compact_payload() {
   CHECK_EQ(snap.build_count, 2);
   CHECK_STREQ(snap.builds[0].status, "FAIL");
   CHECK_STREQ(snap.builds[0].workflow, "CI");
+  CHECK_STREQ(snap.builds[0].repo, "acme/web");
   CHECK_STREQ(snap.builds[1].status, "RUNNING");
   CHECK_STREQ(snap.builds[1].workflow, "Lint");
+  CHECK_STREQ(snap.builds[1].repo, "acme/api");
 }
 
 void test_parse_snapshot_open_prs_when_workflows_are_green() {

@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Fonts/FreeSans12pt7b.h>
 #include <Fonts/FreeSans9pt7b.h>
+#include <Fonts/FreeSansBold9pt7b.h>
 #include <Fonts/FreeSansBold12pt7b.h>
 #include <Fonts/FreeSansBold18pt7b.h>
 #include <Fonts/FreeSansBold24pt7b.h>
@@ -12,7 +13,9 @@
 #include <Wire.h>
 #include <cstdio>
 #include <cstring>
+#include <driver/gpio.h>
 #include <esp_sleep.h>
+#include <esp_system.h>
 #include <esp_wifi.h>
 
 #include "GxEPD2_368_X3.h"
@@ -46,6 +49,7 @@
 #define USER_AGENT "gpio-build-monitor-x3/0.1 (+https://github.com/mzworthington/gpio-build-monitor)"
 #define WIFI_TIMEOUT_MS 15000
 #define HTTP_TIMEOUT_MS 10000
+#define POWER_OFF_HOLD_MS 1200
 
 GxEPD2_BW<GxEPD2_368_X3, 16> display(GxEPD2_368_X3(EPD_CS, EPD_DC, EPD_RST, EPD_BUSY));
 
@@ -80,54 +84,42 @@ static bool page_key_pressed() {
   return analogRead(KEY_ADC_GPIO) < KEY_ADC_IDLE || analogRead(KEY_ADC_GPIO_B) < KEY_ADC_IDLE;
 }
 
-static void request_button_refresh() {
-  button_refresh = 1;
-  last_etag[0] = '\0';
-  Serial.println("page key");
-  Serial.flush();
-  ESP.restart();
+static bool page_key_edge() {
+  static bool was_down = false;
+  const bool down = page_key_pressed();
+  const bool edge = down && !was_down;
+  was_down = down;
+  return edge;
 }
 
-static void wait_or_button(uint32_t seconds) {
-  analogSetAttenuation(ADC_11db);
-  analogReadResolution(12);
-  const unsigned long until = millis() + static_cast<unsigned long>(seconds) * 1000UL;
-  while (static_cast<long>(until - millis()) > 0) {
-    if (page_key_pressed()) {
-      request_button_refresh();
-    }
-    delay(50);
+static void wait_page_key_release() {
+  const unsigned long start = millis();
+  while (page_key_pressed() && millis() - start < 2000) {
+    delay(20);
   }
 }
 
-static void enter_deep_sleep(uint32_t seconds) {
-  if (HWCDC::isPlugged() && seconds > x4::kUsbDeskSleepSeconds) {
-    seconds = x4::kUsbDeskSleepSeconds;
+static bool power_button_down() { return digitalRead(POWER_BUTTON_GPIO) == LOW; }
+
+static bool power_off_held() {
+  if (!power_button_down()) {
+    return false;
   }
-  radio_off();
-  Serial.printf("deep sleep %u s\n", seconds);
-  Serial.flush();
-  if (HWCDC::isPlugged()) {
-    Serial.printf("usb hold %u s\n", seconds);
-    Serial.flush();
-    wait_or_button(seconds);
-    ESP.restart();
-  }
-  analogSetAttenuation(ADC_11db);
-  analogReadResolution(12);
-  uint32_t left_ms = seconds * 1000UL;
-  while (left_ms > 0) {
-    if (page_key_pressed()) {
-      request_button_refresh();
+  const unsigned long start = millis();
+  while (power_button_down()) {
+    if (millis() - start >= POWER_OFF_HOLD_MS) {
+      return true;
     }
-    const uint32_t slice = left_ms > 250 ? 250 : left_ms;
-    esp_sleep_enable_timer_wakeup(static_cast<uint64_t>(slice) * 1000ULL);
-    esp_light_sleep_start();
-    left_ms -= slice;
+    delay(20);
   }
-  esp_sleep_enable_timer_wakeup(1000);
-  esp_deep_sleep_enable_gpio_wakeup(1ULL << POWER_BUTTON_GPIO, ESP_GPIO_WAKEUP_GPIO_LOW);
-  esp_deep_sleep_start();
+  return false;
+}
+
+static void wait_power_button_release() {
+  const unsigned long start = millis();
+  while (power_button_down() && millis() - start < 4000) {
+    delay(20);
+  }
 }
 
 static bool wifi_connect() {
@@ -144,6 +136,12 @@ static bool wifi_connect() {
   return ok;
 }
 
+static bool attention_status(const char* status) {
+  return std::strcmp(status, "FAIL") == 0 || std::strcmp(status, "UNKNOWN") == 0 ||
+         std::strcmp(status, "APPROVAL") == 0 || std::strcmp(status, "CONNECTION_ERROR") == 0 ||
+         std::strncmp(status, "HTTP", 4) == 0;
+}
+
 static const char* hero_label(const char* status) {
   if (std::strcmp(status, "NONE") == 0) {
     return "Idle";
@@ -158,12 +156,47 @@ static const char* hero_label(const char* status) {
     return "Unknown";
   }
   if (std::strcmp(status, "APPROVAL") == 0) {
-    return "Approval";
+    return "Hold";
   }
   if (std::strcmp(status, "CONNECTION_ERROR") == 0) {
     return "Offline";
   }
   return status;
+}
+
+static const char* chip_label(const char* status) {
+  if (std::strcmp(status, "FAIL") == 0) {
+    return "FAIL";
+  }
+  if (std::strcmp(status, "RUNNING") == 0) {
+    return "RUN";
+  }
+  if (std::strcmp(status, "WAITING") == 0) {
+    return "WAIT";
+  }
+  if (std::strcmp(status, "APPROVAL") == 0) {
+    return "HOLD";
+  }
+  if (std::strcmp(status, "CONNECTION_ERROR") == 0) {
+    return "ERR";
+  }
+  if (std::strcmp(status, "UNKNOWN") == 0) {
+    return "?";
+  }
+  if (std::strcmp(status, "PASS") == 0) {
+    return "OK";
+  }
+  return status;
+}
+
+static bool has_name(const char* value) { return value != nullptr && value[0] != '\0' && std::strcmp(value, "?") != 0; }
+
+static const char* repo_leaf(const char* repo) {
+  const char* slash = std::strrchr(repo, '/');
+  if (slash != nullptr && slash[1] != '\0') {
+    return slash + 1;
+  }
+  return repo;
 }
 
 static void draw_centered(const GFXfont* font, int16_t baseline, const char* text) {
@@ -173,48 +206,192 @@ static void draw_centered(const GFXfont* font, int16_t baseline, const char* tex
   uint16_t w = 0;
   uint16_t h = 0;
   display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
-  const GFXfont* use = font;
-  if (w + 48 > display.width()) {
-    use = &FreeSansBold18pt7b;
-    display.setFont(use);
+  if (w + 40 > display.width()) {
+    display.setFont(&FreeSansBold18pt7b);
     display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
   }
-  const int16_t x = (display.width() - static_cast<int16_t>(w)) / 2 - x1;
-  display.setCursor(x, baseline);
+  display.setCursor((display.width() - static_cast<int16_t>(w)) / 2 - x1, baseline);
   display.print(text);
 }
 
+static void draw_banner(const char* title, const char* kicker) {
+  display.setRotation(1);
+  display.setTextSize(1);
+  display.setFullWindow();
+  display.firstPage();
+  do {
+    display.fillScreen(GxEPD_WHITE);
+    display.fillRect(0, 0, display.width(), 108, GxEPD_BLACK);
+    display.setTextColor(GxEPD_WHITE);
+    draw_centered(&FreeSansBold24pt7b, kicker != nullptr ? 62 : 72, title);
+    if (kicker != nullptr) {
+      display.setFont(&FreeSans9pt7b);
+      int16_t x1 = 0;
+      int16_t y1 = 0;
+      uint16_t tw = 0;
+      uint16_t th = 0;
+      display.getTextBounds(kicker, 0, 0, &x1, &y1, &tw, &th);
+      display.setCursor((display.width() - static_cast<int16_t>(tw)) / 2 - x1, 96);
+      display.print(kicker);
+    }
+  } while (display.nextPage());
+}
+
+static void hold_power_latch() {
+  gpio_deep_sleep_hold_dis();
+  gpio_hold_dis(static_cast<gpio_num_t>(POWER_LATCH_GPIO));
+  pinMode(POWER_LATCH_GPIO, OUTPUT);
+  digitalWrite(POWER_LATCH_GPIO, HIGH);
+}
+
+static void power_down() {
+  Serial.println("power down");
+  Serial.flush();
+  radio_off();
+  draw_banner("Off", "Press power to wake");
+  display.hibernate();
+  // Cutting the latch while GPIO 3 is still low immediately powers the rail back on.
+  while (power_button_down()) {
+    delay(50);
+  }
+  delay(50);
+  Serial.end();
+
+  const gpio_num_t latch = static_cast<gpio_num_t>(POWER_LATCH_GPIO);
+  gpio_set_direction(latch, GPIO_MODE_OUTPUT);
+  gpio_set_level(latch, 0);
+  esp_sleep_config_gpio_isolate();
+  gpio_deep_sleep_hold_en();
+  gpio_hold_en(latch);
+  pinMode(POWER_BUTTON_GPIO, INPUT_PULLUP);
+  esp_deep_sleep_enable_gpio_wakeup(1ULL << POWER_BUTTON_GPIO, ESP_GPIO_WAKEUP_GPIO_LOW);
+  delay(50);
+  esp_deep_sleep_start();
+}
+
+static void begin_refresh() {
+  Serial.println("page key");
+  Serial.flush();
+  last_etag[0] = '\0';
+  button_refresh = 1;
+  draw_banner("Refreshing", "Fetching status");
+  wait_page_key_release();
+}
+
+static void wait_for_next(uint32_t seconds) {
+  if (HWCDC::isPlugged() && seconds > x4::kUsbDeskSleepSeconds) {
+    seconds = x4::kUsbDeskSleepSeconds;
+  }
+  analogSetAttenuation(ADC_11db);
+  analogReadResolution(12);
+  radio_off();
+  Serial.printf("wait %u s\n", seconds);
+  Serial.flush();
+  if (HWCDC::isPlugged()) {
+    const unsigned long until = millis() + static_cast<unsigned long>(seconds) * 1000UL;
+    while (static_cast<long>(until - millis()) > 0) {
+      if (power_off_held()) {
+        power_down();
+      }
+      if (page_key_edge()) {
+        begin_refresh();
+        return;
+      }
+      delay(50);
+    }
+    return;
+  }
+  uint32_t left_ms = seconds * 1000UL;
+  while (left_ms > 0) {
+    if (power_off_held()) {
+      power_down();
+    }
+    if (page_key_edge()) {
+      begin_refresh();
+      return;
+    }
+    const uint32_t slice = left_ms > 250 ? 250 : left_ms;
+    gpio_wakeup_enable(static_cast<gpio_num_t>(POWER_BUTTON_GPIO), GPIO_INTR_LOW_LEVEL);
+    esp_sleep_enable_gpio_wakeup();
+    esp_sleep_enable_timer_wakeup(static_cast<uint64_t>(slice) * 1000ULL);
+    esp_light_sleep_start();
+    left_ms -= slice;
+  }
+}
+
 static void print_clipped(int16_t x, int16_t y, int16_t max_w, const char* text) {
-  display.setCursor(x, y);
   int16_t x1 = 0;
   int16_t y1 = 0;
   uint16_t w = 0;
   uint16_t h = 0;
   display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+  display.setCursor(x, y);
   if (static_cast<int16_t>(w) <= max_w) {
     display.print(text);
     return;
   }
-  char buf[x4::kWorkflowCap];
+  char buf[x4::kRepoCap];
   std::size_t n = std::strlen(text);
-  if (n >= sizeof(buf)) {
-    n = sizeof(buf) - 1;
+  if (n >= sizeof(buf) - 2) {
+    n = sizeof(buf) - 3;
   }
   std::memcpy(buf, text, n);
   buf[n] = '\0';
-  while (n > 2) {
-    buf[n - 1] = '\0';
-    buf[n - 2] = '.';
-    --n;
+  while (n > 1) {
+    buf[n] = '.';
+    buf[n + 1] = '.';
+    buf[n + 2] = '\0';
     display.getTextBounds(buf, 0, 0, &x1, &y1, &w, &h);
     if (static_cast<int16_t>(w) <= max_w) {
       display.setCursor(x, y);
       display.print(buf);
       return;
     }
+    --n;
+    buf[n] = '\0';
   }
   display.setCursor(x, y);
   display.print(buf);
+}
+
+static int16_t draw_chip(int16_t x, int16_t baseline, const char* label, bool filled) {
+  display.setFont(&FreeSansBold9pt7b);
+  int16_t x1 = 0;
+  int16_t y1 = 0;
+  uint16_t tw = 0;
+  uint16_t th = 0;
+  display.getTextBounds(label, 0, 0, &x1, &y1, &tw, &th);
+  const int16_t pad_x = 8;
+  const int16_t pad_y = 5;
+  const int16_t box_x = x;
+  const int16_t box_y = baseline + y1 - pad_y;
+  const int16_t box_w = static_cast<int16_t>(tw) + 2 * pad_x;
+  const int16_t box_h = static_cast<int16_t>(th) + 2 * pad_y;
+  if (filled) {
+    display.fillRoundRect(box_x, box_y, box_w, box_h, 4, GxEPD_BLACK);
+    display.setTextColor(GxEPD_WHITE);
+  } else {
+    display.drawRoundRect(box_x, box_y, box_w, box_h, 4, GxEPD_BLACK);
+    display.setTextColor(GxEPD_BLACK);
+  }
+  display.setCursor(box_x + pad_x - x1, baseline);
+  display.print(label);
+  display.setTextColor(GxEPD_BLACK);
+  return box_w;
+}
+
+static void draw_section(int16_t x, int16_t y, const char* label, unsigned count) {
+  display.setFont(&FreeSans9pt7b);
+  display.setCursor(x, y);
+  display.printf("%s  %u", label, count);
+}
+
+static void format_sleep(char* dest, std::size_t cap, uint32_t seconds) {
+  if (seconds >= 120) {
+    std::snprintf(dest, cap, "%u min", static_cast<unsigned>((seconds + 30) / 60));
+  } else {
+    std::snprintf(dest, cap, "%u s", static_cast<unsigned>(seconds));
+  }
 }
 
 static void draw_status(const x4::CyclePlan& plan) {
@@ -227,61 +404,91 @@ static void draw_status(const x4::CyclePlan& plan) {
   }
   const int16_t w = display.width();
   const int16_t h = display.height();
-  const int16_t margin = 28;
-  const int16_t header_h = plan.snapshot.is_running ? 168 : 140;
+  const int16_t margin = 24;
+  const bool alarm = attention_status(plan.snapshot.status);
+  const int16_t header_h = plan.snapshot.is_running ? 118 : 100;
+  const int16_t chip_col = 78;
   display.firstPage();
   do {
     display.fillScreen(GxEPD_WHITE);
-    display.fillRect(0, 0, w, header_h, GxEPD_BLACK);
-    display.setTextColor(GxEPD_WHITE);
-    draw_centered(&FreeSansBold24pt7b, 88, hero_label(plan.snapshot.status));
+    if (alarm) {
+      display.fillRect(0, 0, w, header_h, GxEPD_BLACK);
+      display.setTextColor(GxEPD_WHITE);
+    } else {
+      display.setTextColor(GxEPD_BLACK);
+      display.fillRect(0, header_h - 4, w, 4, GxEPD_BLACK);
+    }
+    draw_centered(&FreeSansBold24pt7b, plan.snapshot.is_running ? 62 : 68, hero_label(plan.snapshot.status));
     if (plan.snapshot.is_running) {
       display.setFont(&FreeSans9pt7b);
-      display.setCursor(margin, 132);
+      int16_t x1 = 0;
+      int16_t y1 = 0;
+      uint16_t tw = 0;
+      uint16_t th = 0;
+      display.getTextBounds("Running", 0, 0, &x1, &y1, &tw, &th);
+      display.setCursor((w - static_cast<int16_t>(tw)) / 2 - x1, 96);
       display.print("Running");
     }
     display.setTextColor(GxEPD_BLACK);
-    int16_t y = header_h + 44;
-    const int16_t y_limit = h - 28;
-    const int16_t line_h = 36;
-    const int16_t name_x = margin + 108;
+    int16_t y = header_h + 36;
+    const int16_t y_limit = h - 36;
+    const int16_t name_x = margin + chip_col;
     const int16_t name_w = w - name_x - margin;
     if (plan.snapshot.build_count > 0) {
-      display.setFont(&FreeSans9pt7b);
-      display.setCursor(margin, y);
-      display.print("Jobs");
-      y += 28;
+      draw_section(margin, y, "Jobs", plan.snapshot.build_count);
+      y += 34;
       for (uint8_t i = 0; i < plan.snapshot.build_count; ++i) {
-        if (y > y_limit) {
+        if (y + 28 > y_limit) {
           break;
         }
+        const x4::BuildRow& row = plan.snapshot.builds[i];
+        const bool filled = attention_status(row.status) || std::strcmp(row.status, "FAIL") == 0;
+        draw_chip(margin, y, chip_label(row.status), filled);
         display.setFont(&FreeSansBold12pt7b);
-        display.setCursor(margin, y);
-        display.print(plan.snapshot.builds[i].status);
-        display.setFont(&FreeSans12pt7b);
-        print_clipped(name_x, y, name_w, plan.snapshot.builds[i].workflow);
-        y += line_h;
+        const char* title = has_name(row.repo) ? repo_leaf(row.repo) : row.workflow;
+        print_clipped(name_x, y, name_w, title);
+        if (has_name(row.repo) && has_name(row.workflow)) {
+          y += 22;
+          display.setFont(&FreeSans9pt7b);
+          print_clipped(name_x, y, name_w, row.workflow);
+        }
+        y += 38;
       }
     }
     if (plan.snapshot.open_pr_count > 0 && y + 40 < y_limit) {
-      y += 8;
-      display.drawFastHLine(margin, y - 20, w - 2 * margin, GxEPD_BLACK);
-      display.setFont(&FreeSans9pt7b);
-      display.setCursor(margin, y);
-      display.print("Pull requests");
-      y += 28;
+      if (plan.snapshot.build_count > 0) {
+        display.drawFastHLine(margin, y - 18, w - 2 * margin, GxEPD_BLACK);
+        y += 6;
+      }
+      draw_section(margin, y, "PRs", plan.snapshot.open_pr_count);
+      y += 34;
       for (uint8_t i = 0; i < plan.snapshot.open_pr_count; ++i) {
         if (y > y_limit) {
           break;
         }
+        char count[8];
+        std::snprintf(count, sizeof(count), "%u", static_cast<unsigned>(plan.snapshot.open_prs[i].pr_count));
+        draw_chip(margin, y, count, false);
         display.setFont(&FreeSansBold12pt7b);
-        display.setCursor(margin, y);
-        display.printf("%u", static_cast<unsigned>(plan.snapshot.open_prs[i].pr_count));
-        display.setFont(&FreeSans12pt7b);
-        print_clipped(name_x, y, name_w, plan.snapshot.open_prs[i].repo);
-        y += line_h;
+        print_clipped(name_x, y, name_w, repo_leaf(plan.snapshot.open_prs[i].repo));
+        y += 40;
       }
     }
+    if (plan.snapshot.build_count == 0 && plan.snapshot.open_pr_count == 0) {
+      display.setFont(&FreeSans12pt7b);
+      display.setCursor(margin, y);
+      display.print(alarm ? "No detail in snapshot" : "All clear");
+    }
+    char sleep_label[16];
+    format_sleep(sleep_label, sizeof(sleep_label), plan.sleep_seconds);
+    display.setFont(&FreeSans9pt7b);
+    int16_t x1 = 0;
+    int16_t y1 = 0;
+    uint16_t tw = 0;
+    uint16_t th = 0;
+    display.getTextBounds(sleep_label, 0, 0, &x1, &y1, &tw, &th);
+    display.setCursor(w - margin - static_cast<int16_t>(tw) - x1, h - 16);
+    display.print(sleep_label);
   } while (display.nextPage());
 }
 
@@ -346,15 +553,14 @@ static void apply_plan(const x4::CyclePlan& plan, const char* etag, int http_cod
   } else {
     Serial.println("panel skip");
   }
-  enter_deep_sleep(plan.sleep_seconds);
+  wait_for_next(plan.sleep_seconds);
 }
 
 void setup() {
-  pinMode(POWER_BUTTON_GPIO, INPUT);
+  pinMode(POWER_BUTTON_GPIO, INPUT_PULLUP);
   analogSetAttenuation(ADC_11db);
   analogReadResolution(12);
-  pinMode(POWER_LATCH_GPIO, OUTPUT);
-  digitalWrite(POWER_LATCH_GPIO, HIGH);
+  hold_power_latch();
   pinMode(SD_CS_GPIO, OUTPUT);
   digitalWrite(SD_CS_GPIO, HIGH);
   pinMode(EPD_CS, OUTPUT);
@@ -372,11 +578,20 @@ void setup() {
   SPI.begin(EPD_SCLK, EPD_MISO, EPD_MOSI, /*ss=*/-1);
   SPISettings spi_settings(SPI_HZ, MSBFIRST, SPI_MODE0);
   display.init(0, true, 15, false, SPI, spi_settings);
+  wait_power_button_release();
 
+  const esp_reset_reason_t reset = esp_reset_reason();
+  if (reset == ESP_RST_POWERON || reset == ESP_RST_BROWNOUT || reset == ESP_RST_UNKNOWN) {
+    draw_banner("Build monitor", "Connecting");
+  }
+}
+
+void loop() {
   const bool charging = is_charging();
   if (!wifi_connect()) {
     apply_plan(x4::plan_cycle(fail_streak, updates_since_full, {0, nullptr, nullptr, nullptr}, charging),
                nullptr, 0);
+    return;
   }
 
   String body;
@@ -386,5 +601,3 @@ void setup() {
   const x4::Fetch fetch = {code, retry_after.c_str(), etag.c_str(), body.c_str()};
   apply_plan(x4::plan_cycle(fail_streak, updates_since_full, fetch, charging), etag.c_str(), code);
 }
-
-void loop() {}
