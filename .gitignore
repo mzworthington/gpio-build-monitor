@@ -149,11 +149,13 @@ app.log
 worker/node_modules/
 worker/.wrangler/
 
-# Xteink X4 local secrets and host tests
+# Xteink firmware local secrets, PlatformIO, and host tests
+device/x3/include/secrets.h
+device/x3/.pio/
 device/x4/include/secrets.h
 device/x4/.pio/
-device/x4/host_test/duty_cycle_test
-device/x4/host_test/duty_cycle_test.dSYM/
+device/eink/host_test/duty_cycle_test
+device/eink/host_test/duty_cycle_test.dSYM/
 
 # Pulumi (infra/cloudflare)
 infra/cloudflare/node_modules/

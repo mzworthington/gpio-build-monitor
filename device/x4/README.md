@@ -3,6 +3,8 @@
 Battery client for the hosted (or local) status snapshot. Architecture:
 [docs/xteink-x4.md](../../docs/xteink-x4.md).
 
+X3 firmware is [`device/x3/`](../x3/). Do not flash this image onto an X3.
+
 This sketch is a duty-cycle reference, not a pixel-perfect UI. It compiles with
 PlatformIO against GxEPD2; it has not been soak-tested on hardware in this
 change.
@@ -17,9 +19,22 @@ change.
 
 ```shell
 cd device/x4
+pio device list
 pio run -t upload
 pio device monitor
 ```
+
+Upload must use `/dev/cu.usbmodem*`, not `/dev/cu.Bluetooth-Incoming-Port`. Wake
+the home screen and use a USB-C **data** cable. If no `usbmodem` port appears,
+copy `.pio/build/xteink-x4/firmware.bin` to a FAT32 card as `update.bin` and
+hold **Power + Up** at boot.
+
+Apple Silicon: this sketch uses the pioarduino Espressif 32 platform (Arduino
+3.1.3) so GCC 13 and newlib match, and the RISC-V compiler is `darwin_arm64`.
+Homebrew PlatformIO also needs `platformio/tool-esptoolpy` instead of
+pioarduino’s esptool zip (that zip’s postinstall script fails on 6.2).
+Do not pin `espressif32@6.10` plus a standalone GCC 13 — that mix fails to
+link `_cleanup_r`.
 
 Use HTTP against `bin/serve` (`http://<lan-ip>:8080/status?view=eink`) for the
 first bring-up so you can skip TLS. Production is
@@ -41,8 +56,7 @@ Do not hold non-RTC GPIOs across deep sleep; that leaks milliamps on ESP32-C3.
 
 ## Native tests
 
-Duty-cycle logic (sleep backoff, ETag copy, snapshot JSON, redraw vs skip) lives in
-`src/duty_cycle.cpp` and is tested on the host — no X4 required:
+Duty-cycle logic lives in [`device/eink/`](../eink/) and is tested on the host:
 
 ```shell
 make test-x4   # from the repo root

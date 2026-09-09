@@ -1,0 +1,7 @@
+{
+  "name": "eink-duty-cycle",
+  "version": "0.1.0",
+  "description": "Host-tested snapshot duty cycle for Xteink clients",
+  "frameworks": "*",
+  "platforms": "*"
+}

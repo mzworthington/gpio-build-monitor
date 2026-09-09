@@ -1,3 +1,4 @@
+#include "bq27220.hpp"
 #include "duty_cycle.hpp"
 
 #include <cstdio>
@@ -147,14 +148,23 @@ void test_parse_snapshot_defaults_and_rejects_garbage() {
   CHECK(!x4::parse_snapshot(nullptr, &snap));
 }
 
-void test_wifi_failure_does_not_redraw() {
+void test_wifi_failure_redraws_once() {
   x4::Fetch fetch = {0, nullptr, nullptr, nullptr};
   x4::CyclePlan plan = x4::plan_cycle(0, 3, fetch, false);
-  CHECK(plan.panel == x4::PanelAction::Leave);
+  CHECK(plan.panel == x4::PanelAction::Full);
+  CHECK_STREQ(plan.snapshot.status, "NO WIFI");
   CHECK_EQ(plan.fail_streak, 1);
   CHECK_EQ(plan.updates_since_full, 3);
   CHECK(!plan.store_etag);
   CHECK_EQ(plan.sleep_seconds, 600);
+}
+
+void test_wifi_failure_later_does_not_redraw() {
+  x4::Fetch fetch = {0, nullptr, nullptr, nullptr};
+  x4::CyclePlan plan = x4::plan_cycle(1, 3, fetch, false);
+  CHECK(plan.panel == x4::PanelAction::Leave);
+  CHECK_EQ(plan.fail_streak, 2);
+  CHECK_EQ(plan.sleep_seconds, 1200);
 }
 
 void test_http_error_backs_off_from_retry_after() {
@@ -251,7 +261,15 @@ void test_missing_sleep_falls_back_to_default() {
 
 }  // namespace
 
+void test_x3_fuel_gauge_treats_positive_current_as_charging() {
+  CHECK(bq27220::is_charging(1));
+  CHECK(bq27220::is_charging(120));
+  CHECK(!bq27220::is_charging(0));
+  CHECK(!bq27220::is_charging(-15));
+}
+
 int main() {
+  test_x3_fuel_gauge_treats_positive_current_as_charging();
   test_backoff_doubles_then_caps();
   test_usb_cap_only_when_charging();
   test_copy_etag_rejects_empty_and_overflow();
@@ -259,7 +277,8 @@ int main() {
   test_parse_snapshot_compact_payload();
   test_parse_snapshot_open_prs_when_workflows_are_green();
   test_parse_snapshot_defaults_and_rejects_garbage();
-  test_wifi_failure_does_not_redraw();
+  test_wifi_failure_redraws_once();
+  test_wifi_failure_later_does_not_redraw();
   test_http_error_backs_off_from_retry_after();
   test_not_modified_skips_panel_and_clears_streak();
   test_bad_json_does_not_redraw();

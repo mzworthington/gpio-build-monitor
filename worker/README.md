@@ -30,7 +30,7 @@ Failure push notifications (Chrome desktop / Android): [docs/push.md](../docs/pu
 
 Mac menu bar (SwiftBar): [docs/macos.md](../docs/macos.md). Snapshot: `GET /status` (same JSON as the first `/ws` message), plus `sleep_seconds` for battery clients.
 
-E-ink / deep-sleep devices (Xteink X4): [docs/xteink-x4.md](../docs/xteink-x4.md). Use `GET /status?view=eink` with `If-None-Match`. A `304` skips the panel redraw; `Retry-After` is the deep-sleep interval. Send a `User-Agent`.
+E-ink / deep-sleep devices (Xteink X3/X4): [docs/xteink-x4.md](../docs/xteink-x4.md). Use `GET /status?view=eink` with `If-None-Match`. A `304` skips the panel redraw; `Retry-After` is the deep-sleep interval. Send a `User-Agent`.
 
 ```bash
 # after generate-vapid-keys — see docs/push.md

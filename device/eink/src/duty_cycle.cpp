@@ -508,6 +508,10 @@ CyclePlan plan_cycle(
 
   if (fetch.http_code == 0) {
     plan.fail_streak = bump_fail_streak(fail_streak);
+    if (fail_streak == 0) {
+      plan.panel = PanelAction::Full;
+      std::strcpy(plan.snapshot.status, "NO WIFI");
+    }
     return finish(backoff_sleep(kFetchErrorSleepSeconds, plan.fail_streak));
   }
 

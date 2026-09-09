@@ -24,7 +24,7 @@ For bugs and failed jobs, use `agent-debug`. Do not open the full feature lifecy
 
 - Raspberry Pi owns headless GPIO + CI polling (`monitor/` Python package).
 - Hosted status UI is a Cloudflare Worker (`worker/`) on `monitor.mzworthington.co.uk` (`infra/cloudflare` Pulumi).
-- Xteink X4 is a battery e-ink client of `GET /status` (`device/x4/`, deep sleep). Do not run the Pi poller on the ESP32.
+- Xteink X3/X4 is a battery e-ink client of `GET /status` (`device/x3/`, `device/x4/`, deep sleep). Shared duty cycle: `device/eink/`. Do not run the Pi poller on the ESP32.
 - Conventional commit-msg: `.githooks/commit-msg` (`git config core.hooksPath .githooks` once per clone).
 
 ## Toolchain

@@ -3,8 +3,11 @@
 Glanceable CI on a pocket e-reader, without turning the device into a second Pi.
 
 The Xteink X4 is an ESP32-C3 board (400 KB SRAM, no PSRAM, 16 MB flash) with a
-4.26" 800×480 SSD1677 panel and a 650 mAh cell. The panel holds an image at
-zero power. The radio and CPU do not. That is the whole architectural constraint.
+4.26" 800×480 SSD1677 panel and a 650 mAh cell. The X3 is the same SoC class
+with a 3.68" 792×528 UC8253 panel, pogo charging, and an I²C fuel gauge. The
+panel holds an image at zero power. The radio and CPU do not. That is the whole
+architectural constraint. Same snapshot port; `cd device/x3` or `cd device/x4`
+then `pio run -t upload`. Do not cross-flash the images.
 
 ## Why the Pi loop does not move onto the X4
 
@@ -78,8 +81,9 @@ Mirrored in `monitor/service/snapshot.py` and `worker/src/snapshot.ts`:
 | `CONNECTION_ERROR` (CI APIs, not the device radio) | 5 min |
 | `PASS` / `NONE` | 15 min |
 
-USB on GPIO20 can shorten that locally (desk mode). Do not keep the radio
-associated in modem-sleep; on this cell that would drain in hours, not weeks.
+USB on the X4 (GPIO20) or X3 (BQ27220 current) can shorten that locally (desk
+mode). Do not keep the radio associated in modem-sleep; on this cell that would
+drain in hours, not weeks.
 
 Budget (order of magnitude): ~10 s awake at ~150 mA is ~0.4 mAh per wake.
 Ninety-six wakes/day at 15 min is ~40 mAh, plus ~1 mAh/day sleeping. The 650 mAh
@@ -106,13 +110,16 @@ only.
 
 ## Firmware
 
-Sketch in [`device/x4/`](../device/x4/). Stack is Arduino/PlatformIO + GxEPD2
-(same pins as [open-x4-epaper/sample-firmware](https://github.com/open-x4-epaper/sample-firmware)).
-CircuitPython fits the board but leaves too little SRAM for HTTPS plus an
-800×480 framebuffer.
+Sketch in [`device/x4/`](../device/x4/) (X4) and [`device/x3/`](../device/x3/) (X3).
+Shared sleep / ETag parsing lives in [`device/eink/`](../device/eink/). The X4
+uses GxEPD2 (same pins as [open-x4-epaper/sample-firmware](https://github.com/open-x4-epaper/sample-firmware)).
+The X3 uses a bundled UC8253 driver (10 MHz SPI). CircuitPython fits the board
+but leaves too little SRAM for HTTPS plus a full framebuffer.
 
 Host tests (`make test-x4`) cover the sleep / ETag / snapshot parser without
 flashing a device.
 
-Flash notes, pin map, and bring-up: [`device/x4/README.md`](../device/x4/README.md).
-Back up the factory image before the first upload.
+Flash notes, pin map, and bring-up: [`device/x4/README.md`](../device/x4/README.md)
+and [`device/x3/README.md`](../device/x3/README.md).
+Back up the factory image before the first upload. The X3 flashes over a 4-pin
+pogo cable or `update.bin` on the FAT32 card (Power + top-left).
