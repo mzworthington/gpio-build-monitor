@@ -1,5 +1,6 @@
 #include "bq27220.hpp"
 #include "duty_cycle.hpp"
+#include "power_control.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -263,6 +264,27 @@ void test_missing_sleep_falls_back_to_default() {
 
 }  // namespace
 
+void test_page_key_refreshes_and_power_key_shuts_down() {
+  const x4::ButtonSample idle = {false, false};
+  CHECK(x4::button_intent(idle, idle) == x4::ButtonIntent::None);
+  CHECK(x4::button_intent({true, false}, idle) == x4::ButtonIntent::PowerOff);
+  CHECK(x4::button_intent({false, true}, idle) == x4::ButtonIntent::Refresh);
+  CHECK(x4::button_intent({true, true}, idle) == x4::ButtonIntent::PowerOff);
+  CHECK(x4::button_intent({true, false}, {true, false}) == x4::ButtonIntent::None);
+  CHECK(x4::button_intent({false, true}, {true, false}) == x4::ButtonIntent::Refresh);
+  CHECK(x4::button_intent({false, true}, {false, true}) == x4::ButtonIntent::None);
+}
+
+void test_latch_drops_only_after_power_release() {
+  CHECK(!x4::may_drop_latch(true));
+  CHECK(x4::may_drop_latch(false));
+}
+
+void test_idle_path_polls_on_usb_and_sleeps_on_battery() {
+  CHECK(x4::idle_path(true) == x4::IdlePath::UsbPoll);
+  CHECK(x4::idle_path(false) == x4::IdlePath::BatteryLightSleep);
+}
+
 void test_x3_fuel_gauge_treats_positive_current_as_charging() {
   CHECK(bq27220::is_charging(1));
   CHECK(bq27220::is_charging(120));
@@ -271,6 +293,9 @@ void test_x3_fuel_gauge_treats_positive_current_as_charging() {
 }
 
 int main() {
+  test_page_key_refreshes_and_power_key_shuts_down();
+  test_latch_drops_only_after_power_release();
+  test_idle_path_polls_on_usb_and_sleeps_on_battery();
   test_x3_fuel_gauge_treats_positive_current_as_charging();
   test_backoff_doubles_then_caps();
   test_usb_cap_only_when_charging();

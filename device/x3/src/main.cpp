@@ -15,12 +15,12 @@
 #include <cstring>
 #include <driver/gpio.h>
 #include <esp_sleep.h>
-#include <esp_system.h>
 #include <esp_wifi.h>
 
 #include "GxEPD2_368_X3.h"
 #include "bq27220.hpp"
 #include "duty_cycle.hpp"
+#include "power_control.hpp"
 
 #if __has_include("secrets.h")
 #include "secrets.h"
@@ -49,7 +49,6 @@
 #define USER_AGENT "gpio-build-monitor-x3/0.1 (+https://github.com/mzworthington/gpio-build-monitor)"
 #define WIFI_TIMEOUT_MS 15000
 #define HTTP_TIMEOUT_MS 10000
-#define POWER_OFF_HOLD_MS 1200
 
 GxEPD2_BW<GxEPD2_368_X3, 16> display(GxEPD2_368_X3(EPD_CS, EPD_DC, EPD_RST, EPD_BUSY));
 
@@ -57,6 +56,8 @@ RTC_DATA_ATTR char last_etag[x4::kEtagCap] = "";
 RTC_DATA_ATTR uint8_t fail_streak = 0;
 RTC_DATA_ATTR uint8_t updates_since_full = 0;
 RTC_DATA_ATTR uint8_t button_refresh = 0;
+
+static x4::ButtonSample last_buttons = {};
 
 static int16_t read_charge_current_ma() {
   Wire.beginTransmission(BQ27220_ADDR);
@@ -84,35 +85,10 @@ static bool page_key_pressed() {
   return analogRead(KEY_ADC_GPIO) < KEY_ADC_IDLE || analogRead(KEY_ADC_GPIO_B) < KEY_ADC_IDLE;
 }
 
-static bool page_key_edge() {
-  static bool was_down = false;
-  const bool down = page_key_pressed();
-  const bool edge = down && !was_down;
-  was_down = down;
-  return edge;
-}
-
-static void wait_page_key_release() {
-  const unsigned long start = millis();
-  while (page_key_pressed() && millis() - start < 2000) {
-    delay(20);
-  }
-}
-
 static bool power_button_down() { return digitalRead(POWER_BUTTON_GPIO) == LOW; }
 
-static bool power_off_held() {
-  if (!power_button_down()) {
-    return false;
-  }
-  const unsigned long start = millis();
-  while (power_button_down()) {
-    if (millis() - start >= POWER_OFF_HOLD_MS) {
-      return true;
-    }
-    delay(20);
-  }
-  return false;
+static x4::ButtonSample read_buttons() {
+  return {power_button_down(), page_key_pressed()};
 }
 
 static void wait_power_button_release() {
@@ -122,6 +98,9 @@ static void wait_power_button_release() {
   }
 }
 
+static void power_down();
+static x4::ButtonIntent poll_buttons();
+
 static bool wifi_connect() {
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
@@ -129,6 +108,9 @@ static bool wifi_connect() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   const unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start < WIFI_TIMEOUT_MS) {
+    if (poll_buttons() == x4::ButtonIntent::PowerOff) {
+      power_down();
+    }
     delay(200);
   }
   const bool ok = WiFi.status() == WL_CONNECTED;
@@ -214,26 +196,22 @@ static void draw_centered(const GFXfont* font, int16_t baseline, const char* tex
   display.print(text);
 }
 
-static void draw_banner(const char* title, const char* kicker) {
+static void draw_fast_notice(const char* title) {
   display.setRotation(1);
   display.setTextSize(1);
-  display.setFullWindow();
+  display.setPartialWindow(0, 0, display.width(), 48);
   display.firstPage();
   do {
-    display.fillScreen(GxEPD_WHITE);
-    display.fillRect(0, 0, display.width(), 108, GxEPD_BLACK);
+    display.fillScreen(GxEPD_BLACK);
     display.setTextColor(GxEPD_WHITE);
-    draw_centered(&FreeSansBold24pt7b, kicker != nullptr ? 62 : 72, title);
-    if (kicker != nullptr) {
-      display.setFont(&FreeSans9pt7b);
-      int16_t x1 = 0;
-      int16_t y1 = 0;
-      uint16_t tw = 0;
-      uint16_t th = 0;
-      display.getTextBounds(kicker, 0, 0, &x1, &y1, &tw, &th);
-      display.setCursor((display.width() - static_cast<int16_t>(tw)) / 2 - x1, 96);
-      display.print(kicker);
-    }
+    display.setFont(&FreeSansBold12pt7b);
+    int16_t x1 = 0;
+    int16_t y1 = 0;
+    uint16_t tw = 0;
+    uint16_t th = 0;
+    display.getTextBounds(title, 0, 0, &x1, &y1, &tw, &th);
+    display.setCursor((display.width() - static_cast<int16_t>(tw)) / 2 - x1, 32);
+    display.print(title);
   } while (display.nextPage());
 }
 
@@ -248,13 +226,12 @@ static void power_down() {
   Serial.println("power down");
   Serial.flush();
   radio_off();
-  draw_banner("Off", "Press power to wake");
-  display.hibernate();
-  // Cutting the latch while GPIO 3 is still low immediately powers the rail back on.
-  while (power_button_down()) {
-    delay(50);
+  draw_fast_notice("Off");
+  analogSetAttenuation(ADC_11db);
+  analogReadResolution(12);
+  while (!x4::may_drop_latch(power_button_down())) {
+    delay(20);
   }
-  delay(50);
   Serial.end();
 
   const gpio_num_t latch = static_cast<gpio_num_t>(POWER_LATCH_GPIO);
@@ -265,17 +242,30 @@ static void power_down() {
   gpio_hold_en(latch);
   pinMode(POWER_BUTTON_GPIO, INPUT_PULLUP);
   esp_deep_sleep_enable_gpio_wakeup(1ULL << POWER_BUTTON_GPIO, ESP_GPIO_WAKEUP_GPIO_LOW);
-  delay(50);
   esp_deep_sleep_start();
 }
 
-static void begin_refresh() {
-  Serial.println("page key");
-  Serial.flush();
-  last_etag[0] = '\0';
-  button_refresh = 1;
-  draw_banner("Refreshing", "Fetching status");
-  wait_page_key_release();
+static x4::ButtonIntent poll_buttons() {
+  const x4::ButtonSample now = read_buttons();
+  const x4::ButtonIntent intent = x4::button_intent(now, last_buttons);
+  last_buttons = now;
+  return intent;
+}
+
+static bool handle_idle_buttons() {
+  const x4::ButtonIntent intent = poll_buttons();
+  if (intent == x4::ButtonIntent::PowerOff) {
+    power_down();
+  }
+  if (intent == x4::ButtonIntent::Refresh) {
+    Serial.println("page key");
+    Serial.flush();
+    last_etag[0] = '\0';
+    button_refresh = 1;
+    draw_fast_notice("Refreshing");
+    return true;
+  }
+  return false;
 }
 
 static void wait_for_next(uint32_t seconds) {
@@ -287,30 +277,23 @@ static void wait_for_next(uint32_t seconds) {
   radio_off();
   Serial.printf("wait %u s\n", seconds);
   Serial.flush();
-  if (HWCDC::isPlugged()) {
+  last_buttons = read_buttons();
+  if (x4::idle_path(HWCDC::isPlugged()) == x4::IdlePath::UsbPoll) {
     const unsigned long until = millis() + static_cast<unsigned long>(seconds) * 1000UL;
     while (static_cast<long>(until - millis()) > 0) {
-      if (power_off_held()) {
-        power_down();
-      }
-      if (page_key_edge()) {
-        begin_refresh();
+      if (handle_idle_buttons()) {
         return;
       }
-      delay(50);
+      delay(20);
     }
     return;
   }
   uint32_t left_ms = seconds * 1000UL;
   while (left_ms > 0) {
-    if (power_off_held()) {
-      power_down();
-    }
-    if (page_key_edge()) {
-      begin_refresh();
+    if (handle_idle_buttons()) {
       return;
     }
-    const uint32_t slice = left_ms > 250 ? 250 : left_ms;
+    const uint32_t slice = left_ms > 100 ? 100 : left_ms;
     gpio_wakeup_enable(static_cast<gpio_num_t>(POWER_BUTTON_GPIO), GPIO_INTR_LOW_LEVEL);
     esp_sleep_enable_gpio_wakeup();
     esp_sleep_enable_timer_wakeup(static_cast<uint64_t>(slice) * 1000ULL);
@@ -579,11 +562,7 @@ void setup() {
   SPISettings spi_settings(SPI_HZ, MSBFIRST, SPI_MODE0);
   display.init(0, true, 15, false, SPI, spi_settings);
   wait_power_button_release();
-
-  const esp_reset_reason_t reset = esp_reset_reason();
-  if (reset == ESP_RST_POWERON || reset == ESP_RST_BROWNOUT || reset == ESP_RST_UNKNOWN) {
-    draw_banner("Build monitor", "Connecting");
-  }
+  last_buttons = read_buttons();
 }
 
 void loop() {

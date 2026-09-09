@@ -7,7 +7,7 @@ BIN := host_test/duty_cycle_test
 test: $(BIN)
 	./$(BIN)
 
-$(BIN): src/duty_cycle.cpp include/duty_cycle.hpp include/bq27220.hpp host_test/test_duty_cycle.cpp
+$(BIN): src/duty_cycle.cpp include/duty_cycle.hpp include/bq27220.hpp include/power_control.hpp host_test/test_duty_cycle.cpp
 	$(CXX) $(CXXFLAGS) src/duty_cycle.cpp host_test/test_duty_cycle.cpp -o $(BIN)
 
 clean:

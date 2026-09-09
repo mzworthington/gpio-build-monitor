@@ -45,8 +45,8 @@ Do not pin `espressif32@6.10` plus a standalone GCC 13 — that mix fails to
 link `_cleanup_r`. First download of the Arduino core can take a few minutes.
 
 Wake the X3 with the **power** button. After a USB or SD flash, that boots
-this sketch from flash — not CrossPoint — every time. You should see
-**Build monitor / Connecting**, then the status page.
+this sketch from flash — not CrossPoint — every time. The first status page
+is the confirmation.
 
 Leave `update.bin` off the card once the image is installed. Power + top-left
 only when you intend to flash; that combo rewrites flash from the card.
@@ -55,16 +55,14 @@ only when you intend to flash; that combo rewrites flash from the card.
 
 | Action | What happens |
 |--------|----------------|
-| Power (short) | Wakes the unit from off |
-| Power (hold ~1.2s) | Draws **Off**, waits for release, then GPIO 13 LOW (battery latch) |
+| Power (from off) | Wakes the unit |
+| Power (while running) | Partial **Off**, then GPIO 13 LOW |
+| Page keys | Partial **Refreshing**, then a new `/status` draw |
+| Poll timer | Fetches `/status` on the sleep interval |
 
-Unplug the pogo cable to test off. Magnetic USB keeps the 3.3 V rail up, so
-GPIO 13 LOW cannot look like a shutdown while charging. On battery the MCU
-loses power (RTC included); power is a hard-wired pulse back onto the rail.
-| Next page (or any page key) | Draws **Refreshing**, then fetches `/status` again |
-
-Page keys are an ADC ladder on GPIO 1 (and GPIO 2). They cannot wake a fully
-powered-off chip; press **power** first.
+Unplug the pogo cable to test off: magnetic USB keeps the 3.3 V rail up. On
+battery the MCU loses power (RTC included). Page keys cannot wake a fully off
+chip; press **power** first.
 
 USB-locked units: copy `.pio/build/xteink-x3/firmware.bin` to the card root as
 `update.bin` and hold **Power + top-left** at boot.
