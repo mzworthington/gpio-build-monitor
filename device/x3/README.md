@@ -63,6 +63,7 @@ empty UA strings.
 | EPD SCLK / MOSI / CS / DC / RST / BUSY | 8 / 10 / 21 / 4 / 5 / 6 |
 | I²C SCL / SDA | 0 / 20 (BQ27220 at 0x55) |
 | Power button (deep-sleep wakeup) | 3 (LOW = pressed) |
+| Page keys (refresh) | ADC GPIO 1 (resistor ladder; next/any page key) |
 
 SPI is 10 MHz. GPIO 0/20 are **not** the X4 battery/USB pins. Newer X3 panels
 with a UC8279d controller are not in this sketch.

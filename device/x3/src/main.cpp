@@ -1,4 +1,9 @@
 #include <Arduino.h>
+#include <Fonts/FreeSans12pt7b.h>
+#include <Fonts/FreeSans9pt7b.h>
+#include <Fonts/FreeSansBold12pt7b.h>
+#include <Fonts/FreeSansBold18pt7b.h>
+#include <Fonts/FreeSansBold24pt7b.h>
 #include <GxEPD2_BW.h>
 #include <HTTPClient.h>
 #include <SPI.h>
@@ -29,6 +34,9 @@
 #define EPD_BUSY 6
 #define SD_CS_GPIO 12
 #define POWER_BUTTON_GPIO 3
+#define KEY_ADC_GPIO 1
+#define KEY_ADC_GPIO_B 2
+#define KEY_ADC_IDLE 3999
 #define POWER_LATCH_GPIO 13
 #define I2C_SCL 0
 #define I2C_SDA 20
@@ -44,6 +52,7 @@ GxEPD2_BW<GxEPD2_368_X3, 16> display(GxEPD2_368_X3(EPD_CS, EPD_DC, EPD_RST, EPD_
 RTC_DATA_ATTR char last_etag[x4::kEtagCap] = "";
 RTC_DATA_ATTR uint8_t fail_streak = 0;
 RTC_DATA_ATTR uint8_t updates_since_full = 0;
+RTC_DATA_ATTR uint8_t button_refresh = 0;
 
 static int16_t read_charge_current_ma() {
   Wire.beginTransmission(BQ27220_ADDR);
@@ -67,6 +76,30 @@ static void radio_off() {
   esp_wifi_stop();
 }
 
+static bool page_key_pressed() {
+  return analogRead(KEY_ADC_GPIO) < KEY_ADC_IDLE || analogRead(KEY_ADC_GPIO_B) < KEY_ADC_IDLE;
+}
+
+static void request_button_refresh() {
+  button_refresh = 1;
+  last_etag[0] = '\0';
+  Serial.println("page key");
+  Serial.flush();
+  ESP.restart();
+}
+
+static void wait_or_button(uint32_t seconds) {
+  analogSetAttenuation(ADC_11db);
+  analogReadResolution(12);
+  const unsigned long until = millis() + static_cast<unsigned long>(seconds) * 1000UL;
+  while (static_cast<long>(until - millis()) > 0) {
+    if (page_key_pressed()) {
+      request_button_refresh();
+    }
+    delay(50);
+  }
+}
+
 static void enter_deep_sleep(uint32_t seconds) {
   if (HWCDC::isPlugged() && seconds > x4::kUsbDeskSleepSeconds) {
     seconds = x4::kUsbDeskSleepSeconds;
@@ -74,15 +107,25 @@ static void enter_deep_sleep(uint32_t seconds) {
   radio_off();
   Serial.printf("deep sleep %u s\n", seconds);
   Serial.flush();
-  // Native USB CDC drops in deep sleep; stay in a timed restart while a host is
-  // enumerated so `pio run -t upload` can find /dev/cu.usbmodem*.
   if (HWCDC::isPlugged()) {
     Serial.printf("usb hold %u s\n", seconds);
     Serial.flush();
-    delay(static_cast<unsigned long>(seconds) * 1000UL);
+    wait_or_button(seconds);
     ESP.restart();
   }
-  esp_sleep_enable_timer_wakeup(static_cast<uint64_t>(seconds) * 1000000ULL);
+  analogSetAttenuation(ADC_11db);
+  analogReadResolution(12);
+  uint32_t left_ms = seconds * 1000UL;
+  while (left_ms > 0) {
+    if (page_key_pressed()) {
+      request_button_refresh();
+    }
+    const uint32_t slice = left_ms > 250 ? 250 : left_ms;
+    esp_sleep_enable_timer_wakeup(static_cast<uint64_t>(slice) * 1000ULL);
+    esp_light_sleep_start();
+    left_ms -= slice;
+  }
+  esp_sleep_enable_timer_wakeup(1000);
   esp_deep_sleep_enable_gpio_wakeup(1ULL << POWER_BUTTON_GPIO, ESP_GPIO_WAKEUP_GPIO_LOW);
   esp_deep_sleep_start();
 }
@@ -101,42 +144,143 @@ static bool wifi_connect() {
   return ok;
 }
 
+static const char* hero_label(const char* status) {
+  if (std::strcmp(status, "NONE") == 0) {
+    return "Idle";
+  }
+  if (std::strcmp(status, "PASS") == 0) {
+    return "Pass";
+  }
+  if (std::strcmp(status, "FAIL") == 0) {
+    return "Fail";
+  }
+  if (std::strcmp(status, "UNKNOWN") == 0) {
+    return "Unknown";
+  }
+  if (std::strcmp(status, "APPROVAL") == 0) {
+    return "Approval";
+  }
+  if (std::strcmp(status, "CONNECTION_ERROR") == 0) {
+    return "Offline";
+  }
+  return status;
+}
+
+static void draw_centered(const GFXfont* font, int16_t baseline, const char* text) {
+  display.setFont(font);
+  int16_t x1 = 0;
+  int16_t y1 = 0;
+  uint16_t w = 0;
+  uint16_t h = 0;
+  display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+  const GFXfont* use = font;
+  if (w + 48 > display.width()) {
+    use = &FreeSansBold18pt7b;
+    display.setFont(use);
+    display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+  }
+  const int16_t x = (display.width() - static_cast<int16_t>(w)) / 2 - x1;
+  display.setCursor(x, baseline);
+  display.print(text);
+}
+
+static void print_clipped(int16_t x, int16_t y, int16_t max_w, const char* text) {
+  display.setCursor(x, y);
+  int16_t x1 = 0;
+  int16_t y1 = 0;
+  uint16_t w = 0;
+  uint16_t h = 0;
+  display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+  if (static_cast<int16_t>(w) <= max_w) {
+    display.print(text);
+    return;
+  }
+  char buf[x4::kWorkflowCap];
+  std::size_t n = std::strlen(text);
+  if (n >= sizeof(buf)) {
+    n = sizeof(buf) - 1;
+  }
+  std::memcpy(buf, text, n);
+  buf[n] = '\0';
+  while (n > 2) {
+    buf[n - 1] = '\0';
+    buf[n - 2] = '.';
+    --n;
+    display.getTextBounds(buf, 0, 0, &x1, &y1, &w, &h);
+    if (static_cast<int16_t>(w) <= max_w) {
+      display.setCursor(x, y);
+      display.print(buf);
+      return;
+    }
+  }
+  display.setCursor(x, y);
+  display.print(buf);
+}
+
 static void draw_status(const x4::CyclePlan& plan) {
-  display.setRotation(0);
-  display.setTextColor(GxEPD_BLACK);
+  display.setRotation(1);
+  display.setTextSize(1);
   if (plan.panel == x4::PanelAction::Full) {
     display.setFullWindow();
   } else {
     display.setPartialWindow(0, 0, display.width(), display.height());
   }
+  const int16_t w = display.width();
+  const int16_t h = display.height();
+  const int16_t margin = 28;
+  const int16_t header_h = plan.snapshot.is_running ? 168 : 140;
   display.firstPage();
   do {
     display.fillScreen(GxEPD_WHITE);
-    display.setCursor(16, 48);
-    display.setTextSize(3);
+    display.fillRect(0, 0, w, header_h, GxEPD_BLACK);
+    display.setTextColor(GxEPD_WHITE);
+    draw_centered(&FreeSansBold24pt7b, 88, hero_label(plan.snapshot.status));
     if (plan.snapshot.is_running) {
-      display.print("RUN ");
+      display.setFont(&FreeSans9pt7b);
+      display.setCursor(margin, 132);
+      display.print("Running");
     }
-    display.print(plan.snapshot.status);
-    display.setTextSize(1);
-    const int y_limit = display.height() - 16;
-    int y = 90;
-    for (uint8_t i = 0; i < plan.snapshot.build_count; ++i) {
-      display.setCursor(16, y);
-      display.printf("%s %s", plan.snapshot.builds[i].status, plan.snapshot.builds[i].workflow);
-      y += 18;
-      if (y > y_limit) {
-        break;
+    display.setTextColor(GxEPD_BLACK);
+    int16_t y = header_h + 44;
+    const int16_t y_limit = h - 28;
+    const int16_t line_h = 36;
+    const int16_t name_x = margin + 108;
+    const int16_t name_w = w - name_x - margin;
+    if (plan.snapshot.build_count > 0) {
+      display.setFont(&FreeSans9pt7b);
+      display.setCursor(margin, y);
+      display.print("Jobs");
+      y += 28;
+      for (uint8_t i = 0; i < plan.snapshot.build_count; ++i) {
+        if (y > y_limit) {
+          break;
+        }
+        display.setFont(&FreeSansBold12pt7b);
+        display.setCursor(margin, y);
+        display.print(plan.snapshot.builds[i].status);
+        display.setFont(&FreeSans12pt7b);
+        print_clipped(name_x, y, name_w, plan.snapshot.builds[i].workflow);
+        y += line_h;
       }
     }
-    for (uint8_t i = 0; i < plan.snapshot.open_pr_count; ++i) {
-      if (y > y_limit) {
-        break;
+    if (plan.snapshot.open_pr_count > 0 && y + 40 < y_limit) {
+      y += 8;
+      display.drawFastHLine(margin, y - 20, w - 2 * margin, GxEPD_BLACK);
+      display.setFont(&FreeSans9pt7b);
+      display.setCursor(margin, y);
+      display.print("Pull requests");
+      y += 28;
+      for (uint8_t i = 0; i < plan.snapshot.open_pr_count; ++i) {
+        if (y > y_limit) {
+          break;
+        }
+        display.setFont(&FreeSansBold12pt7b);
+        display.setCursor(margin, y);
+        display.printf("%u", static_cast<unsigned>(plan.snapshot.open_prs[i].pr_count));
+        display.setFont(&FreeSans12pt7b);
+        print_clipped(name_x, y, name_w, plan.snapshot.open_prs[i].repo);
+        y += line_h;
       }
-      display.setCursor(16, y);
-      display.printf("%u PRs %s", static_cast<unsigned>(plan.snapshot.open_prs[i].pr_count),
-                     plan.snapshot.open_prs[i].repo);
-      y += 18;
     }
   } while (display.nextPage());
 }
@@ -164,7 +308,7 @@ static int fetch_snapshot(String* body, String* etag, String* retry_after) {
   http.addHeader("User-Agent", USER_AGENT);
   const char* header_keys[] = {"ETag", "Retry-After"};
   http.collectHeaders(header_keys, 2);
-  if (last_etag[0] != '\0' && !HWCDC::isPlugged()) {
+  if (last_etag[0] != '\0' && !HWCDC::isPlugged() && button_refresh == 0) {
     http.addHeader("If-None-Match", last_etag);
   }
   const int code = http.GET();
@@ -185,6 +329,10 @@ static void apply_plan(const x4::CyclePlan& plan, const char* etag, int http_cod
     x4::copy_etag(last_etag, sizeof(last_etag), etag);
   }
   x4::CyclePlan to_draw = plan;
+  if (button_refresh != 0) {
+    button_refresh = 0;
+    to_draw.panel = x4::PanelAction::Full;
+  }
   if (HWCDC::isPlugged()) {
     to_draw.panel = x4::PanelAction::Full;
     if (http_code != 200 || std::strcmp(to_draw.snapshot.status, "UNKNOWN") == 0) {
@@ -203,6 +351,8 @@ static void apply_plan(const x4::CyclePlan& plan, const char* etag, int http_cod
 
 void setup() {
   pinMode(POWER_BUTTON_GPIO, INPUT);
+  analogSetAttenuation(ADC_11db);
+  analogReadResolution(12);
   pinMode(POWER_LATCH_GPIO, OUTPUT);
   digitalWrite(POWER_LATCH_GPIO, HIGH);
   pinMode(SD_CS_GPIO, OUTPUT);

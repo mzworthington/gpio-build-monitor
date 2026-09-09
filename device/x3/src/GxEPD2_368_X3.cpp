@@ -57,6 +57,13 @@ const uint8_t kLutBbTurbo[] = {
 
 static_assert(sizeof(kLutVcomFull) == 42 && sizeof(kLutBbTurbo) == 42, "UC8253 LUT is 42 bytes");
 
+uint8_t reverse_bits(uint8_t b) {
+  b = static_cast<uint8_t>((b & 0xF0) >> 4 | (b & 0x0F) << 4);
+  b = static_cast<uint8_t>((b & 0xCC) >> 2 | (b & 0x33) << 2);
+  b = static_cast<uint8_t>((b & 0xAA) >> 1 | (b & 0x55) << 1);
+  return b;
+}
+
 }  // namespace
 
 GxEPD2_368_X3::GxEPD2_368_X3(int16_t cs, int16_t dc, int16_t rst, int16_t busy)
@@ -135,10 +142,12 @@ void GxEPD2_368_X3::_writeImage(uint8_t command, const uint8_t bitmap[], int16_t
   _setPartialRamArea(static_cast<uint16_t>(x1), static_cast<uint16_t>(y1), static_cast<uint16_t>(w1),
                      static_cast<uint16_t>(h1));
   _writeCommand(command);
+  const int16_t bytes = w1 / 8;
   for (int16_t i = 0; i < h1; i++) {
-    for (int16_t j = 0; j < w1 / 8; j++) {
+    for (int16_t j = 0; j < bytes; j++) {
       uint8_t data;
-      int16_t idx = j + dx / 8 + int16_t(mirror_y ? (h - (i + dy) - 1) : (i + dy)) * wb;
+      const int16_t src_j = bytes - 1 - j;
+      int16_t idx = src_j + dx / 8 + int16_t(mirror_y ? (h - (i + dy) - 1) : (i + dy)) * wb;
       if (pgm) {
 #ifdef ESP8266
         data = pgm_read_byte(&bitmap[idx]);
@@ -151,7 +160,7 @@ void GxEPD2_368_X3::_writeImage(uint8_t command, const uint8_t bitmap[], int16_t
       if (invert) {
         data = ~data;
       }
-      _writeData(data);
+      _writeData(reverse_bits(data));
     }
   }
   _writeCommand(0x92);
