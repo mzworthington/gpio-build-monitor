@@ -10,7 +10,6 @@
 
 #include "MappedInputManager.h"
 #include "components/UITheme.h"
-#include "duty_cycle.hpp"
 #include "network/HttpDownloader.h"
 
 #ifndef MONITOR_STATUS_URL
@@ -21,7 +20,38 @@ namespace fui = freeink::ui;
 
 namespace {
 eink::Snapshot g_snap{};
+eink::Snapshot g_detail{};
+
+void appendEncodedRepo(std::string& url, const char* repo) {
+  url += "&repo=";
+  for (const char* p = repo; p != nullptr && *p != '\0'; ++p) {
+    const unsigned char c = static_cast<unsigned char>(*p);
+    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' ||
+        c == '_' || c == '-') {
+      url += static_cast<char>(c);
+    } else {
+      char buf[4];
+      std::snprintf(buf, sizeof(buf), "%%%02X", c);
+      url += buf;
+    }
+  }
 }
+
+enum class FetchResult { Ok, Http, Parse };
+
+FetchResult fetchSnapshot(const std::string& url, eink::Snapshot* dest) {
+  std::string body;
+  if (!HttpDownloader::fetchUrl(url, body) || body.empty()) {
+    LOG_ERR("MONITOR", "GET failed: %s", url.c_str());
+    return FetchResult::Http;
+  }
+  if (!eink::parse_snapshot(body.c_str(), dest)) {
+    LOG_ERR("MONITOR", "bad snapshot JSON (%u bytes)", static_cast<unsigned>(body.size()));
+    return FetchResult::Parse;
+  }
+  return FetchResult::Ok;
+}
+}  // namespace
 
 MonitorActivity::MonitorActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
     : UiListActivity("BuildMonitor", renderer, mappedInput) {}
@@ -79,17 +109,11 @@ void MonitorActivity::refreshSnapshot() {
     return;
   }
 
-  std::string body;
-  if (!HttpDownloader::fetchUrl(MONITOR_STATUS_URL, body) || body.empty()) {
-    LOG_ERR("MONITOR", "GET failed: %s", MONITOR_STATUS_URL);
-    showMessage(tr(STR_CONNECTION_FAILED), tr(STR_PRESS_OK_SCAN));
-    requestUpdate();
-    return;
-  }
-
-  if (!eink::parse_snapshot(body.c_str(), &g_snap)) {
-    LOG_ERR("MONITOR", "bad snapshot JSON (%u bytes)", static_cast<unsigned>(body.size()));
-    showMessage(tr(STR_PAGE_LOAD_ERROR), tr(STR_RETRY));
+  const FetchResult fetched = fetchSnapshot(MONITOR_STATUS_URL, &g_snap);
+  if (fetched != FetchResult::Ok) {
+    showMessage(
+        tr(fetched == FetchResult::Parse ? STR_PAGE_LOAD_ERROR : STR_CONNECTION_FAILED),
+        tr(fetched == FetchResult::Parse ? STR_RETRY : STR_PRESS_OK_SCAN));
     requestUpdate();
     return;
   }
@@ -97,8 +121,23 @@ void MonitorActivity::refreshSnapshot() {
   if (selectedRepo_ >= static_cast<int>(g_snap.repo_count)) {
     selectedRepo_ = -1;
   }
+  if (selectedRepo_ >= 0) {
+    refreshRepoWorkflows();
+  }
   applyView();
   requestUpdate();
+}
+
+void MonitorActivity::refreshRepoWorkflows() {
+  if (selectedRepo_ < 0 || selectedRepo_ >= static_cast<int>(g_snap.repo_count)) {
+    return;
+  }
+  std::string url = MONITOR_STATUS_URL;
+  appendEncodedRepo(url, g_snap.repos[static_cast<uint8_t>(selectedRepo_)].repo);
+  if (fetchSnapshot(url, &g_detail) != FetchResult::Ok) {
+    return;
+  }
+  eink::merge_repo_workflows(g_detail, &g_snap.repos[static_cast<uint8_t>(selectedRepo_)]);
 }
 
 void MonitorActivity::activateIndex(int index) {
@@ -107,6 +146,7 @@ void MonitorActivity::activateIndex(int index) {
     const int8_t repo = eink::repo_from_monitor_index(index, g_snap.repo_count);
     if (repo >= 0) {
       selectedRepo_ = repo;
+      refreshRepoWorkflows();
       applyView();
       requestUpdate();
       return;

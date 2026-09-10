@@ -10,7 +10,13 @@ from pathlib import Path
 from aiohttp import WSMsgType, web
 
 from monitor.service.aggregator_service import BuildDetail, Result
-from monitor.service.snapshot import eink_payload, etag_matches, sleep_seconds, snapshot_headers
+from monitor.service.snapshot import (
+    eink_payload,
+    eink_repo_payload,
+    etag_matches,
+    sleep_seconds,
+    snapshot_headers,
+)
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
@@ -133,7 +139,11 @@ class WebSocketStatusOutput:
         if etag_matches(request.headers.get("If-None-Match"), headers["ETag"]):
             return web.Response(status=304, headers=headers)
         payload = self._payload()
-        body = eink_payload(payload) if request.query.get("view") == "eink" else payload
+        if request.query.get("view") == "eink":
+            repo = request.query.get("repo")
+            body = eink_repo_payload(payload, repo) if repo else eink_payload(payload)
+        else:
+            body = payload
         return web.json_response(body, headers=headers)
 
     async def _index_handler(self, _request: web.Request) -> web.FileResponse:

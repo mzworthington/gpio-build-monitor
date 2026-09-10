@@ -105,6 +105,37 @@ void test_parse_snapshot_repos_include_workflows() {
   CHECK_STREQ(snap.repos[0].workflows[1].status, "PASS");
 }
 
+void test_parse_snapshot_list_omits_workflows() {
+  const char* json =
+      "{"
+      "\"status\":\"FAIL\","
+      "\"repos\":["
+      "{\"repo\":\"acme/web\",\"status\":\"FAIL\",\"workflow_count\":24,\"pr_count\":0,\"is_running\":false}"
+      "]"
+      "}";
+  eink::Snapshot snap = {};
+  CHECK(eink::parse_snapshot(json, &snap));
+  CHECK_EQ(snap.repos[0].workflow_count, 24);
+  CHECK_EQ(snap.repos[0].workflow_n, 0);
+}
+
+void test_merge_repo_workflows_from_detail_snapshot() {
+  eink::Snapshot list = {};
+  list.repo_count = 1;
+  std::strcpy(list.repos[0].repo, "acme/web");
+  list.repos[0].workflow_count = 24;
+  eink::Snapshot detail = {};
+  detail.repo_count = 1;
+  std::strcpy(detail.repos[0].repo, "acme/web");
+  detail.repos[0].workflow_count = 24;
+  detail.repos[0].workflow_n = 2;
+  std::strcpy(detail.repos[0].workflows[0].workflow, "CI");
+  std::strcpy(detail.repos[0].workflows[0].status, "FAIL");
+  CHECK(eink::merge_repo_workflows(detail, &list.repos[0]));
+  CHECK_EQ(list.repos[0].workflow_n, 2);
+  CHECK_STREQ(list.repos[0].workflows[0].workflow, "CI");
+}
+
 void test_monitor_lines_open_repo_lists_every_action() {
   eink::Snapshot snap = {};
   snap.repo_count = 1;
@@ -258,6 +289,8 @@ void test_monitor_lines_idle_when_snapshot_is_empty() {
 int main() {
   test_parse_snapshot_repos_include_zero_pr_counts();
   test_parse_snapshot_repos_include_workflows();
+  test_parse_snapshot_list_omits_workflows();
+  test_merge_repo_workflows_from_detail_snapshot();
   test_monitor_lines_list_every_repo_with_action_and_pr_counts();
   test_monitor_lines_open_repo_lists_every_action();
   test_snapshot_is_too_large_for_esp32_task_stack();

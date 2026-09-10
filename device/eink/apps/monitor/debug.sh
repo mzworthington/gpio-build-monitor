@@ -13,5 +13,5 @@ if [[ ! -x $usb_cdc_python ]]; then
 fi
 
 p=$(usb_cdc_wait)
-print "serial $p 115200 (quit with Ctrl-])"
-exec "$usb_cdc_python" -m serial.tools.miniterm "$p" 115200 --raw
+print "serial $p 115200 (quit with Ctrl-C)"
+exec "$usb_cdc_python" "$here/serial_watch.py" "$p" 115200

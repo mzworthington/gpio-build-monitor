@@ -2,6 +2,7 @@
 
 from monitor.service.snapshot import (
     eink_payload,
+    eink_repo_payload,
     sleep_seconds,
     snapshot_etag,
     snapshot_headers,
@@ -37,7 +38,7 @@ def test_snapshot_etag_ignores_poll_timestamps():
     assert snapshot_etag("PASS", is_running=True, builds=builds) != first
 
 
-def test_eink_payload_keeps_only_glanceable_builds():
+def test_eink_payload_omits_builds_open_prs_and_nested_workflows():
     payload = eink_payload(
         {
             "type": "status",
@@ -71,9 +72,10 @@ def test_eink_payload_keeps_only_glanceable_builds():
     )
     assert payload["sleep_seconds"] == 120
     assert payload["fetching"] is False
-    assert [build["workflow"] for build in payload["builds"]] == ["CI", "CI"]
-    assert payload["builds"][0]["status"] == "FAIL"
-    assert payload["builds"][1]["status"] == "RUNNING"
+    assert "builds" not in payload
+    assert "open_prs" not in payload
+    assert payload["repos"][0]["repo"] == "acme/api"
+    assert "workflows" not in payload["repos"][0]
 
 
 def test_eink_payload_lists_every_checked_repo_with_action_and_pr_counts():
@@ -121,9 +123,6 @@ def test_eink_payload_lists_every_checked_repo_with_action_and_pr_counts():
             "workflow_count": 1,
             "pr_count": 2,
             "is_running": False,
-            "workflows": [
-                {"workflow": "CI", "status": "PASS"},
-            ],
         },
         {
             "repo": "acme/web",
@@ -131,15 +130,39 @@ def test_eink_payload_lists_every_checked_repo_with_action_and_pr_counts():
             "workflow_count": 2,
             "pr_count": 0,
             "is_running": False,
-            "workflows": [
-                {"workflow": "CI", "status": "FAIL"},
-                {"workflow": "Deploy", "status": "PASS"},
-            ],
         },
     ]
 
 
-def test_eink_payload_keeps_open_prs_when_workflows_are_green():
+def test_eink_repo_payload_includes_capped_workflows():
+    builds = [
+        {
+            "repo": "acme/web",
+            "workflow": f"W{i:02d}",
+            "status": "PASS" if i else "FAIL",
+            "url": f"https://example.com/{i}",
+        }
+        for i in range(18)
+    ]
+    payload = eink_repo_payload(
+        {
+            "type": "status",
+            "fetching": False,
+            "status": "FAIL",
+            "is_running": False,
+            "builds": builds,
+            "poll_in_seconds": 30,
+            "last_checked_at": 100.0,
+            "next_check_at": 130.0,
+        },
+        "acme/web",
+    )
+    assert payload["repos"][0]["workflow_count"] == 18
+    assert len(payload["repos"][0]["workflows"]) == 16
+    assert payload["repos"][0]["workflows"][0] == {"workflow": "W00", "status": "FAIL"}
+
+
+def test_eink_payload_keeps_pr_count_on_green_repos():
     payload = eink_payload(
         {
             "type": "status",
@@ -161,14 +184,17 @@ def test_eink_payload_keeps_open_prs_when_workflows_are_green():
             "next_check_at": 130.0,
         }
     )
-    assert payload["builds"] == []
-    assert payload["open_prs"] == [
+    assert payload["repos"] == [
         {
             "repo": "acme/web",
+            "status": "PASS",
+            "workflow_count": 1,
             "pr_count": 4,
-            "pr_url": "https://github.com/acme/web/pulls",
+            "is_running": False,
         }
     ]
+    assert "builds" not in payload
+    assert "open_prs" not in payload
 
 
 def test_snapshot_etag_changes_when_only_pr_count_changes():

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { StatusPayload } from './ci';
 import {
   einkPayload,
+  einkRepoPayload,
   etagMatches,
   sleepSeconds,
   snapshotEtag,
@@ -99,7 +100,6 @@ describe('einkPayload', () => {
         workflow_count: 1,
         pr_count: 0,
         is_running: true,
-        workflows: [{ workflow: 'CI', status: 'RUNNING' }],
       },
       {
         repo: 'acme/web',
@@ -107,22 +107,20 @@ describe('einkPayload', () => {
         workflow_count: 2,
         pr_count: 0,
         is_running: false,
-        workflows: [
-          { workflow: 'CI', status: 'FAIL' },
-          { workflow: 'Deploy', status: 'PASS' },
-        ],
       },
     ]);
   });
 
-  it('keeps only glanceable builds and adds sleep_seconds', () => {
+  it('omits builds, open_prs, and nested workflows', () => {
     const compact = einkPayload(failPayload);
     expect(compact.fetching).toBe(false);
     expect(compact.sleep_seconds).toBe(120);
-    expect(compact.builds.map((build) => build.workflow)).toEqual(['CI', 'CI']);
+    expect(compact).not.toHaveProperty('builds');
+    expect(compact).not.toHaveProperty('open_prs');
+    expect(compact.repos[0]).not.toHaveProperty('workflows');
   });
 
-  it('keeps open_prs when workflows are green', () => {
+  it('keeps pr_count on green repos', () => {
     const compact = einkPayload({
       type: 'status',
       fetching: false,
@@ -142,14 +140,28 @@ describe('einkPayload', () => {
       last_checked_at: 100,
       next_check_at: 130,
     });
-    expect(compact.builds).toEqual([]);
-    expect(compact.open_prs).toEqual([
+    expect(compact.repos).toEqual([
       {
         repo: 'acme/web',
+        status: 'PASS',
+        workflow_count: 1,
         pr_count: 4,
-        pr_url: 'https://github.com/acme/web/pulls',
+        is_running: false,
       },
     ]);
+  });
+
+  it('includes capped workflows for a single repo', () => {
+    const builds = Array.from({ length: 18 }, (_, i) => ({
+      repo: 'acme/web',
+      workflow: `W${String(i).padStart(2, '0')}`,
+      status: i === 0 ? 'FAIL' : 'PASS',
+      url: `https://example.com/${i}`,
+    }));
+    const compact = einkRepoPayload({ ...failPayload, builds }, 'acme/web');
+    expect(compact.repos[0]?.workflow_count).toBe(18);
+    expect(compact.repos[0]?.workflows).toHaveLength(16);
+    expect(compact.repos[0]?.workflows?.[0]).toEqual({ workflow: 'W00', status: 'FAIL' });
   });
 });
 
@@ -176,12 +188,27 @@ describe('statusSnapshotResponse', () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as {
       sleep_seconds: number;
-      builds: unknown[];
       fetching: boolean;
+      builds?: unknown;
+      repos: Array<{ workflows?: unknown }>;
     };
     expect(body.sleep_seconds).toBe(120);
-    expect(body.builds).toHaveLength(2);
+    expect(body.builds).toBeUndefined();
+    expect(body.repos[0]?.workflows).toBeUndefined();
     expect(body.fetching).toBe(false);
+  });
+
+  it('returns workflows for view=eink&repo=', async () => {
+    const response = statusSnapshotResponse(
+      new Request('https://monitor.example/status?view=eink&repo=acme/web'),
+      failPayload,
+    );
+    const body = (await response.json()) as {
+      repos: Array<{ repo: string; workflows: Array<{ workflow: string }> }>;
+    };
+    expect(body.repos).toHaveLength(1);
+    expect(body.repos[0]?.repo).toBe('acme/web');
+    expect(body.repos[0]?.workflows.map((row) => row.workflow)).toEqual(['CI', 'Deploy']);
   });
 });
 

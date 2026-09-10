@@ -23,6 +23,7 @@ class MonitorActivity final : public UiListActivity {
   void drawFooter() override;
 
   void refreshSnapshot();
+  void refreshRepoWorkflows();
   void applyView();
   void rebuildRows();
   void showMessage(const char* title, const char* subtitle);

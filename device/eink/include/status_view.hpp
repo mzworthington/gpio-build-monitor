@@ -143,6 +143,24 @@ inline uint8_t fill_repo_action_lines(const Snapshot& snap, uint8_t repo_index, 
   return n;
 }
 
+inline bool merge_repo_workflows(const Snapshot& detail, RepoRow* dest) {
+  if (dest == nullptr) {
+    return false;
+  }
+  for (uint8_t i = 0; i < detail.repo_count; ++i) {
+    if (std::strcmp(detail.repos[i].repo, dest->repo) != 0) {
+      continue;
+    }
+    dest->workflow_count = detail.repos[i].workflow_count;
+    dest->workflow_n = detail.repos[i].workflow_n;
+    for (uint8_t w = 0; w < dest->workflow_n; ++w) {
+      dest->workflows[w] = detail.repos[i].workflows[w];
+    }
+    return true;
+  }
+  return false;
+}
+
 inline uint8_t fill_monitor_lines(const Snapshot& snap, MonitorLine* out, uint8_t cap) {
   if (out == nullptr || cap == 0) {
     return 0;

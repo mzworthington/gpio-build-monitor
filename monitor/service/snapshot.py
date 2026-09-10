@@ -22,14 +22,7 @@ SLEEP_ATTENTION_SECONDS = 180
 SLEEP_FETCH_ERROR_SECONDS = 300
 SLEEP_SETTLED_SECONDS = 900
 
-_GLANCEABLE = frozenset({
-    "FAIL",
-    "CONNECTION_ERROR",
-    "APPROVAL",
-    "UNKNOWN",
-    "RUNNING",
-    "WAITING",
-})
+EINK_MAX_WORKFLOWS = 16
 
 
 def sleep_seconds(status: str | Result, *, is_running: bool) -> int:
@@ -94,16 +87,23 @@ def snapshot_etag(
     return f'W/"{digest}"'
 
 
-def eink_builds(builds: Sequence[Mapping[str, Any]] | None) -> list[Mapping[str, Any]]:
-    """Keep failures, in-progress, and other attention rows for the panel."""
-    return [
-        build
-        for build in (builds or [])
-        if str(build.get("status")) in _GLANCEABLE
-    ]
+def eink_repo_row(summary: Mapping[str, Any], *, include_workflows: bool) -> dict[str, Any]:
+    row: dict[str, Any] = {
+        "repo": summary["repo"],
+        "status": summary["status"],
+        "workflow_count": summary["workflow_count"],
+        "pr_count": int(summary["pr_count"] or 0),
+        "is_running": bool(summary["is_running"]),
+    }
+    if include_workflows:
+        row["workflows"] = [
+            {"workflow": item["workflow"], "status": item["status"]}
+            for item in list(summary["workflows"])[:EINK_MAX_WORKFLOWS]
+        ]
+    return row
 
 
-def eink_repos(builds: Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any]]:
+def eink_repos(builds: Sequence[Mapping[str, Any]] | None, *, include_workflows: bool = False) -> list[dict[str, Any]]:
     details: list[BuildDetail] = []
     for item in builds or []:
         row: BuildDetail = {
@@ -119,41 +119,31 @@ def eink_repos(builds: Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any
         if pr_url:
             row["pr_url"] = str(pr_url)
         details.append(row)
-    return [
-        {
-            "repo": summary["repo"],
-            "status": summary["status"],
-            "workflow_count": summary["workflow_count"],
-            "pr_count": int(summary["pr_count"] or 0),
-            "is_running": bool(summary["is_running"]),
-            "workflows": [
-                {"workflow": item["workflow"], "status": item["status"]} for item in summary["workflows"]
-            ],
-        }
-        for summary in repo_summaries(details)
-    ]
+    return [eink_repo_row(summary, include_workflows=include_workflows) for summary in repo_summaries(details)]
 
 
 def eink_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
-    """Compact snapshot: same keys, but only glanceable builds."""
     status = str(payload.get("status") or Result.NONE.value)
     is_running = bool(payload.get("is_running"))
     raw_builds = payload.get("builds")
     raw_list = raw_builds if isinstance(raw_builds, list) else []
-    builds = eink_builds(raw_list)
     return {
         "type": "status",
         "fetching": False,
         "status": status,
         "is_running": is_running,
-        "builds": builds,
-        "repos": eink_repos(raw_list),
-        "open_prs": open_pr_glances(raw_list),
-        "poll_in_seconds": payload.get("poll_in_seconds"),
-        "last_checked_at": payload.get("last_checked_at"),
-        "next_check_at": payload.get("next_check_at"),
+        "repos": eink_repos(raw_list, include_workflows=False),
         "sleep_seconds": sleep_seconds(status, is_running=is_running),
     }
+
+
+def eink_repo_payload(payload: Mapping[str, Any], repo: str) -> dict[str, Any]:
+    compact = eink_payload(payload)
+    raw_builds = payload.get("builds")
+    raw_list = raw_builds if isinstance(raw_builds, list) else []
+    match = [row for row in eink_repos(raw_list, include_workflows=True) if row["repo"] == repo]
+    compact["repos"] = match
+    return compact
 
 
 def snapshot_headers(

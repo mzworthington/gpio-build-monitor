@@ -5,14 +5,7 @@ export const SLEEP_ATTENTION_SECONDS = 180;
 export const SLEEP_FETCH_ERROR_SECONDS = 300;
 export const SLEEP_SETTLED_SECONDS = 900;
 
-const GLANCEABLE = new Set([
-  'FAIL',
-  'CONNECTION_ERROR',
-  'APPROVAL',
-  'UNKNOWN',
-  'RUNNING',
-  'WAITING',
-]);
+export const EINK_MAX_WORKFLOWS = 16;
 
 export function sleepSeconds(status: AggregateStatus, isRunning: boolean): number {
   if (isRunning) return SLEEP_RUNNING_SECONDS;
@@ -29,10 +22,13 @@ export interface RepoGlance {
   workflow_count: number;
   pr_count: number;
   is_running: boolean;
-  workflows: Array<{ workflow: string; status: string }>;
+  workflows?: Array<{ workflow: string; status: string }>;
 }
 
-export function repoGlances(builds: StatusPayload['builds']): RepoGlance[] {
+export function repoGlances(
+  builds: StatusPayload['builds'],
+  { includeWorkflows = false }: { includeWorkflows?: boolean } = {},
+): RepoGlance[] {
   const byRepo = new Map<string, BuildDetail[]>();
   for (const build of builds) {
     const repo = build.repo || '';
@@ -58,17 +54,22 @@ export function repoGlances(builds: StatusPayload['builds']): RepoGlance[] {
     }
     const prRaw = group.find((build) => build.pr_count != null)?.pr_count;
     const prCount = Number(prRaw);
-    const workflows = [...group]
-      .sort((a, b) => (a.workflow || '').localeCompare(b.workflow || '', undefined, { sensitivity: 'base' }))
-      .map((build) => ({ workflow: build.workflow, status: build.status }));
-    rows.push({
+    const row: RepoGlance = {
       repo,
       status: display,
       workflow_count: group.length,
       pr_count: Number.isFinite(prCount) ? prCount : 0,
       is_running,
-      workflows,
-    });
+    };
+    if (includeWorkflows) {
+      row.workflows = [...group]
+        .sort((a, b) =>
+          (a.workflow || '').localeCompare(b.workflow || '', undefined, { sensitivity: 'base' }),
+        )
+        .slice(0, EINK_MAX_WORKFLOWS)
+        .map((build) => ({ workflow: build.workflow, status: build.status }));
+    }
+    rows.push(row);
   }
   rows.sort((a, b) => a.repo.localeCompare(b.repo));
   return rows;
@@ -109,26 +110,30 @@ export function snapshotEtag(payload: StatusPayload): string {
   return `W/"${digest}"`;
 }
 
-export function einkPayload(
-  payload: StatusPayload,
-): StatusPayload & {
-  sleep_seconds: number;
-  open_prs: ReturnType<typeof openPrGlances>;
+export function einkPayload(payload: StatusPayload): {
+  type: 'status';
+  fetching: false;
+  status: StatusPayload['status'];
+  is_running: boolean;
   repos: RepoGlance[];
+  sleep_seconds: number;
 } {
   return {
     type: 'status',
     fetching: false,
     status: payload.status,
     is_running: payload.is_running,
-    builds: payload.builds.filter((build) => GLANCEABLE.has(build.status)),
-    repos: repoGlances(payload.builds),
-    open_prs: openPrGlances(payload.builds),
-    poll_in_seconds: payload.poll_in_seconds,
-    last_checked_at: payload.last_checked_at,
-    next_check_at: payload.next_check_at,
+    repos: repoGlances(payload.builds, { includeWorkflows: false }),
     sleep_seconds: sleepSeconds(payload.status, payload.is_running),
   };
+}
+
+export function einkRepoPayload(payload: StatusPayload, repo: string) {
+  const compact = einkPayload(payload);
+  compact.repos = repoGlances(payload.builds, { includeWorkflows: true }).filter(
+    (row) => row.repo === repo,
+  );
+  return compact;
 }
 
 export function etagMatches(ifNoneMatch: string | null, etag: string): boolean {
@@ -150,9 +155,12 @@ export function statusSnapshotResponse(request: Request, payload: StatusPayload)
   }
 
   const url = new URL(request.url);
+  const repo = url.searchParams.get('repo');
   const body =
     url.searchParams.get('view') === 'eink'
-      ? einkPayload(payload)
+      ? repo
+        ? einkRepoPayload(payload, repo)
+        : einkPayload(payload)
       : { ...payload, sleep_seconds: seconds };
   return Response.json(body, { headers });
 }

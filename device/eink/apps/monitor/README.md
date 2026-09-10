@@ -43,8 +43,8 @@ USB serial (115200, after the device enumerates CDC):
 device/eink/apps/monitor/debug.sh
 ```
 
-Quit with Ctrl-]. Look for `HOME` / `MONITOR` lines. Do not use
-`pio device monitor`; that port hunt drops CDC the same way upload does.
+Quit with Ctrl-C. Sleep or power-off drops CDC; the script should print
+`serial gone` instead of a Python traceback. Do not use `pio device monitor`.
 
 After a CrossPoint bump:
 

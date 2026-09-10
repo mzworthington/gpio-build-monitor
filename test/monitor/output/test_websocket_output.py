@@ -125,7 +125,23 @@ async def test_status_snapshot_matches_websocket_payload():
                 assert compact.status == 200
                 body = await compact.json()
                 assert body["sleep_seconds"] == 180
-                assert [build["workflow"] for build in body["builds"]] == ["CI"]
+                assert "builds" not in body
+                assert "open_prs" not in body
+                assert body["repos"] == [
+                    {
+                        "repo": "acme/web",
+                        "status": "FAIL",
+                        "workflow_count": 2,
+                        "pr_count": 0,
+                        "is_running": False,
+                    }
+                ]
+
+            async with session.get(
+                f"http://127.0.0.1:{port}/status?view=eink&repo=acme/web"
+            ) as detail:
+                assert detail.status == 200
+                body = await detail.json()
                 assert body["repos"] == [
                     {
                         "repo": "acme/web",
