@@ -1,6 +1,8 @@
 #include "bq27220.hpp"
+#include "client.hpp"
 #include "duty_cycle.hpp"
 #include "power_control.hpp"
+#include "status_view.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -285,6 +287,83 @@ void test_idle_path_polls_on_usb_and_sleeps_on_battery() {
   CHECK(x4::idle_path(false) == x4::IdlePath::BatteryLightSleep);
 }
 
+void test_status_view_labels_and_job_title() {
+  CHECK_STREQ(x4::hero_label("NONE"), "Idle");
+  CHECK_STREQ(x4::hero_label("FAIL"), "Fail");
+  CHECK_STREQ(x4::chip_label("RUNNING"), "RUN");
+  CHECK(x4::attention_status("FAIL"));
+  CHECK(!x4::attention_status("PASS"));
+  x4::BuildRow row = {};
+  std::strcpy(row.repo, "acme/web");
+  std::strcpy(row.workflow, "CI");
+  CHECK_STREQ(x4::job_title(row), "web");
+  CHECK(x4::job_shows_workflow(row));
+  CHECK_STREQ(x4::empty_body(false), "All clear");
+  char sleep[16];
+  x4::format_sleep(sleep, sizeof(sleep), 900);
+  CHECK_STREQ(sleep, "15 min");
+}
+
+void test_monitor_lines_from_failing_jobs_and_open_prs() {
+  x4::Snapshot snap = {};
+  std::strcpy(snap.status, "FAIL");
+  snap.has_sleep_seconds = true;
+  snap.sleep_seconds = 120;
+  snap.build_count = 1;
+  std::strcpy(snap.builds[0].repo, "acme/web");
+  std::strcpy(snap.builds[0].workflow, "CI");
+  std::strcpy(snap.builds[0].status, "FAIL");
+  snap.open_pr_count = 1;
+  std::strcpy(snap.open_prs[0].repo, "acme/web");
+  snap.open_prs[0].pr_count = 4;
+
+  x4::MonitorLine lines[x4::kMaxMonitorLines] = {};
+  CHECK_EQ(x4::fill_monitor_lines(snap, lines, x4::kMaxMonitorLines), 3);
+  CHECK_STREQ(lines[0].title, "Fail");
+  CHECK_STREQ(lines[0].subtitle, "2 min");
+  CHECK_STREQ(lines[1].title, "web");
+  CHECK_STREQ(lines[1].subtitle, "FAIL CI");
+  CHECK_STREQ(lines[2].title, "web");
+  CHECK_STREQ(lines[2].subtitle, "4 open");
+}
+
+void test_monitor_lines_idle_when_snapshot_is_empty() {
+  x4::Snapshot snap = {};
+  std::strcpy(snap.status, "NONE");
+  x4::MonitorLine lines[2] = {};
+  CHECK_EQ(x4::fill_monitor_lines(snap, lines, 2), 1);
+  CHECK_STREQ(lines[0].title, "Idle");
+  CHECK_STREQ(lines[0].subtitle, "All clear");
+  CHECK_EQ(x4::fill_monitor_lines(snap, nullptr, 2), 0);
+}
+
+void test_present_forces_full_on_usb_and_button() {
+  x4::CyclePlan plan = {};
+  plan.panel = x4::PanelAction::Leave;
+  std::strcpy(plan.snapshot.status, "PASS");
+  uint8_t button = 1;
+  x4::CyclePlan out = x4::present_for_panel(plan, false, &button, 200);
+  CHECK(out.panel == x4::PanelAction::Full);
+  CHECK_EQ(button, 0);
+  button = 0;
+  plan.panel = x4::PanelAction::Leave;
+  out = x4::present_for_panel(plan, true, &button, 0);
+  CHECK(out.panel == x4::PanelAction::Full);
+  CHECK_STREQ(out.snapshot.status, "HTTP 0");
+}
+
+void test_if_none_match_skipped_on_usb_or_button() {
+  CHECK(x4::should_send_if_none_match("W/\"a\"", false, false));
+  CHECK(!x4::should_send_if_none_match("W/\"a\"", true, false));
+  CHECK(!x4::should_send_if_none_match("W/\"a\"", false, true));
+  CHECK(!x4::should_send_if_none_match("", false, false));
+}
+
+void test_desk_idle_caps_when_usb_plugged() {
+  CHECK_EQ(x4::desk_idle_seconds(900, false), 900);
+  CHECK_EQ(x4::desk_idle_seconds(900, true), 60);
+}
+
 void test_x3_fuel_gauge_treats_positive_current_as_charging() {
   CHECK(bq27220::is_charging(1));
   CHECK(bq27220::is_charging(120));
@@ -293,9 +372,15 @@ void test_x3_fuel_gauge_treats_positive_current_as_charging() {
 }
 
 int main() {
+  test_if_none_match_skipped_on_usb_or_button();
+  test_present_forces_full_on_usb_and_button();
+  test_status_view_labels_and_job_title();
+  test_monitor_lines_from_failing_jobs_and_open_prs();
+  test_monitor_lines_idle_when_snapshot_is_empty();
   test_page_key_refreshes_and_power_key_shuts_down();
   test_latch_drops_only_after_power_release();
   test_idle_path_polls_on_usb_and_sleeps_on_battery();
+  test_desk_idle_caps_when_usb_plugged();
   test_x3_fuel_gauge_treats_positive_current_as_charging();
   test_backoff_doubles_then_caps();
   test_usb_cap_only_when_charging();

@@ -1,0 +1,18 @@
+; Copy to device/eink/crosspoint/platformio.local.ini (gitignored there).
+; CrossPoint 1.6 has no SDL / [env:simulator] target. Iterate on the X3 with
+; `pio run -e default -t upload` from the CrossPoint tree.
+
+[env:default]
+lib_extra_dirs =
+  ${PROJECT_DIR}/../..
+  ${PROJECT_DIR}/../apps
+build_flags =
+  ${base.build_flags}
+  -DFREEINK_DEVICE_X4=1
+  -DFREEINK_DEVICE_X3=1
+  -DENABLE_SERIAL_LOG
+  -DCROSSPOINT_WAIT_FOR_USB_SERIAL
+  -DLOG_LEVEL=2
+  -DGPIO_BUILD_MONITOR
+  -I${PROJECT_DIR}/src
+  '-DMONITOR_STATUS_URL="https://monitor.mzworthington.co.uk/status?view=eink"'

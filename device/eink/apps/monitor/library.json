@@ -1,0 +1,7 @@
+{
+  "name": "gpio-monitor-activity",
+  "version": "0.1.0",
+  "description": "CrossPoint activity for the gpio-build-monitor snapshot",
+  "frameworks": "arduino",
+  "platforms": "*"
+}
