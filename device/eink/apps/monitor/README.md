@@ -33,8 +33,9 @@ Hold **Boot/Select**, tap Reset or power, keep Boot held until you see
 `flashing`. Or copy `.pio/build/default/firmware.bin` to the SD card as
 `update.bin` and boot with **Power + top-left**.
 
-5. From the home menu, open **Build monitor** (first row). Confirm (footer
-   **Retry**) fetches `/status` again. Back returns to home.
+5. From the home menu, open **Build monitor** (first row). Confirm on a repo
+   opens every Action for that repo. Back returns to the repo list, then home.
+   Confirm on the hero row (or on an Action list) refetches `/status`.
 
 USB serial (115200, after the device enumerates CDC):
 

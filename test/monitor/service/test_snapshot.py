@@ -121,6 +121,9 @@ def test_eink_payload_lists_every_checked_repo_with_action_and_pr_counts():
             "workflow_count": 1,
             "pr_count": 2,
             "is_running": False,
+            "workflows": [
+                {"workflow": "CI", "status": "PASS"},
+            ],
         },
         {
             "repo": "acme/web",
@@ -128,6 +131,10 @@ def test_eink_payload_lists_every_checked_repo_with_action_and_pr_counts():
             "workflow_count": 2,
             "pr_count": 0,
             "is_running": False,
+            "workflows": [
+                {"workflow": "CI", "status": "FAIL"},
+                {"workflow": "Deploy", "status": "PASS"},
+            ],
         },
     ]
 

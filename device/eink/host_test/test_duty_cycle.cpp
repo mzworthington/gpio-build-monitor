@@ -86,6 +86,58 @@ void test_monitor_lines_list_every_repo_with_action_and_pr_counts() {
   CHECK_STREQ(lines[2].subtitle, "FAIL · 2 actions · 0 PRs");
 }
 
+void test_parse_snapshot_repos_include_workflows() {
+  const char* json =
+      "{"
+      "\"status\":\"FAIL\","
+      "\"repos\":["
+      "{\"repo\":\"acme/web\",\"status\":\"FAIL\",\"workflow_count\":2,\"pr_count\":0,\"is_running\":false,"
+      "\"workflows\":[{\"workflow\":\"CI\",\"status\":\"FAIL\"},{\"workflow\":\"Deploy\",\"status\":\"PASS\"}]}"
+      "]"
+      "}";
+  eink::Snapshot snap = {};
+  CHECK(eink::parse_snapshot(json, &snap));
+  CHECK_EQ(snap.repo_count, 1);
+  CHECK_EQ(snap.repos[0].workflow_n, 2);
+  CHECK_STREQ(snap.repos[0].workflows[0].workflow, "CI");
+  CHECK_STREQ(snap.repos[0].workflows[0].status, "FAIL");
+  CHECK_STREQ(snap.repos[0].workflows[1].workflow, "Deploy");
+  CHECK_STREQ(snap.repos[0].workflows[1].status, "PASS");
+}
+
+void test_monitor_lines_open_repo_lists_every_action() {
+  eink::Snapshot snap = {};
+  snap.repo_count = 1;
+  std::strcpy(snap.repos[0].repo, "acme/web");
+  std::strcpy(snap.repos[0].status, "FAIL");
+  snap.repos[0].workflow_count = 2;
+  snap.repos[0].pr_count = 0;
+  snap.repos[0].workflow_n = 2;
+  std::strcpy(snap.repos[0].workflows[0].workflow, "CI");
+  std::strcpy(snap.repos[0].workflows[0].status, "FAIL");
+  std::strcpy(snap.repos[0].workflows[1].workflow, "Deploy");
+  std::strcpy(snap.repos[0].workflows[1].status, "PASS");
+
+  CHECK_EQ(eink::repo_from_monitor_index(0, 1), -1);
+  CHECK_EQ(eink::repo_from_monitor_index(1, 1), 0);
+  CHECK_EQ(eink::repo_from_monitor_index(2, 1), -1);
+
+  eink::MonitorLine lines[eink::kMaxMonitorLines] = {};
+  CHECK_EQ(eink::fill_repo_action_lines(snap, 0, lines, eink::kMaxMonitorLines), 3);
+  CHECK_STREQ(lines[0].title, "acme/web");
+  CHECK_STREQ(lines[0].subtitle, "FAIL · 2 actions · 0 PRs");
+  CHECK_STREQ(lines[1].title, "CI");
+  CHECK_STREQ(lines[1].subtitle, "FAIL");
+  CHECK_STREQ(lines[2].title, "Deploy");
+  CHECK_STREQ(lines[2].subtitle, "OK");
+  CHECK_EQ(eink::fill_repo_action_lines(snap, 1, lines, eink::kMaxMonitorLines), 0);
+}
+
+void test_snapshot_is_too_large_for_esp32_task_stack() {
+  CHECK(sizeof(eink::Snapshot) > 4096);
+  CHECK(sizeof(eink::Snapshot) < 48 * 1024);
+}
+
 void test_parse_snapshot_compact_payload() {
   const char* json =
       "{"
@@ -205,7 +257,10 @@ void test_monitor_lines_idle_when_snapshot_is_empty() {
 
 int main() {
   test_parse_snapshot_repos_include_zero_pr_counts();
+  test_parse_snapshot_repos_include_workflows();
   test_monitor_lines_list_every_repo_with_action_and_pr_counts();
+  test_monitor_lines_open_repo_lists_every_action();
+  test_snapshot_is_too_large_for_esp32_task_stack();
   test_parse_snapshot_compact_payload();
   test_parse_snapshot_open_prs_when_workflows_are_green();
   test_parse_snapshot_defaults_and_rejects_garbage();

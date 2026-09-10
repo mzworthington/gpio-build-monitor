@@ -19,6 +19,10 @@
 
 namespace fui = freeink::ui;
 
+namespace {
+eink::Snapshot g_snap{};
+}
+
 MonitorActivity::MonitorActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
     : UiListActivity("BuildMonitor", renderer, mappedInput) {}
 
@@ -27,14 +31,21 @@ void MonitorActivity::onEnter() {
   refreshSnapshot();
 }
 
-const char* MonitorActivity::headerTitle() const { return tr(STR_BUILD_MONITOR); }
+const char* MonitorActivity::headerTitle() const {
+  if (selectedRepo_ >= 0 && selectedRepo_ < static_cast<int>(g_snap.repo_count)) {
+    return eink::repo_leaf(g_snap.repos[static_cast<uint8_t>(selectedRepo_)].repo);
+  }
+  return tr(STR_BUILD_MONITOR);
+}
 
 void MonitorActivity::drawFooter() {
-  const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_RETRY), tr(STR_DIR_UP), tr(STR_DIR_DOWN));
+  const char* confirm = selectedRepo_ >= 0 ? tr(STR_RETRY) : tr(STR_SELECT);
+  const auto labels = mappedInput.mapLabels(tr(STR_BACK), confirm, tr(STR_DIR_UP), tr(STR_DIR_DOWN));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
 }
 
 void MonitorActivity::showMessage(const char* title, const char* subtitle) {
+  selectedRepo_ = -1;
   std::snprintf(lines[0].title, sizeof(lines[0].title), "%s", title);
   std::snprintf(lines[0].subtitle, sizeof(lines[0].subtitle), "%s", subtitle != nullptr ? subtitle : "");
   rowCount = 1;
@@ -49,6 +60,16 @@ void MonitorActivity::rebuildRows() {
     item.actionValue = static_cast<int16_t>(i);
     rowItems[i] = item;
   }
+}
+
+void MonitorActivity::applyView() {
+  if (selectedRepo_ >= 0 && selectedRepo_ < static_cast<int>(g_snap.repo_count)) {
+    rowCount = eink::fill_repo_action_lines(g_snap, static_cast<uint8_t>(selectedRepo_), lines, eink::kMaxMonitorLines);
+  } else {
+    selectedRepo_ = -1;
+    rowCount = eink::fill_monitor_lines(g_snap, lines, eink::kMaxMonitorLines);
+  }
+  rebuildRows();
 }
 
 void MonitorActivity::refreshSnapshot() {
@@ -66,32 +87,43 @@ void MonitorActivity::refreshSnapshot() {
     return;
   }
 
-  eink::Snapshot snap = {};
-  if (!eink::parse_snapshot(body.c_str(), &snap)) {
+  if (!eink::parse_snapshot(body.c_str(), &g_snap)) {
     LOG_ERR("MONITOR", "bad snapshot JSON (%u bytes)", static_cast<unsigned>(body.size()));
     showMessage(tr(STR_PAGE_LOAD_ERROR), tr(STR_RETRY));
     requestUpdate();
     return;
   }
 
-  rowCount = eink::fill_monitor_lines(snap, lines, eink::kMaxMonitorLines);
-  rebuildRows();
+  if (selectedRepo_ >= static_cast<int>(g_snap.repo_count)) {
+    selectedRepo_ = -1;
+  }
+  applyView();
   requestUpdate();
 }
 
-void MonitorActivity::activateIndex(int) {
+void MonitorActivity::activateIndex(int index) {
   app.clearTapFlash();
+  if (selectedRepo_ < 0) {
+    const int8_t repo = eink::repo_from_monitor_index(index, g_snap.repo_count);
+    if (repo >= 0) {
+      selectedRepo_ = repo;
+      applyView();
+      requestUpdate();
+      return;
+    }
+  }
   refreshSnapshot();
 }
 
 bool MonitorActivity::handleButtons() {
   if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+    if (selectedRepo_ >= 0) {
+      selectedRepo_ = -1;
+      applyView();
+      requestUpdate();
+      return true;
+    }
     onBackButton();
-    return true;
-  }
-  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-    app.clearTapFlash();
-    refreshSnapshot();
     return true;
   }
   return false;

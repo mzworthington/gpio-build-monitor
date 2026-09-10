@@ -133,5 +133,9 @@ async def test_status_snapshot_matches_websocket_payload():
                         "workflow_count": 2,
                         "pr_count": 0,
                         "is_running": False,
+                        "workflows": [
+                            {"workflow": "CI", "status": "FAIL"},
+                            {"workflow": "Deploy", "status": "PASS"},
+                        ],
                     }
                 ]

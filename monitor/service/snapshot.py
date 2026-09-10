@@ -126,6 +126,9 @@ def eink_repos(builds: Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any
             "workflow_count": summary["workflow_count"],
             "pr_count": int(summary["pr_count"] or 0),
             "is_running": bool(summary["is_running"]),
+            "workflows": [
+                {"workflow": item["workflow"], "status": item["status"]} for item in summary["workflows"]
+            ],
         }
         for summary in repo_summaries(details)
     ]

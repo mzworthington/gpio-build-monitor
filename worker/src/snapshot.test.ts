@@ -99,6 +99,7 @@ describe('einkPayload', () => {
         workflow_count: 1,
         pr_count: 0,
         is_running: true,
+        workflows: [{ workflow: 'CI', status: 'RUNNING' }],
       },
       {
         repo: 'acme/web',
@@ -106,6 +107,10 @@ describe('einkPayload', () => {
         workflow_count: 2,
         pr_count: 0,
         is_running: false,
+        workflows: [
+          { workflow: 'CI', status: 'FAIL' },
+          { workflow: 'Deploy', status: 'PASS' },
+        ],
       },
     ]);
   });

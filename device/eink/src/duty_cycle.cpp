@@ -376,6 +376,45 @@ bool parse_open_prs(const char** pp, Snapshot* out) {
   return false;
 }
 
+bool parse_repo_workflows(const char** pp, RepoRow* row) {
+  const char* p = skip_ws(*pp);
+  if (*p != '[') {
+    return false;
+  }
+  ++p;
+  *pp = p;
+  p = skip_ws(*pp);
+  if (*p == ']') {
+    *pp = p + 1;
+    return true;
+  }
+  while (*p) {
+    if (row->workflow_n < kMaxWorkflowsPerRepo) {
+      BuildRow parsed = {};
+      if (!parse_build_object(pp, &parsed)) {
+        return false;
+      }
+      std::strcpy(row->workflows[row->workflow_n].status, parsed.status);
+      std::strcpy(row->workflows[row->workflow_n].workflow, parsed.workflow);
+      ++row->workflow_n;
+    } else if (!skip_value(pp)) {
+      return false;
+    }
+    p = skip_ws(*pp);
+    if (*p == ',') {
+      *pp = p + 1;
+      p = skip_ws(*pp);
+      continue;
+    }
+    if (*p == ']') {
+      *pp = p + 1;
+      return true;
+    }
+    return false;
+  }
+  return false;
+}
+
 bool parse_repo_object(const char** pp, RepoRow* row) {
   const char* p = skip_ws(*pp);
   if (*p != '{') {
@@ -388,6 +427,7 @@ bool parse_repo_object(const char** pp, RepoRow* row) {
   row->workflow_count = 0;
   row->pr_count = 0;
   row->is_running = false;
+  row->workflow_n = 0;
   p = skip_ws(*pp);
   if (*p == '}') {
     *pp = p + 1;
@@ -421,6 +461,10 @@ bool parse_repo_object(const char** pp, RepoRow* row) {
       }
     } else if (std::strcmp(key, "is_running") == 0) {
       if (!parse_bool(pp, &row->is_running)) {
+        return false;
+      }
+    } else if (std::strcmp(key, "workflows") == 0) {
+      if (!parse_repo_workflows(pp, row)) {
         return false;
       }
     } else if (!skip_value(pp)) {

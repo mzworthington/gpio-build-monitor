@@ -11,6 +11,7 @@ constexpr std::size_t kMaxBuilds = 16;
 constexpr std::size_t kMaxRepos = 16;
 constexpr std::size_t kRepoCap = 48;
 constexpr uint8_t kMaxOpenPrs = 8;
+constexpr uint8_t kMaxWorkflowsPerRepo = 16;
 
 struct BuildRow {
   char status[kStatusCap];
@@ -23,12 +24,19 @@ struct OpenPrRow {
   uint32_t pr_count;
 };
 
+struct WorkflowRow {
+  char status[kStatusCap];
+  char workflow[kWorkflowCap];
+};
+
 struct RepoRow {
   char repo[kRepoCap];
   char status[kStatusCap];
   uint32_t workflow_count;
   uint32_t pr_count;
   bool is_running;
+  WorkflowRow workflows[kMaxWorkflowsPerRepo];
+  uint8_t workflow_n;
 };
 
 struct Snapshot {

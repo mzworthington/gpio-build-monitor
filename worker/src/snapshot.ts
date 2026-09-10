@@ -29,6 +29,7 @@ export interface RepoGlance {
   workflow_count: number;
   pr_count: number;
   is_running: boolean;
+  workflows: Array<{ workflow: string; status: string }>;
 }
 
 export function repoGlances(builds: StatusPayload['builds']): RepoGlance[] {
@@ -57,12 +58,16 @@ export function repoGlances(builds: StatusPayload['builds']): RepoGlance[] {
     }
     const prRaw = group.find((build) => build.pr_count != null)?.pr_count;
     const prCount = Number(prRaw);
+    const workflows = [...group]
+      .sort((a, b) => (a.workflow || '').localeCompare(b.workflow || '', undefined, { sensitivity: 'base' }))
+      .map((build) => ({ workflow: build.workflow, status: build.status }));
     rows.push({
       repo,
       status: display,
       workflow_count: group.length,
       pr_count: Number.isFinite(prCount) ? prCount : 0,
       is_running,
+      workflows,
     });
   }
   rows.sort((a, b) => a.repo.localeCompare(b.repo));
