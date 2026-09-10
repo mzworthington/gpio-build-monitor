@@ -181,4 +181,4 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Native duty-cycle tests
-        run: make test-x4
+        run: make test-eink

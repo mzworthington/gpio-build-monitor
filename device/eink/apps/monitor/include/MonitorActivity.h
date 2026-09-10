@@ -17,6 +17,7 @@ class MonitorActivity final : public UiListActivity {
   int listCount() const override { return rowCount; }
   void buildScreen(UiScreen& screen) override;
   void activateIndex(int index) override;
+  bool handleButtons() override;
   const char* headerTitle() const override;
   void drawFooter() override;
 
@@ -24,7 +25,7 @@ class MonitorActivity final : public UiListActivity {
   void rebuildRows();
   void showMessage(const char* title, const char* subtitle);
 
-  x4::MonitorLine lines[x4::kMaxMonitorLines]{};
-  freeink::ui::ListItem rowItems[x4::kMaxMonitorLines]{};
+  eink::MonitorLine lines[eink::kMaxMonitorLines]{};
+  freeink::ui::ListItem rowItems[eink::kMaxMonitorLines]{};
   int rowCount = 0;
 };

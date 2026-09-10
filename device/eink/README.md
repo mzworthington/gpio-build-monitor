@@ -1,17 +1,16 @@
-# Shared e-ink duty cycle
+# Shared e-ink snapshot parser
 
-Host-tested snapshot client logic used by [`device/x3/`](../x3/) and
-[`device/x4/`](../x4/). Architecture: [docs/xteink-x4.md](../../docs/xteink-x4.md).
-
-- `duty_cycle` — ETag, sleep, panel Full/Partial/Leave
-- `client` — USB desk present, If-None-Match, idle cap
-- `power_control` — page key vs power, latch, idle path
-- `status_view` — labels, job titles, and CrossPoint list rows (`fill_monitor_lines`)
-
-CrossPoint overlay (reader firmware + Build monitor activity):
-[`apps/monitor/`](apps/monitor/). The submodule is [`crosspoint/`](crosspoint/).
+Host-tested `GET /status?view=eink` JSON parser and list-row helpers for the
+CrossPoint **Build monitor** activity (`apps/monitor/`). Submodule:
+[`crosspoint/`](crosspoint/). Architecture: [docs/xteink-x3.md](../../docs/xteink-x3.md).
 
 ```shell
 make test          # from this directory
-make test-x4       # from the repo root
+make test-eink     # from the repo root
+```
+
+Flash the overlay (build, then tight esptool loop; do not use `pio upload`):
+
+```shell
+device/eink/apps/monitor/flash.sh
 ```

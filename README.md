@@ -12,16 +12,16 @@ Inspired by office information radiators. [Read the story →](https://mzworthin
 
 Same aggregation logic; pick the outputs you want.
 
-| | **On the web** | **On a Pi** | **On a Mac** | **On an X3 / X4** |
+| | **On the web** | **On a Pi** | **On a Mac** | **On an X3** |
 |---|---|---|---|---|
-| **What you get** | Public status UI + live WebSocket | Desk LEDs (optional local UI) | Menu bar extra | Pocket e-ink, deep sleep |
+| **What you get** | Public status UI + live WebSocket | Desk LEDs (optional local UI) | Menu bar extra | Pocket e-ink (CrossPoint) |
 | **Where it runs** | Cloudflare Worker | Raspberry Pi GPIO | [SwiftBar](docs/macos.md) plugin | ESP32-C3 firmware |
 | **See it** | [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) | Hardware on your desk | Top toolbar (polls `/status`) | E-ink panel (samples `/status?view=eink`) |
-| **Setup** | [worker/README.md](worker/README.md) · [infra/cloudflare](infra/cloudflare/README.md) · [Webhooks](docs/webhooks.md) | [Pi setup](docs/pi-setup.md) · [Hardware](docs/hardware.md) | [Mac menu bar](docs/macos.md) | [Xteink e-ink](docs/xteink-x4.md) |
+| **Setup** | [worker/README.md](worker/README.md) · [infra/cloudflare](infra/cloudflare/README.md) · [Webhooks](docs/webhooks.md) | [Pi setup](docs/pi-setup.md) · [Hardware](docs/hardware.md) | [Mac menu bar](docs/macos.md) | [Xteink e-ink](docs/xteink-x3.md) |
 
-You can use any path alone, or combine them with the same `integrations.yaml` shape. The hosted site does not depend on the Pi (no tunnel required). The Mac extra and the Xteink X3/X4 read the hosted (or local) snapshot. They do not poll GitHub themselves. The e-ink client then deep-sleeps; it is not a second always-on poller.
+You can use any path alone, or combine them with the same `integrations.yaml` shape. The hosted site does not depend on the Pi (no tunnel required). The Mac extra and the Xteink X3 read the hosted (or local) snapshot. They do not poll GitHub themselves. The e-ink client is CrossPoint plus a Build monitor overlay; it is not a second always-on poller.
 
-Pick a surface first. Menu bar and e-ink do **not** poll GitHub. By default they call the same Worker as the public site (`GET /status`, with `?view=eink` on the X3/X4). Desk lights are a separate Pi poller. You can point Mac or the e-ink firmware at the Pi LAN or `bin/serve` instead; that is bring-up or a desk-only setup, not the default.
+Pick a surface first. Menu bar and e-ink do **not** poll GitHub. By default they call the same Worker as the public site (`GET /status`, with `?view=eink` on the X3). Desk lights are a separate Pi poller. You can point Mac or the e-ink firmware at the Pi LAN or `bin/serve` instead; that is bring-up or a desk-only setup, not the default.
 
 ```mermaid
 flowchart TB
@@ -29,7 +29,7 @@ flowchart TB
     WebUI[Status page]
     Push[Phone or browser push]
     Mac[Menu bar]
-    X4[Pocket e-ink X3/X4]
+    X3[Pocket e-ink X3]
     LEDs[Desk lights]
   end
 
@@ -46,7 +46,7 @@ flowchart TB
   WebUI --> Worker
   Push --> Worker
   Mac --> Worker
-  X4 --> Worker
+  X3 --> Worker
   LEDs --> Pi
   hubs --> ci
 ```
@@ -58,7 +58,7 @@ sequenceDiagram
   actor You
   participant Browser as Status page
   participant Mac as Menu bar
-  participant X4 as Pocket e-ink
+  participant X3 as Pocket e-ink
   participant Worker as Cloudflare Worker
   participant Pi as Raspberry Pi
   participant GH as GitHub / CircleCI
@@ -79,16 +79,11 @@ sequenceDiagram
     You->>Mac: look at the toolbar
     Mac->>Worker: GET /status
     Worker-->>Mac: snapshot JSON
-  else Glance at the X4
-    You->>X4: timer or power button
-    X4->>Worker: GET /status?view=eink
-    alt Unchanged
-      Worker-->>X4: 304 leave the image
-    else Changed
-      Worker-->>X4: 200 compact JSON
-      X4-->>You: redraw the panel
-    end
-    X4->>X4: radio off, deep sleep
+  else Glance at the X3
+    You->>X3: open Build monitor
+    X3->>Worker: GET /status?view=eink
+    Worker-->>X3: compact JSON
+    X3-->>You: list jobs and PRs
   end
 ```
 ### Web (hosted)
@@ -161,7 +156,7 @@ See [Getting started](docs/getting-started.md) for mise, Make, and CLI details.
 | [Webhooks](docs/webhooks.md) | GitHub/CircleCI webhooks on the hosted Worker |
 | [Push notifications](docs/push.md) | Chrome/Android fail + recovery alerts (hosted Worker) |
 | [Mac menu bar](docs/macos.md) | SwiftBar extra from `GET /status` |
-| [Xteink e-ink](docs/xteink-x4.md) | Battery e-ink client (X3/X4): snapshot + deep sleep |
+| [Xteink e-ink](docs/xteink-x3.md) | X3 CrossPoint overlay: Build monitor from `/status?view=eink` |
 | [Configuration](docs/configuration.md) | `integrations.yaml`, tokens, pins, logging |
 | [Raspberry Pi](docs/raspberry-pi.md) | GPIO reference, systemd, auto-updates |
 | [Hardware](docs/hardware.md) | Pin map, shopping list, build photos |

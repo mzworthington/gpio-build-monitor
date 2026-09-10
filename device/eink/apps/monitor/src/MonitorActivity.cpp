@@ -66,15 +66,15 @@ void MonitorActivity::refreshSnapshot() {
     return;
   }
 
-  x4::Snapshot snap = {};
-  if (!x4::parse_snapshot(body.c_str(), &snap)) {
+  eink::Snapshot snap = {};
+  if (!eink::parse_snapshot(body.c_str(), &snap)) {
     LOG_ERR("MONITOR", "bad snapshot JSON (%u bytes)", static_cast<unsigned>(body.size()));
     showMessage(tr(STR_PAGE_LOAD_ERROR), tr(STR_RETRY));
     requestUpdate();
     return;
   }
 
-  rowCount = x4::fill_monitor_lines(snap, lines, x4::kMaxMonitorLines);
+  rowCount = eink::fill_monitor_lines(snap, lines, eink::kMaxMonitorLines);
   rebuildRows();
   requestUpdate();
 }
@@ -82,6 +82,19 @@ void MonitorActivity::refreshSnapshot() {
 void MonitorActivity::activateIndex(int) {
   app.clearTapFlash();
   refreshSnapshot();
+}
+
+bool MonitorActivity::handleButtons() {
+  if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
+    onBackButton();
+    return true;
+  }
+  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+    app.clearTapFlash();
+    refreshSnapshot();
+    return true;
+  }
+  return false;
 }
 
 void MonitorActivity::buildScreen(UiScreen& screen) {

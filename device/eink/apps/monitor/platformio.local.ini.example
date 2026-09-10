@@ -1,11 +1,24 @@
 ; Copy to device/eink/crosspoint/platformio.local.ini (gitignored there).
-; CrossPoint 1.6 has no SDL / [env:simulator] target. Iterate on the X3 with
-; `pio run -e default -t upload` from the CrossPoint tree.
+; Do not let the PlatformIO IDE rewrite platformio.ini.
+; Flash with ../apps/monitor/flash.sh (not `pio run -t upload`).
 
 [env:default]
-lib_extra_dirs =
-  ${PROJECT_DIR}/../..
-  ${PROJECT_DIR}/../apps
+; Homebrew PlatformIO 6.2 needs platformio esptool, not pioarduino's zip.
+; SMARTLINK override: see scons_cxx_link.py (SCons 4.11 FortranCommon on py3.14).
+; FREEINK_DEVICE_X3 and X4 together are CrossPoint's Xteink SKU detect, not a
+; second firmware tree.
+platform_packages =
+  platformio/tool-esptoolpy@~2.41100.0
+extra_scripts =
+  pre:../apps/monitor/apply_crosspoint_patch.py
+  ${base.extra_scripts}
+  pre:../apps/monitor/scons_cxx_link.py
+  post:../apps/monitor/scons_cxx_link.py
+  post:../apps/monitor/restore_crosspoint_overlay.py
+build_src_filter =
+  +<*>
+  +<../../apps/monitor/src/>
+  +<../../src/>
 build_flags =
   ${base.build_flags}
   -DFREEINK_DEVICE_X4=1
@@ -15,4 +28,6 @@ build_flags =
   -DLOG_LEVEL=2
   -DGPIO_BUILD_MONITOR
   -I${PROJECT_DIR}/src
+  -I${PROJECT_DIR}/../apps/monitor/include
+  -I${PROJECT_DIR}/../include
   '-DMONITOR_STATUS_URL="https://monitor.mzworthington.co.uk/status?view=eink"'

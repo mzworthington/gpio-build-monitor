@@ -5,7 +5,7 @@
 ```shell
 make lint           # ruff
 make test           # ruff + pytest
-make test-x4        # native C++ tests for the Xteink duty cycle (`device/eink`)
+make test-eink      # native C++ tests for the e-ink snapshot parser (`device/eink`)
 ```
 
 Python dependencies are in `pyproject.toml`. Git hooks use [pre-commit](https://pre-commit.com/):

@@ -1,0 +1,142 @@
+diff --git a/src/activities/ActivityManager.cpp b/src/activities/ActivityManager.cpp
+index fa34ad72..47d95278 100644
+--- a/src/activities/ActivityManager.cpp
++++ b/src/activities/ActivityManager.cpp
+@@ -308,6 +308,10 @@ void ActivityManager::goHome(HomeMenuItem initialMenuItem, bool cleanInitialRefr
+       initialMenuItem = HomeMenuItem::FILE_TRANSFER;
+     } else if (activityName == "Settings") {
+       initialMenuItem = HomeMenuItem::SETTINGS_MENU;
++#if defined(GPIO_BUILD_MONITOR)
++    } else if (activityName == "BuildMonitor") {
++      initialMenuItem = HomeMenuItem::BUILD_MONITOR;
++#endif
+     }
+   }
+   replaceActivity(std::make_unique<HomeActivity>(renderer, mappedInput, initialMenuItem, cleanInitialRefresh));
+diff --git a/src/activities/ActivityManager.h b/src/activities/ActivityManager.h
+index acda6444..fe85315b 100644
+--- a/src/activities/ActivityManager.h
++++ b/src/activities/ActivityManager.h
+@@ -17,7 +17,17 @@
+ class Activity;    // forward declaration
+ class RenderLock;  // forward declaration
+ 
+-enum class HomeMenuItem { NONE, FILE_BROWSER, RECENTS, OPDS_BROWSER, FILE_TRANSFER, SETTINGS_MENU };
++enum class HomeMenuItem {
++  NONE,
++  FILE_BROWSER,
++  RECENTS,
++  OPDS_BROWSER,
++  FILE_TRANSFER,
++  SETTINGS_MENU,
++#if defined(GPIO_BUILD_MONITOR)
++  BUILD_MONITOR,
++#endif
++};
+ 
+ /**
+  * ActivityManager
+diff --git a/src/activities/home/HomeActivity.cpp b/src/activities/home/HomeActivity.cpp
+index c29d9b2f..ed7c6d1b 100644
+--- a/src/activities/home/HomeActivity.cpp
++++ b/src/activities/home/HomeActivity.cpp
+@@ -21,9 +21,17 @@
+ #include "RecentBooksStore.h"
+ #include "components/UITheme.h"
+ #include "fontIds.h"
++#if defined(GPIO_BUILD_MONITOR)
++#include <Memory.h>
++
++#include "MonitorActivity.h"
++#endif
+ 
+ int HomeActivity::getMenuItemCount() const {
+   int count = 4;  // File Browser, Recents, File transfer, Settings
++#if defined(GPIO_BUILD_MONITOR)
++  count++;
++#endif
+   if (!recentBooks.empty()) {
+     count += recentBooks.size();
+   }
+@@ -179,6 +187,11 @@ void HomeActivity::loop() {
+     }
+     const int menuIndex = selectorIndex - static_cast<int>(recentBooks.size());
+     switch (indexToMenuItem(menuIndex, hasOpdsServers)) {
++#if defined(GPIO_BUILD_MONITOR)
++      case HomeMenuItem::BUILD_MONITOR:
++        onBuildMonitorOpen();
++        break;
++#endif
+       case HomeMenuItem::FILE_BROWSER:
+         onFileBrowserOpen();
+         break;
+@@ -309,9 +322,18 @@ void HomeActivity::render(RenderLock&&) {
+                                         tr(STR_SETTINGS_TITLE)};
+   std::vector<UIIcon> menuIcons = {Folder, Recent, Transfer, Settings};
+ 
++#if defined(GPIO_BUILD_MONITOR)
++  menuItems.insert(menuItems.begin(), tr(STR_BUILD_MONITOR));
++  menuIcons.insert(menuIcons.begin(), Wifi);
++#endif
++
+   if (hasOpdsServers) {
+-    menuItems.insert(menuItems.begin() + 2, tr(STR_OPDS_BROWSER));
+-    menuIcons.insert(menuIcons.begin() + 2, Library);
++    int opdsAt = 2;
++#if defined(GPIO_BUILD_MONITOR)
++    opdsAt += 1;
++#endif
++    menuItems.insert(menuItems.begin() + opdsAt, tr(STR_OPDS_BROWSER));
++    menuIcons.insert(menuIcons.begin() + opdsAt, Library);
+   }
+ 
+   if (metrics.homeContinueReadingInMenu && !recentBooks.empty()) {
+@@ -356,3 +378,13 @@ void HomeActivity::onSettingsOpen() { activityManager.goToSettings(); }
+ void HomeActivity::onFileTransferOpen() { activityManager.goToFileTransfer(); }
+ 
+ void HomeActivity::onOpdsBrowserOpen() { activityManager.goToBrowser(); }
++
++#if defined(GPIO_BUILD_MONITOR)
++void HomeActivity::onBuildMonitorOpen() {
++  if (auto activity = makeUniqueNoThrow<MonitorActivity>(renderer, mappedInput)) {
++    startActivityForResult(std::move(activity), nullptr);
++  } else {
++    LOG_ERR("HOME", "OOM: MonitorActivity");
++  }
++}
++#endif
+diff --git a/src/activities/home/HomeActivity.h b/src/activities/home/HomeActivity.h
+index 4ea540e5..f2813837 100644
+--- a/src/activities/home/HomeActivity.h
++++ b/src/activities/home/HomeActivity.h
+@@ -34,6 +34,10 @@ class HomeActivity final : public Activity {
+   // Convert HomeMenuItem to menu index (used in onEnter)
+   static int menuItemToIndex(HomeMenuItem item, bool hasOpdsUrl) {
+     int i = 0;
++#if defined(GPIO_BUILD_MONITOR)
++    if (item == HomeMenuItem::BUILD_MONITOR) return i;
++    ++i;
++#endif
+     if (item == HomeMenuItem::FILE_BROWSER) return i;
+     ++i;
+     if (item == HomeMenuItem::RECENTS) return i;
+@@ -49,6 +53,9 @@ class HomeActivity final : public Activity {
+   // Convert menu index to HomeMenuItem (used in loop)
+   static HomeMenuItem indexToMenuItem(int idx, bool hasOpdsUrl) {
+     int i = 0;
++#if defined(GPIO_BUILD_MONITOR)
++    if (idx == i++) return HomeMenuItem::BUILD_MONITOR;
++#endif
+     if (idx == i++) return HomeMenuItem::FILE_BROWSER;
+     if (idx == i++) return HomeMenuItem::RECENTS;
+     if (hasOpdsUrl && idx == i++) return HomeMenuItem::OPDS_BROWSER;
+@@ -62,6 +69,9 @@ class HomeActivity final : public Activity {
+   void onSettingsOpen();
+   void onFileTransferOpen();
+   void onOpdsBrowserOpen();
++#if defined(GPIO_BUILD_MONITOR)
++  void onBuildMonitorOpen();
++#endif
+ 
+   int getMenuItemCount() const;
+   bool storeCoverBuffer();    // Store frame buffer for cover image

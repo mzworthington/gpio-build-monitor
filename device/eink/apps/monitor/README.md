@@ -1,12 +1,12 @@
 # CrossPoint Build monitor activity
 
 A `UiListActivity` that fetches `GET /status?view=eink`, parses it with the
-shared `device/eink` duty-cycle library, and lists jobs plus open PRs.
+shared `device/eink` library, and lists jobs plus open PRs.
 
-The pasted CrossPoint “desktop simulator / SDL2 / UiActivity / UiManager”
-guide does not match this tree (CrossPoint 1.6.0). There is no
-`[env:simulator]`. SDL2 is unused. Iterate on the X3 with PlatformIO
-`default` (ESP32-C3, X3+X4 flags already on).
+Keep the CrossPoint submodule on upstream. Overlay lives here:
+`patches/` plus `MonitorActivity`. `pio run` applies the patches, compiles,
+then `restore_crosspoint_overlay.py` checks the patched files back out so
+the submodule stays clean.
 
 ## Wire-up
 
@@ -17,25 +17,34 @@ cp device/eink/apps/monitor/platformio.local.ini.example \
    device/eink/crosspoint/platformio.local.ini
 ```
 
-2. Connect Wi-Fi from CrossPoint **Settings → System → Wi-Fi Networks**
-   (this activity does not store an SSID).
+Do not let the PlatformIO IDE rewrite `platformio.ini`.
+
+2. Connect Wi-Fi from CrossPoint **Settings → System → Wi-Fi Networks**.
 3. Edit `MONITOR_STATUS_URL` in `platformio.local.ini` if you are not using
    `https://monitor.mzworthington.co.uk/status?view=eink`.
-4. Build and flash the **reader** image (this replaces the standalone
-   `device/x3` sketch):
+4. Flash from the repo root (CDC on the X3 vanishes if PlatformIO hunts for
+   a port for ~12s):
 
 ```shell
-cd device/eink/crosspoint
-pio run -e default -t upload --upload-port /dev/cu.usbmodem*
-pio device monitor -b 115200
+device/eink/apps/monitor/flash.sh
 ```
 
-5. Open **Settings → System → Build monitor**. Confirm/Select refreshes.
-   Back returns to Settings.
+Hold **Boot/Select**, tap Reset or power, keep Boot held until you see
+`flashing`. Or copy `.pio/build/default/firmware.bin` to the SD card as
+`update.bin` and boot with **Power + top-left**.
+
+5. From the home menu, open **Build monitor**. Confirm (footer **Retry**)
+   fetches `/status` again. Back returns to home.
+
+After a CrossPoint bump:
+
+```shell
+git -C device/eink/crosspoint checkout -- .
+git -C device/eink/crosspoint submodule update --init --recursive
+```
+
+`pio run` reapplies the patches. If either fails, refresh the matching file
+under `patches/` against the new CrossPoint sources.
 
 Keep a stock CrossPoint `update.bin` on the SD card before the first overlay
 flash.
-
-The CrossPoint submodule is patched (`SettingAction::BuildMonitor`,
-`STR_BUILD_MONITOR`) behind `-DGPIO_BUILD_MONITOR` so a stock build without
-the local ini stays a reader.

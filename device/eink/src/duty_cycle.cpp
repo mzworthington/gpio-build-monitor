@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <cstring>
 
-namespace x4 {
+namespace eink {
 namespace {
 
 void set_default_snapshot(Snapshot* out) {
@@ -377,56 +377,6 @@ bool parse_open_prs(const char** pp, Snapshot* out) {
 
 }  // namespace
 
-uint8_t bump_fail_streak(uint8_t fail_streak) {
-  if (fail_streak >= kMaxFailStreak) {
-    return kMaxFailStreak;
-  }
-  return static_cast<uint8_t>(fail_streak + 1);
-}
-
-uint32_t backoff_sleep(uint32_t base, uint8_t fail_streak) {
-  uint32_t seconds = base;
-  if (fail_streak >= 32) {
-    return kMaxSleepSeconds;
-  }
-  seconds = base << fail_streak;
-  if (seconds < base || seconds > kMaxSleepSeconds) {
-    return kMaxSleepSeconds;
-  }
-  return seconds;
-}
-
-uint32_t apply_usb_sleep_cap(uint32_t seconds, bool charging) {
-  if (charging && seconds > kUsbDeskSleepSeconds) {
-    return kUsbDeskSleepSeconds;
-  }
-  return seconds;
-}
-
-bool copy_etag(char* dest, std::size_t dest_cap, const char* etag) {
-  if (dest == nullptr || dest_cap == 0 || etag == nullptr || etag[0] == '\0') {
-    return false;
-  }
-  const std::size_t len = std::strlen(etag);
-  if (len >= dest_cap) {
-    return false;
-  }
-  std::memcpy(dest, etag, len + 1);
-  return true;
-}
-
-uint32_t parse_retry_after(const char* header) {
-  if (header == nullptr || header[0] == '\0') {
-    return 0;
-  }
-  const char* p = header;
-  uint32_t value = 0;
-  if (!parse_uint(&p, &value)) {
-    return 0;
-  }
-  return value;
-}
-
 bool parse_snapshot(const char* json, Snapshot* out) {
   if (out == nullptr || json == nullptr) {
     return false;
@@ -491,65 +441,4 @@ bool parse_snapshot(const char* json, Snapshot* out) {
   return false;
 }
 
-CyclePlan plan_cycle(
-    uint8_t fail_streak,
-    uint8_t updates_since_full,
-    const Fetch& fetch,
-    bool charging) {
-  CyclePlan plan = {};
-  plan.panel = PanelAction::Leave;
-  plan.fail_streak = fail_streak;
-  plan.updates_since_full = updates_since_full;
-  plan.store_etag = false;
-  set_default_snapshot(&plan.snapshot);
-
-  auto finish = [&](uint32_t seconds) {
-    if (seconds == 0) {
-      seconds = kDefaultSleepSeconds;
-    }
-    plan.sleep_seconds = apply_usb_sleep_cap(seconds, charging);
-    return plan;
-  };
-
-  if (fetch.http_code == 0) {
-    plan.fail_streak = bump_fail_streak(fail_streak);
-    if (fail_streak == 0) {
-      plan.panel = PanelAction::Full;
-      std::strcpy(plan.snapshot.status, "NO WIFI");
-    }
-    return finish(backoff_sleep(kFetchErrorSleepSeconds, plan.fail_streak));
-  }
-
-  const uint32_t retry = parse_retry_after(fetch.retry_after);
-  uint32_t sleep = retry;
-
-  if (fetch.http_code == 304) {
-    plan.fail_streak = 0;
-    plan.store_etag = true;
-    return finish(sleep);
-  }
-
-  if (fetch.http_code != 200) {
-    plan.fail_streak = bump_fail_streak(fail_streak);
-    const uint32_t base = retry != 0 ? retry : kDefaultSleepSeconds;
-    return finish(backoff_sleep(base, plan.fail_streak));
-  }
-
-  if (!parse_snapshot(fetch.body, &plan.snapshot)) {
-    plan.fail_streak = bump_fail_streak(fail_streak);
-    return finish(backoff_sleep(kDefaultSleepSeconds, plan.fail_streak));
-  }
-
-  plan.fail_streak = 0;
-  plan.store_etag = true;
-  if (plan.snapshot.has_sleep_seconds && plan.snapshot.sleep_seconds > 0) {
-    sleep = plan.snapshot.sleep_seconds;
-  }
-  const bool full =
-      updates_since_full >= kFullRefreshEvery || std::strcmp(plan.snapshot.status, "FAIL") == 0;
-  plan.panel = full ? PanelAction::Full : PanelAction::Partial;
-  plan.updates_since_full = full ? 0 : static_cast<uint8_t>(updates_since_full + 1);
-  return finish(sleep);
-}
-
-}  // namespace x4
+}  // namespace eink

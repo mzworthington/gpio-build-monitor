@@ -91,4 +91,4 @@ See [Raspberry Pi](raspberry-pi.md) for hardware setup and systemd.
 
 Menu bar on a Mac: [Mac menu bar](macos.md) (SwiftBar + `GET /status`).
 
-Battery e-ink (Xteink X3/X4): [Xteink e-ink](xteink-x4.md) (firmware + `GET /status?view=eink`).
+Battery e-ink (Xteink X3): [Xteink e-ink](xteink-x3.md) (CrossPoint overlay + `GET /status?view=eink`).

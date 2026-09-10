@@ -5,7 +5,7 @@
 #include <cstdio>
 #include <cstring>
 
-namespace x4 {
+namespace eink {
 
 inline bool attention_status(const char* status) {
   return std::strcmp(status, "FAIL") == 0 || std::strcmp(status, "UNKNOWN") == 0 ||
@@ -134,4 +134,4 @@ inline uint8_t fill_monitor_lines(const Snapshot& snap, MonitorLine* out, uint8_
   return n;
 }
 
-}  // namespace x4
+}  // namespace eink

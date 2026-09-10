@@ -1,7 +1,7 @@
 {
-  "name": "eink-duty-cycle",
+  "name": "eink-status",
   "version": "0.1.0",
-  "description": "Host-tested snapshot duty cycle for Xteink clients",
+  "description": "Host-tested /status snapshot parser for the CrossPoint Build monitor",
   "frameworks": "*",
   "platforms": "*"
 }

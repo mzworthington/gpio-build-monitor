@@ -149,11 +149,7 @@ app.log
 worker/node_modules/
 worker/.wrangler/
 
-# Xteink firmware local secrets, PlatformIO, and host tests
-device/x3/include/secrets.h
-device/x3/.pio/
-device/x4/include/secrets.h
-device/x4/.pio/
+# Xteink firmware local secrets leftover, PlatformIO, and host tests
 device/eink/host_test/duty_cycle_test
 device/eink/host_test/duty_cycle_test.dSYM/
 
