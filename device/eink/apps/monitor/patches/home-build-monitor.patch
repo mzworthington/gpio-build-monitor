@@ -1,3 +1,15 @@
+diff --git a/lib/I18n/translations/english.yaml b/lib/I18n/translations/english.yaml
+index 6d91063b..b9c79946 100644
+--- a/lib/I18n/translations/english.yaml
++++ b/lib/I18n/translations/english.yaml
+@@ -10,6 +10,7 @@ STR_ENTERING_SLEEP: "Going to sleep"
+ STR_BROWSE_FILES: "Browse Files"
+ STR_FILE_TRANSFER: "File Transfer"
+ STR_SETTINGS_TITLE: "Settings"
++STR_BUILD_MONITOR: "Build monitor"
+ STR_CONTINUE_READING: "Continue Reading"
+ STR_RESUME: "Resume"
+ STR_NO_OPEN_BOOK: "No open book"
 diff --git a/src/activities/ActivityManager.cpp b/src/activities/ActivityManager.cpp
 index fa34ad72..47d95278 100644
 --- a/src/activities/ActivityManager.cpp

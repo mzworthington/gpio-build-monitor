@@ -5,10 +5,10 @@ set -euo pipefail
 # Do not use `pio run -t upload`: PlatformIO's port hunt drops the node.
 
 here=${0:A:h}
+source "$here/usb_cdc.zsh"
 crosspoint=${here:h:h}/crosspoint
 fw=${crosspoint}/.pio/build/default/firmware.bin
 penv=${HOME}/.platformio/penv/bin
-python=${penv}/python
 
 if [[ ! -x ${penv}/esptool && ! -x ${penv}/esptool.py ]]; then
   print -u2 "esptool not found under ~/.platformio/penv/bin"
@@ -20,21 +20,9 @@ esptool=${penv}/esptool
 if [[ ${1:-} == --build || ! -f $fw ]]; then
   print "Building overlay firmware"
   (cd "$crosspoint" && pio run -e default)
+  "$usb_cdc_python" "$here/restore_crosspoint_overlay.py" "$crosspoint"
 fi
 [[ -f $fw ]] || { print -u2 "missing $fw"; exit 1 }
-
-port_ready() {
-  local p=$1
-  [[ -e $p ]] || return 1
-  "$python" -c "
-import serial, sys
-try:
-    s = serial.Serial(sys.argv[1], 115200, timeout=0.2)
-    s.close()
-except Exception:
-    raise SystemExit(1)
-" "$p"
-}
 
 print "Leave CrossPoint running on USB. Do not hold Boot unless the port never appears."
 print "Waiting for a stable /dev/cu.usbmodem*"
@@ -54,7 +42,7 @@ while true; do
   fi
   sleep 0.6
   [[ -e $p ]] || continue
-  if ! port_ready "$p"; then
+  if ! usb_cdc_port_ready "$p"; then
     print "stale $p"
     last_fail=$p
     while [[ -e $p ]]; do sleep 0.05; done
@@ -66,6 +54,7 @@ while true; do
     --before usb-reset --after hard-reset \
     write-flash 0x10000 "$fw"; then
     print "flash ok"
+    print "Serial: $here/debug.sh"
     exit 0
   fi
   print "retry after disconnect"

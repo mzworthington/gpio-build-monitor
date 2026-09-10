@@ -4,9 +4,9 @@ A `UiListActivity` that fetches `GET /status?view=eink`, parses it with the
 shared `device/eink` library, and lists jobs plus open PRs.
 
 Keep the CrossPoint submodule on upstream. Overlay lives here:
-`patches/` plus `MonitorActivity`. `pio run` applies the patches, compiles,
-then `restore_crosspoint_overlay.py` checks the patched files back out so
-the submodule stays clean.
+`patches/home-build-monitor.patch` plus `MonitorActivity`. `pio run` applies the
+patch, compiles, then restores CrossPoint sources after `firmware.bin` is
+linked (not at extra_script import).
 
 ## Wire-up
 
@@ -33,8 +33,17 @@ Hold **Boot/Select**, tap Reset or power, keep Boot held until you see
 `flashing`. Or copy `.pio/build/default/firmware.bin` to the SD card as
 `update.bin` and boot with **Power + top-left**.
 
-5. From the home menu, open **Build monitor**. Confirm (footer **Retry**)
-   fetches `/status` again. Back returns to home.
+5. From the home menu, open **Build monitor** (first row). Confirm (footer
+   **Retry**) fetches `/status` again. Back returns to home.
+
+USB serial (115200, after the device enumerates CDC):
+
+```shell
+device/eink/apps/monitor/debug.sh
+```
+
+Quit with Ctrl-]. Look for `HOME` / `MONITOR` lines. Do not use
+`pio device monitor`; that port hunt drops CDC the same way upload does.
 
 After a CrossPoint bump:
 
@@ -43,8 +52,8 @@ git -C device/eink/crosspoint checkout -- .
 git -C device/eink/crosspoint submodule update --init --recursive
 ```
 
-`pio run` reapplies the patches. If either fails, refresh the matching file
-under `patches/` against the new CrossPoint sources.
+`pio run` reapplies the patch. If it fails, refresh
+`patches/home-build-monitor.patch` against the new CrossPoint sources.
 
 Keep a stock CrossPoint `update.bin` on the SD card before the first overlay
 flash.

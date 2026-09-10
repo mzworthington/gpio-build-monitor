@@ -1,6 +1,9 @@
 ; Copy to device/eink/crosspoint/platformio.local.ini (gitignored there).
 ; Do not let the PlatformIO IDE rewrite platformio.ini.
 ; Flash with ../apps/monitor/flash.sh (not `pio run -t upload`).
+; Serial logs: ../apps/monitor/debug.sh (not `pio device monitor`).
+; restore_crosspoint_overlay.py must AddPostAction the .bin; a `post:` import
+; checkout compiles stock HomeActivity and drops the home-menu row.
 
 [env:default]
 ; Homebrew PlatformIO 6.2 needs platformio esptool, not pioarduino's zip.

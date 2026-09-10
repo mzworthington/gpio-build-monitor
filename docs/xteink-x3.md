@@ -10,7 +10,7 @@ GitHub / CircleCI ──► StatusHub (Worker, always on)
                            │  GET /status?view=eink
                            ▼
                      CrossPoint on X3
-                     Settings / home → Build monitor
+                     home → Build monitor
 ```
 
 GPIO LEDs stay on the Pi. Nothing in `monitor/` drives the e-ink panel.
@@ -26,7 +26,11 @@ device/eink/apps/monitor/flash.sh
 
 Do not use `pio run -t upload`. PlatformIO's port hunt drops native USB CDC
 on this chip. The script builds first, then calls esptool as soon as
-`/dev/cu.usbmodem*` appears.
+`/dev/cu.usbmodem*` appears. For serial logs:
+
+```shell
+device/eink/apps/monitor/debug.sh
+```
 
 Wi-Fi is CrossPoint **Settings → System → Wi-Fi Networks** (up to 8 saved
 SSIDs on the SD card). Send a User-Agent on `GET /status`; Cloudflare 403s
