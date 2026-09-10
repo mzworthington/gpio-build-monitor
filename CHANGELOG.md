@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.18.0 (2026-09-10)
+
+### Features
+
+- **monitor**: Enhance Build Monitor with workflow support
+  ([`336a60e`](https://github.com/mzworthington/gpio-build-monitor/commit/336a60e63109840f904eb75edadf77c12dbcde0c))
+
+
 ## v0.17.0 (2026-09-10)
 
 ### Chores
