@@ -111,9 +111,11 @@ void MonitorActivity::refreshSnapshot() {
 
   const FetchResult fetched = fetchSnapshot(MONITOR_STATUS_URL, &g_snap);
   if (fetched != FetchResult::Ok) {
-    showMessage(
-        tr(fetched == FetchResult::Parse ? STR_PAGE_LOAD_ERROR : STR_CONNECTION_FAILED),
-        tr(fetched == FetchResult::Parse ? STR_RETRY : STR_PRESS_OK_SCAN));
+    if (fetched == FetchResult::Parse) {
+      showMessage(tr(STR_PAGE_LOAD_ERROR), tr(STR_RETRY));
+    } else {
+      showMessage(tr(STR_CONNECTION_FAILED), tr(STR_PRESS_OK_SCAN));
+    }
     requestUpdate();
     return;
   }
