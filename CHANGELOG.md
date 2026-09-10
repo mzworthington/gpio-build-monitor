@@ -2,6 +2,42 @@
 
 <!-- version list -->
 
+## v0.17.0 (2026-09-10)
+
+### Chores
+
+- **ui**: Remove duplicate IaC import functionality
+  ([`d06ed79`](https://github.com/mzworthington/gpio-build-monitor/commit/d06ed7986ab20a484d8a0c54459d85215b09ac27))
+
+### Features
+
+- Add repository field to BuildRow and update related tests
+  ([`05287b7`](https://github.com/mzworthington/gpio-build-monitor/commit/05287b7e2d295de57cd4d4735368e2b68c886a4e))
+
+- Add repository field to BuildRow and update related tests
+  ([`4be19b6`](https://github.com/mzworthington/gpio-build-monitor/commit/4be19b657a8385036e240b3fdd5f711b3cd88069))
+
+- Add submodule for crosspoint e-ink device
+  ([`022204b`](https://github.com/mzworthington/gpio-build-monitor/commit/022204b8b2159a90df0da86dd5c6a324476e6f75))
+
+- Eink display
+  ([`199be15`](https://github.com/mzworthington/gpio-build-monitor/commit/199be157aa8f035ab4b77ea627af2de6692f7a25))
+
+- X3
+  ([`dca141e`](https://github.com/mzworthington/gpio-build-monitor/commit/dca141e14a608ed4ead2c28998bf20d9cc11f57b))
+
+- **eink**: Add repository handling in snapshot parsing and monitoring
+  ([`eebbad4`](https://github.com/mzworthington/gpio-build-monitor/commit/eebbad42331a6055768eed06ce94a8533fb31554))
+
+- **monitor**: Implement Build Monitor activity and related patches
+  ([`ddbd8df`](https://github.com/mzworthington/gpio-build-monitor/commit/ddbd8df8cc70041ef625a96364951c60c571f41f))
+
+### Refactoring
+
+- **monitor**: Streamline patch application and update documentation for Build Monitor
+  ([`e3467dc`](https://github.com/mzworthington/gpio-build-monitor/commit/e3467dc3ebf2edd8b1e10afc1a362ca3fcd3c0f4))
+
+
 ## v0.16.0 (2026-09-06)
 
 ### Documentation
