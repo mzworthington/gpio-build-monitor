@@ -120,6 +120,28 @@ describe('einkPayload', () => {
     expect(compact.repos[0]).not.toHaveProperty('workflows');
   });
 
+  it('uses RUNNING when the hub still reports NONE for in-progress jobs', () => {
+    const compact = einkPayload({
+      type: 'status',
+      fetching: false,
+      status: 'NONE',
+      is_running: true,
+      builds: [
+        {
+          repo: 'acme/web',
+          workflow: 'CI',
+          status: 'RUNNING',
+          url: 'https://example.com/1',
+        },
+      ],
+      poll_in_seconds: 30,
+      last_checked_at: 100,
+      next_check_at: 130,
+    });
+    expect(compact.status).toBe('RUNNING');
+    expect(compact.repos[0]?.status).toBe('RUNNING');
+  });
+
   it('keeps pr_count on green repos', () => {
     const compact = einkPayload({
       type: 'status',

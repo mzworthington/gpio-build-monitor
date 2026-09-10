@@ -236,6 +236,9 @@ void test_parse_snapshot_defaults_and_rejects_garbage() {
 
 void test_status_view_labels_and_job_title() {
   CHECK_STREQ(eink::hero_label("NONE"), "Idle");
+  CHECK_STREQ(eink::hero_label("NONE", true), "Run");
+  CHECK_STREQ(eink::hero_label("RUNNING"), "Run");
+  CHECK_STREQ(eink::hero_label("WAITING"), "Wait");
   CHECK_STREQ(eink::hero_label("FAIL"), "Fail");
   CHECK_STREQ(eink::chip_label("RUNNING"), "RUN");
   CHECK(eink::attention_status("FAIL"));
