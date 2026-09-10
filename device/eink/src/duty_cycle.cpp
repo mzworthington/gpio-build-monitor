@@ -14,6 +14,7 @@ void set_default_snapshot(Snapshot* out) {
   out->has_sleep_seconds = false;
   out->build_count = 0;
   out->open_pr_count = 0;
+  out->repo_count = 0;
 }
 
 const char* skip_ws(const char* p) {
@@ -375,6 +376,107 @@ bool parse_open_prs(const char** pp, Snapshot* out) {
   return false;
 }
 
+bool parse_repo_object(const char** pp, RepoRow* row) {
+  const char* p = skip_ws(*pp);
+  if (*p != '{') {
+    return false;
+  }
+  ++p;
+  *pp = p;
+  std::strcpy(row->repo, "?");
+  std::strcpy(row->status, "?");
+  row->workflow_count = 0;
+  row->pr_count = 0;
+  row->is_running = false;
+  p = skip_ws(*pp);
+  if (*p == '}') {
+    *pp = p + 1;
+    return true;
+  }
+  while (*p) {
+    char key[24];
+    if (!parse_string(pp, key, sizeof(key))) {
+      return false;
+    }
+    p = skip_ws(*pp);
+    if (*p != ':') {
+      return false;
+    }
+    *pp = p + 1;
+    if (std::strcmp(key, "repo") == 0) {
+      if (!parse_string(pp, row->repo, sizeof(row->repo))) {
+        return false;
+      }
+    } else if (std::strcmp(key, "status") == 0) {
+      if (!parse_string(pp, row->status, sizeof(row->status))) {
+        return false;
+      }
+    } else if (std::strcmp(key, "workflow_count") == 0) {
+      if (!parse_uint(pp, &row->workflow_count)) {
+        return false;
+      }
+    } else if (std::strcmp(key, "pr_count") == 0) {
+      if (!parse_uint(pp, &row->pr_count)) {
+        return false;
+      }
+    } else if (std::strcmp(key, "is_running") == 0) {
+      if (!parse_bool(pp, &row->is_running)) {
+        return false;
+      }
+    } else if (!skip_value(pp)) {
+      return false;
+    }
+    p = skip_ws(*pp);
+    if (*p == ',') {
+      *pp = p + 1;
+      p = skip_ws(*pp);
+      continue;
+    }
+    if (*p == '}') {
+      *pp = p + 1;
+      return true;
+    }
+    return false;
+  }
+  return false;
+}
+
+bool parse_repos(const char** pp, Snapshot* out) {
+  const char* p = skip_ws(*pp);
+  if (*p != '[') {
+    return false;
+  }
+  ++p;
+  *pp = p;
+  p = skip_ws(*pp);
+  if (*p == ']') {
+    *pp = p + 1;
+    return true;
+  }
+  while (*p) {
+    if (out->repo_count < kMaxRepos) {
+      if (!parse_repo_object(pp, &out->repos[out->repo_count])) {
+        return false;
+      }
+      ++out->repo_count;
+    } else if (!skip_value(pp)) {
+      return false;
+    }
+    p = skip_ws(*pp);
+    if (*p == ',') {
+      *pp = p + 1;
+      p = skip_ws(*pp);
+      continue;
+    }
+    if (*p == ']') {
+      *pp = p + 1;
+      return true;
+    }
+    return false;
+  }
+  return false;
+}
+
 }  // namespace
 
 bool parse_snapshot(const char* json, Snapshot* out) {
@@ -422,6 +524,10 @@ bool parse_snapshot(const char* json, Snapshot* out) {
       }
     } else if (std::strcmp(key, "open_prs") == 0) {
       if (!parse_open_prs(&p, out)) {
+        return false;
+      }
+    } else if (std::strcmp(key, "repos") == 0) {
+      if (!parse_repos(&p, out)) {
         return false;
       }
     } else if (!skip_value(&p)) {

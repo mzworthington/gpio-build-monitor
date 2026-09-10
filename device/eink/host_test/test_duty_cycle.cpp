@@ -43,6 +43,49 @@ void check(bool cond, const char* expr, const char* file, int line) {
     } \
   } while (0)
 
+void test_parse_snapshot_repos_include_zero_pr_counts() {
+  const char* json =
+      "{"
+      "\"status\":\"FAIL\","
+      "\"repos\":["
+      "{\"repo\":\"acme/api\",\"status\":\"PASS\",\"workflow_count\":1,\"pr_count\":2,\"is_running\":false},"
+      "{\"repo\":\"acme/web\",\"status\":\"FAIL\",\"workflow_count\":2,\"pr_count\":0,\"is_running\":false}"
+      "]"
+      "}";
+  eink::Snapshot snap = {};
+  CHECK(eink::parse_snapshot(json, &snap));
+  CHECK_EQ(snap.repo_count, 2);
+  CHECK_STREQ(snap.repos[0].repo, "acme/api");
+  CHECK_EQ(snap.repos[0].workflow_count, 1);
+  CHECK_EQ(snap.repos[0].pr_count, 2);
+  CHECK_STREQ(snap.repos[1].status, "FAIL");
+  CHECK_EQ(snap.repos[1].pr_count, 0);
+}
+
+void test_monitor_lines_list_every_repo_with_action_and_pr_counts() {
+  eink::Snapshot snap = {};
+  std::strcpy(snap.status, "FAIL");
+  snap.has_sleep_seconds = true;
+  snap.sleep_seconds = 180;
+  snap.repo_count = 2;
+  std::strcpy(snap.repos[0].repo, "acme/api");
+  std::strcpy(snap.repos[0].status, "PASS");
+  snap.repos[0].workflow_count = 1;
+  snap.repos[0].pr_count = 2;
+  std::strcpy(snap.repos[1].repo, "acme/web");
+  std::strcpy(snap.repos[1].status, "FAIL");
+  snap.repos[1].workflow_count = 2;
+  snap.repos[1].pr_count = 0;
+
+  eink::MonitorLine lines[eink::kMaxMonitorLines] = {};
+  CHECK_EQ(eink::fill_monitor_lines(snap, lines, eink::kMaxMonitorLines), 3);
+  CHECK_STREQ(lines[0].title, "Fail");
+  CHECK_STREQ(lines[1].title, "acme/api");
+  CHECK_STREQ(lines[1].subtitle, "OK · 1 action · 2 PRs");
+  CHECK_STREQ(lines[2].title, "acme/web");
+  CHECK_STREQ(lines[2].subtitle, "FAIL · 2 actions · 0 PRs");
+}
+
 void test_parse_snapshot_compact_payload() {
   const char* json =
       "{"
@@ -161,6 +204,8 @@ void test_monitor_lines_idle_when_snapshot_is_empty() {
 }  // namespace
 
 int main() {
+  test_parse_snapshot_repos_include_zero_pr_counts();
+  test_monitor_lines_list_every_repo_with_action_and_pr_counts();
   test_parse_snapshot_compact_payload();
   test_parse_snapshot_open_prs_when_workflows_are_green();
   test_parse_snapshot_defaults_and_rejects_garbage();

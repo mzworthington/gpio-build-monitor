@@ -1,4 +1,4 @@
-import type { AggregateStatus, StatusPayload } from './ci';
+import { aggregate, type AggregateStatus, type BuildDetail, type StatusPayload } from './ci';
 
 export const SLEEP_RUNNING_SECONDS = 120;
 export const SLEEP_ATTENTION_SECONDS = 180;
@@ -21,6 +21,52 @@ export function sleepSeconds(status: AggregateStatus, isRunning: boolean): numbe
   }
   if (status === 'CONNECTION_ERROR') return SLEEP_FETCH_ERROR_SECONDS;
   return SLEEP_SETTLED_SECONDS;
+}
+
+export interface RepoGlance {
+  repo: string;
+  status: string;
+  workflow_count: number;
+  pr_count: number;
+  is_running: boolean;
+}
+
+export function repoGlances(builds: StatusPayload['builds']): RepoGlance[] {
+  const byRepo = new Map<string, BuildDetail[]>();
+  for (const build of builds) {
+    const repo = build.repo || '';
+    if (!repo) {
+      continue;
+    }
+    const group = byRepo.get(repo);
+    if (group) {
+      group.push(build);
+    } else {
+      byRepo.set(repo, [build]);
+    }
+  }
+  const rows: RepoGlance[] = [];
+  for (const [repo, group] of byRepo) {
+    const { status, is_running } = aggregate(group);
+    let display: string = status;
+    if (status === 'NONE' && is_running) {
+      const waitingOnly =
+        group.some((build) => build.status === 'WAITING') &&
+        !group.some((build) => build.status === 'RUNNING');
+      display = waitingOnly ? 'WAITING' : 'RUNNING';
+    }
+    const prRaw = group.find((build) => build.pr_count != null)?.pr_count;
+    const prCount = Number(prRaw);
+    rows.push({
+      repo,
+      status: display,
+      workflow_count: group.length,
+      pr_count: Number.isFinite(prCount) ? prCount : 0,
+      is_running,
+    });
+  }
+  rows.sort((a, b) => a.repo.localeCompare(b.repo));
+  return rows;
 }
 
 export function openPrGlances(
@@ -60,13 +106,18 @@ export function snapshotEtag(payload: StatusPayload): string {
 
 export function einkPayload(
   payload: StatusPayload,
-): StatusPayload & { sleep_seconds: number; open_prs: ReturnType<typeof openPrGlances> } {
+): StatusPayload & {
+  sleep_seconds: number;
+  open_prs: ReturnType<typeof openPrGlances>;
+  repos: RepoGlance[];
+} {
   return {
     type: 'status',
     fetching: false,
     status: payload.status,
     is_running: payload.is_running,
     builds: payload.builds.filter((build) => GLANCEABLE.has(build.status)),
+    repos: repoGlances(payload.builds),
     open_prs: openPrGlances(payload.builds),
     poll_in_seconds: payload.poll_in_seconds,
     last_checked_at: payload.last_checked_at,

@@ -99,7 +99,15 @@ struct MonitorLine {
   char subtitle[kWorkflowCap];
 };
 
-inline constexpr uint8_t kMaxMonitorLines = 1 + kMaxBuilds + kMaxOpenPrs;
+inline constexpr uint8_t kMaxMonitorLines = 1 + kMaxRepos;
+
+inline const char* count_label(uint32_t n, const char* one, const char* many) { return n == 1 ? one : many; }
+
+inline void format_repo_counts(char* dest, std::size_t cap, const RepoRow& row) {
+  std::snprintf(dest, cap, "%s · %u %s · %u %s", chip_label(row.status),
+                static_cast<unsigned>(row.workflow_count), count_label(row.workflow_count, "action", "actions"),
+                static_cast<unsigned>(row.pr_count), count_label(row.pr_count, "PR", "PRs"));
+}
 
 inline uint8_t fill_monitor_lines(const Snapshot& snap, MonitorLine* out, uint8_t cap) {
   if (out == nullptr || cap == 0) {
@@ -107,7 +115,7 @@ inline uint8_t fill_monitor_lines(const Snapshot& snap, MonitorLine* out, uint8_
   }
   uint8_t n = 0;
   std::snprintf(out[n].title, sizeof(out[n].title), "%s", hero_label(snap.status));
-  if (snap.build_count == 0 && snap.open_pr_count == 0) {
+  if (snap.repo_count == 0 && snap.build_count == 0 && snap.open_pr_count == 0) {
     std::snprintf(out[n].subtitle, sizeof(out[n].subtitle), "%s", empty_body(attention_status(snap.status)));
   } else if (snap.has_sleep_seconds) {
     format_sleep(out[n].subtitle, sizeof(out[n].subtitle), snap.sleep_seconds);
@@ -115,6 +123,14 @@ inline uint8_t fill_monitor_lines(const Snapshot& snap, MonitorLine* out, uint8_
     out[n].subtitle[0] = '\0';
   }
   ++n;
+  if (snap.repo_count > 0) {
+    for (uint8_t i = 0; i < snap.repo_count && n < cap; ++i) {
+      std::snprintf(out[n].title, sizeof(out[n].title), "%s", snap.repos[i].repo);
+      format_repo_counts(out[n].subtitle, sizeof(out[n].subtitle), snap.repos[i]);
+      ++n;
+    }
+    return n;
+  }
   for (uint8_t i = 0; i < snap.build_count && n < cap; ++i) {
     std::snprintf(out[n].title, sizeof(out[n].title), "%s", job_title(snap.builds[i]));
     if (job_shows_workflow(snap.builds[i])) {

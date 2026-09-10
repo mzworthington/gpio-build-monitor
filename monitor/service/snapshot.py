@@ -13,7 +13,7 @@ from hashlib import sha256
 from json import dumps
 from typing import Any
 
-from monitor.service.aggregator_service import Result
+from monitor.service.aggregator_service import BuildDetail, Result, repo_summaries
 
 # Seconds the device should remain in deep sleep after a successful sample.
 # The hub keeps polling on its own cadence; these values are for the radio.
@@ -103,6 +103,34 @@ def eink_builds(builds: Sequence[Mapping[str, Any]] | None) -> list[Mapping[str,
     ]
 
 
+def eink_repos(builds: Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any]]:
+    details: list[BuildDetail] = []
+    for item in builds or []:
+        row: BuildDetail = {
+            "repo": str(item.get("repo") or ""),
+            "workflow": str(item.get("workflow") or ""),
+            "status": str(item.get("status") or ""),
+            "url": str(item.get("url") or ""),
+        }
+        pr_count = item.get("pr_count")
+        if pr_count is not None:
+            row["pr_count"] = int(pr_count)
+        pr_url = item.get("pr_url")
+        if pr_url:
+            row["pr_url"] = str(pr_url)
+        details.append(row)
+    return [
+        {
+            "repo": summary["repo"],
+            "status": summary["status"],
+            "workflow_count": summary["workflow_count"],
+            "pr_count": int(summary["pr_count"] or 0),
+            "is_running": bool(summary["is_running"]),
+        }
+        for summary in repo_summaries(details)
+    ]
+
+
 def eink_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     """Compact snapshot: same keys, but only glanceable builds."""
     status = str(payload.get("status") or Result.NONE.value)
@@ -116,6 +144,7 @@ def eink_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         "status": status,
         "is_running": is_running,
         "builds": builds,
+        "repos": eink_repos(raw_list),
         "open_prs": open_pr_glances(raw_list),
         "poll_in_seconds": payload.get("poll_in_seconds"),
         "last_checked_at": payload.get("last_checked_at"),

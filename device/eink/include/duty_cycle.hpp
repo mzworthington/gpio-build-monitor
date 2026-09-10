@@ -8,6 +8,7 @@ namespace eink {
 constexpr std::size_t kStatusCap = 24;
 constexpr std::size_t kWorkflowCap = 64;
 constexpr std::size_t kMaxBuilds = 16;
+constexpr std::size_t kMaxRepos = 16;
 constexpr std::size_t kRepoCap = 48;
 constexpr uint8_t kMaxOpenPrs = 8;
 
@@ -22,6 +23,14 @@ struct OpenPrRow {
   uint32_t pr_count;
 };
 
+struct RepoRow {
+  char repo[kRepoCap];
+  char status[kStatusCap];
+  uint32_t workflow_count;
+  uint32_t pr_count;
+  bool is_running;
+};
+
 struct Snapshot {
   char status[kStatusCap];
   bool is_running;
@@ -31,6 +40,8 @@ struct Snapshot {
   uint8_t build_count;
   OpenPrRow open_prs[kMaxOpenPrs];
   uint8_t open_pr_count;
+  RepoRow repos[kMaxRepos];
+  uint8_t repo_count;
 };
 
 bool parse_snapshot(const char* json, Snapshot* out);

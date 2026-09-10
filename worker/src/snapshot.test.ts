@@ -90,6 +90,26 @@ describe('snapshotEtag', () => {
 });
 
 describe('einkPayload', () => {
+  it('lists every checked repo with action and pr counts', () => {
+    const compact = einkPayload(failPayload);
+    expect(compact.repos).toEqual([
+      {
+        repo: 'acme/api',
+        status: 'RUNNING',
+        workflow_count: 1,
+        pr_count: 0,
+        is_running: true,
+      },
+      {
+        repo: 'acme/web',
+        status: 'FAIL',
+        workflow_count: 2,
+        pr_count: 0,
+        is_running: false,
+      },
+    ]);
+  });
+
   it('keeps only glanceable builds and adds sleep_seconds', () => {
     const compact = einkPayload(failPayload);
     expect(compact.fetching).toBe(false);

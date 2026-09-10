@@ -126,3 +126,12 @@ async def test_status_snapshot_matches_websocket_payload():
                 body = await compact.json()
                 assert body["sleep_seconds"] == 180
                 assert [build["workflow"] for build in body["builds"]] == ["CI"]
+                assert body["repos"] == [
+                    {
+                        "repo": "acme/web",
+                        "status": "FAIL",
+                        "workflow_count": 2,
+                        "pr_count": 0,
+                        "is_running": False,
+                    }
+                ]

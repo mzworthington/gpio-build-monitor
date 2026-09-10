@@ -76,6 +76,62 @@ def test_eink_payload_keeps_only_glanceable_builds():
     assert payload["builds"][1]["status"] == "RUNNING"
 
 
+def test_eink_payload_lists_every_checked_repo_with_action_and_pr_counts():
+    payload = eink_payload(
+        {
+            "type": "status",
+            "fetching": False,
+            "status": "FAIL",
+            "is_running": False,
+            "builds": [
+                {
+                    "repo": "acme/web",
+                    "workflow": "CI",
+                    "status": "FAIL",
+                    "url": "https://example.com/1",
+                    "pr_count": 0,
+                    "pr_url": "https://github.com/acme/web/pulls",
+                },
+                {
+                    "repo": "acme/web",
+                    "workflow": "Deploy",
+                    "status": "PASS",
+                    "url": "https://example.com/2",
+                    "pr_count": 0,
+                    "pr_url": "https://github.com/acme/web/pulls",
+                },
+                {
+                    "repo": "acme/api",
+                    "workflow": "CI",
+                    "status": "PASS",
+                    "url": "https://example.com/3",
+                    "pr_count": 2,
+                    "pr_url": "https://github.com/acme/api/pulls",
+                },
+            ],
+            "poll_in_seconds": 30,
+            "last_checked_at": 100.0,
+            "next_check_at": 130.0,
+        }
+    )
+    assert payload["repos"] == [
+        {
+            "repo": "acme/api",
+            "status": "PASS",
+            "workflow_count": 1,
+            "pr_count": 2,
+            "is_running": False,
+        },
+        {
+            "repo": "acme/web",
+            "status": "FAIL",
+            "workflow_count": 2,
+            "pr_count": 0,
+            "is_running": False,
+        },
+    ]
+
+
 def test_eink_payload_keeps_open_prs_when_workflows_are_green():
     payload = eink_payload(
         {
