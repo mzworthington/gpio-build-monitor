@@ -22,6 +22,8 @@ class Result(enum.Enum):
     APPROVAL = "APPROVAL"
     CONNECTION_ERROR = "CONNECTION_ERROR"
     NONE = "NONE"
+    RUNNING = "RUNNING"
+    WAITING = "WAITING"
 
     def __eq__(self, other):
         return self.value == other.value
@@ -62,7 +64,12 @@ def get_status_from_details(builds: list[BuildDetail]) -> Result:
         if build["status"] not in IN_PROGRESS_VALUES
     ]
     if not settled:
-        return Result.NONE
+        if not builds_in_progress(builds):
+            return Result.NONE
+        waiting_only = any(
+            build["status"] == CiResult.WAITING.value for build in builds
+        ) and not any(build["status"] == CiResult.RUNNING.value for build in builds)
+        return Result.WAITING if waiting_only else Result.RUNNING
     if any(build["status"] == CiResult.FAIL.value for build in settled):
         return Result.FAIL
     if any(build["status"] == CiResult.CONNECTION_ERROR.value for build in settled):
@@ -120,14 +127,6 @@ def repo_summaries(builds: list[BuildDetail]) -> list[RepoSummary]:
     for repo, repo_builds in by_repo.items():
         status = get_status_from_details(repo_builds).value
         is_running = builds_in_progress(repo_builds)
-        if status == Result.NONE.value and is_running:
-            # Prefer WAITING when nothing is actively executing yet.
-            if any(b["status"] == CiResult.WAITING.value for b in repo_builds) and not any(
-                b["status"] == CiResult.RUNNING.value for b in repo_builds
-            ):
-                status = CiResult.WAITING.value
-            else:
-                status = CiResult.RUNNING.value
         url = f"https://github.com/{repo}" if "/" in repo else ""
         pr_count = next(
             (build.get("pr_count") for build in repo_builds if build.get("pr_count") is not None),

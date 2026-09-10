@@ -72,10 +72,36 @@ def test_eink_payload_omits_builds_open_prs_and_nested_workflows():
     )
     assert payload["sleep_seconds"] == 120
     assert payload["fetching"] is False
+    assert payload["status"] == "FAIL"
     assert "builds" not in payload
     assert "open_prs" not in payload
     assert payload["repos"][0]["repo"] == "acme/api"
     assert "workflows" not in payload["repos"][0]
+
+
+def test_eink_payload_uses_running_when_nothing_has_settled():
+    payload = eink_payload(
+        {
+            "type": "status",
+            "fetching": False,
+            "status": "NONE",
+            "is_running": True,
+            "builds": [
+                {
+                    "repo": "acme/web",
+                    "workflow": "CI",
+                    "status": "RUNNING",
+                    "url": "https://example.com/1",
+                }
+            ],
+            "poll_in_seconds": 30,
+            "last_checked_at": 100.0,
+            "next_check_at": 130.0,
+        }
+    )
+    assert payload["status"] == "RUNNING"
+    assert payload["is_running"] is True
+    assert payload["repos"][0]["status"] == "RUNNING"
 
 
 def test_eink_payload_lists_every_checked_repo_with_action_and_pr_counts():

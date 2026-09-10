@@ -45,18 +45,11 @@ export function repoGlances(
   const rows: RepoGlance[] = [];
   for (const [repo, group] of byRepo) {
     const { status, is_running } = aggregate(group);
-    let display: string = status;
-    if (status === 'NONE' && is_running) {
-      const waitingOnly =
-        group.some((build) => build.status === 'WAITING') &&
-        !group.some((build) => build.status === 'RUNNING');
-      display = waitingOnly ? 'WAITING' : 'RUNNING';
-    }
     const prRaw = group.find((build) => build.pr_count != null)?.pr_count;
     const prCount = Number(prRaw);
     const row: RepoGlance = {
       repo,
-      status: display,
+      status,
       workflow_count: group.length,
       pr_count: Number.isFinite(prCount) ? prCount : 0,
       is_running,
@@ -118,13 +111,14 @@ export function einkPayload(payload: StatusPayload): {
   repos: RepoGlance[];
   sleep_seconds: number;
 } {
+  const { status, is_running } = aggregate(payload.builds);
   return {
     type: 'status',
     fetching: false,
-    status: payload.status,
-    is_running: payload.is_running,
+    status,
+    is_running,
     repos: repoGlances(payload.builds, { includeWorkflows: false }),
-    sleep_seconds: sleepSeconds(payload.status, payload.is_running),
+    sleep_seconds: sleepSeconds(status, is_running),
   };
 }
 

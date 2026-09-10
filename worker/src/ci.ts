@@ -14,7 +14,9 @@ export type AggregateStatus =
   | 'APPROVAL'
   | 'UNKNOWN'
   | 'CONNECTION_ERROR'
-  | 'NONE';
+  | 'NONE'
+  | 'RUNNING'
+  | 'WAITING';
 
 const IN_PROGRESS = new Set<string>(['RUNNING', 'WAITING']);
 
@@ -74,7 +76,13 @@ export function aggregate(builds: BuildDetail[]): {
   const is_running = builds.some((b) => IN_PROGRESS.has(b.status));
   const settled = builds.filter((b) => !IN_PROGRESS.has(b.status));
   if (settled.length === 0) {
-    return { status: 'NONE', is_running };
+    if (!is_running) {
+      return { status: 'NONE', is_running };
+    }
+    const waitingOnly =
+      builds.some((build) => build.status === 'WAITING') &&
+      !builds.some((build) => build.status === 'RUNNING');
+    return { status: waitingOnly ? 'WAITING' : 'RUNNING', is_running };
   }
   if (settled.some((b) => b.status === 'FAIL')) {
     return { status: 'FAIL', is_running };

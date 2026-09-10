@@ -13,7 +13,13 @@ from hashlib import sha256
 from json import dumps
 from typing import Any
 
-from monitor.service.aggregator_service import BuildDetail, Result, repo_summaries
+from monitor.service.aggregator_service import (
+    BuildDetail,
+    Result,
+    builds_in_progress,
+    get_status_from_details,
+    repo_summaries,
+)
 
 # Seconds the device should remain in deep sleep after a successful sample.
 # The hub keeps polling on its own cadence; these values are for the radio.
@@ -123,10 +129,19 @@ def eink_repos(builds: Sequence[Mapping[str, Any]] | None, *, include_workflows:
 
 
 def eink_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
-    status = str(payload.get("status") or Result.NONE.value)
-    is_running = bool(payload.get("is_running"))
     raw_builds = payload.get("builds")
     raw_list = raw_builds if isinstance(raw_builds, list) else []
+    details: list[BuildDetail] = []
+    for item in raw_list:
+        details.append({
+            "repo": str(item.get("repo") or ""),
+            "workflow": str(item.get("workflow") or ""),
+            "status": str(item.get("status") or ""),
+            "url": str(item.get("url") or ""),
+        })
+    rolled = get_status_from_details(details)
+    status = rolled.value
+    is_running = bool(payload.get("is_running")) or builds_in_progress(details)
     return {
         "type": "status",
         "fetching": False,

@@ -13,7 +13,13 @@ inline bool attention_status(const char* status) {
          std::strncmp(status, "HTTP", 4) == 0;
 }
 
-inline const char* hero_label(const char* status) {
+inline const char* hero_label(const char* status, bool is_running = false) {
+  if (std::strcmp(status, "RUNNING") == 0 || (std::strcmp(status, "NONE") == 0 && is_running)) {
+    return "Run";
+  }
+  if (std::strcmp(status, "WAITING") == 0) {
+    return "Wait";
+  }
   if (std::strcmp(status, "NONE") == 0) {
     return "Idle";
   }
@@ -166,7 +172,7 @@ inline uint8_t fill_monitor_lines(const Snapshot& snap, MonitorLine* out, uint8_
     return 0;
   }
   uint8_t n = 0;
-  std::snprintf(out[n].title, sizeof(out[n].title), "%s", hero_label(snap.status));
+  std::snprintf(out[n].title, sizeof(out[n].title), "%s", hero_label(snap.status, snap.is_running));
   if (snap.repo_count == 0 && snap.build_count == 0 && snap.open_pr_count == 0) {
     std::snprintf(out[n].subtitle, sizeof(out[n].subtitle), "%s", empty_body(attention_status(snap.status)));
   } else if (snap.has_sleep_seconds) {

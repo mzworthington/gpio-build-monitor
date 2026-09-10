@@ -166,7 +166,7 @@ async def test_no_results():
     ]
     async with aiohttp.ClientSession() as session:
         result = await AggregatorService(integrations).run(session)
-    assert result["status"] == Result.NONE
+    assert result["status"] == Result.RUNNING
 
 
 @pytest.mark.asyncio
