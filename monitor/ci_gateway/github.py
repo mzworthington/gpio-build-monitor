@@ -3,7 +3,6 @@
 import logging
 import os
 import re
-from abc import ABC
 from fnmatch import fnmatch
 from itertools import groupby
 
@@ -26,14 +25,23 @@ _DEPENDABOT_UPDATE_KEY = re.compile(
 )
 
 
-class GitHubAction(IntegrationAdapter, ABC):
-    def __init__(self, **kwargs):
-        self.username = kwargs.get('username')
-        self.repo = kwargs.get('repo')
-        self.token = kwargs.get('token') or os.getenv('GITHUB_TOKEN')
-        self.excluded_workflows = kwargs.get('excluded_workflows') or []
-        self.excluded_workflow_patterns = kwargs.get('excluded_workflow_patterns') or []
-        self.branch = kwargs.get('branch', 'main')
+class GitHubAction(IntegrationAdapter):
+    def __init__(
+        self,
+        *,
+        username: str,
+        repo: str,
+        token: str | None = None,
+        excluded_workflows: list[str] | None = None,
+        excluded_workflow_patterns: list[str] | None = None,
+        branch: str = "main",
+    ):
+        self.username = username
+        self.repo = repo
+        self.token = token or os.getenv("GITHUB_TOKEN")
+        self.excluded_workflows = excluded_workflows or []
+        self.excluded_workflow_patterns = excluded_workflow_patterns or []
+        self.branch = branch
 
     def get_type(self) -> IntegrationType:
         return IntegrationType.GITHUB

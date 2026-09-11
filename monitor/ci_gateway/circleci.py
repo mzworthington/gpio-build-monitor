@@ -1,6 +1,5 @@
 import logging
 import os
-from abc import ABC
 
 from aiohttp import ClientSession
 
@@ -16,12 +15,22 @@ API_BASE = "https://circleci.com/api/v2"
 MAX_PIPELINES = 10
 
 
-class CircleCI(IntegrationAdapter, ABC):
-    def __init__(self, **kwargs):
-        self.username = kwargs.get('username')
-        self.repo = kwargs.get('repo')
-        self.token = kwargs.get('token') or os.getenv('CIRCLE_CI_TOKEN')
-        self.excluded_workflows = kwargs.get('excluded_workflows') or []
+class CircleCI(IntegrationAdapter):
+    def __init__(
+        self,
+        *,
+        username: str,
+        repo: str,
+        token: str | None = None,
+        excluded_workflows: list[str] | None = None,
+        excluded_workflow_patterns: list[str] | None = None,
+        branch: str = "main",
+    ):
+        self.username = username
+        self.repo = repo
+        self.token = token or os.getenv("CIRCLE_CI_TOKEN")
+        self.excluded_workflows = excluded_workflows or []
+        _ = excluded_workflow_patterns, branch
 
     def get_type(self) -> IntegrationType:
         return IntegrationType.CIRCLECI

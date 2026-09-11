@@ -109,9 +109,13 @@ def eink_repo_row(summary: Mapping[str, Any], *, include_workflows: bool) -> dic
     return row
 
 
-def eink_repos(builds: Sequence[Mapping[str, Any]] | None, *, include_workflows: bool = False) -> list[dict[str, Any]]:
+def _details_from_payload_builds(raw: object) -> list[BuildDetail]:
+    if not isinstance(raw, list):
+        return []
     details: list[BuildDetail] = []
-    for item in builds or []:
+    for item in raw:
+        if not isinstance(item, Mapping):
+            continue
         row: BuildDetail = {
             "repo": str(item.get("repo") or ""),
             "workflow": str(item.get("workflow") or ""),
@@ -125,20 +129,18 @@ def eink_repos(builds: Sequence[Mapping[str, Any]] | None, *, include_workflows:
         if pr_url:
             row["pr_url"] = str(pr_url)
         details.append(row)
-    return [eink_repo_row(summary, include_workflows=include_workflows) for summary in repo_summaries(details)]
+    return details
+
+
+def eink_repos(builds: Sequence[BuildDetail] | None, *, include_workflows: bool = False) -> list[dict[str, Any]]:
+    return [
+        eink_repo_row(summary, include_workflows=include_workflows)
+        for summary in repo_summaries(list(builds or []))
+    ]
 
 
 def eink_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
-    raw_builds = payload.get("builds")
-    raw_list = raw_builds if isinstance(raw_builds, list) else []
-    details: list[BuildDetail] = []
-    for item in raw_list:
-        details.append({
-            "repo": str(item.get("repo") or ""),
-            "workflow": str(item.get("workflow") or ""),
-            "status": str(item.get("status") or ""),
-            "url": str(item.get("url") or ""),
-        })
+    details = _details_from_payload_builds(payload.get("builds"))
     rolled = get_status_from_details(details)
     status = rolled.value
     is_running = bool(payload.get("is_running")) or builds_in_progress(details)
@@ -147,17 +149,17 @@ def eink_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         "fetching": False,
         "status": status,
         "is_running": is_running,
-        "repos": eink_repos(raw_list, include_workflows=False),
+        "repos": eink_repos(details, include_workflows=False),
         "sleep_seconds": sleep_seconds(status, is_running=is_running),
     }
 
 
 def eink_repo_payload(payload: Mapping[str, Any], repo: str) -> dict[str, Any]:
+    details = _details_from_payload_builds(payload.get("builds"))
     compact = eink_payload(payload)
-    raw_builds = payload.get("builds")
-    raw_list = raw_builds if isinstance(raw_builds, list) else []
-    match = [row for row in eink_repos(raw_list, include_workflows=True) if row["repo"] == repo]
-    compact["repos"] = match
+    compact["repos"] = [
+        row for row in eink_repos(details, include_workflows=True) if row["repo"] == repo
+    ]
     return compact
 
 

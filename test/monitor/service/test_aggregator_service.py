@@ -58,6 +58,19 @@ async def test_waiting_counts_as_in_progress():
 
 
 @pytest.mark.asyncio
+async def test_waiting_only_rollups_to_waiting():
+    integrations = [
+        StubIntegration('c', 'd', IntegrationType.GITHUB, [
+            dict(status=CiResult.WAITING, type=IntegrationType.GITHUB, vcs='', id='', name='', start=''),
+        ]),
+    ]
+    async with aiohttp.ClientSession() as session:
+        result = await AggregatorService(integrations).run(session)
+    assert result["is_running"] is True
+    assert result["status"] == Result.WAITING
+
+
+@pytest.mark.asyncio
 async def test_approval_elevates_status():
     integrations = [
         StubIntegration('a', 'b', IntegrationType.GITHUB, [
@@ -190,6 +203,18 @@ async def test_fail_beats_connection_error():
     async with aiohttp.ClientSession() as session:
         result = await AggregatorService(integrations).run(session)
     assert result["status"] == Result.FAIL
+
+
+@pytest.mark.asyncio
+async def test_unresolved_settled_status_is_unknown():
+    integrations = [
+        StubIntegration('a', 'b', IntegrationType.GITHUB, [
+            dict(status=CiResult.UNKNOWN, type=IntegrationType.GITHUB, vcs='', id='', name='CI', start=''),
+        ]),
+    ]
+    async with aiohttp.ClientSession() as session:
+        result = await AggregatorService(integrations).run(session)
+    assert result["status"] == Result.UNKNOWN
 
 
 @pytest.mark.asyncio
@@ -365,3 +390,13 @@ def test_repo_summaries_keeps_github_pr_count_over_circle_null():
     ])
     assert summaries[0]["pr_count"] == 2
     assert summaries[0]["pr_url"] == "https://github.com/acme/web/pulls"
+
+
+def test_rollup_status_is_the_ci_result_enum():
+    assert Result is CiResult
+
+
+def test_unused_build_status_rollup_is_gone():
+    import monitor.service.aggregator_service as aggregator
+
+    assert not hasattr(aggregator, "get_status")

@@ -104,6 +104,48 @@ def test_eink_payload_uses_running_when_nothing_has_settled():
     assert payload["repos"][0]["status"] == "RUNNING"
 
 
+def test_eink_payload_uses_waiting_when_only_waiting_jobs():
+    payload = eink_payload(
+        {
+            "type": "status",
+            "fetching": False,
+            "status": "NONE",
+            "is_running": True,
+            "builds": [
+                {
+                    "repo": "acme/web",
+                    "workflow": "CI",
+                    "status": "WAITING",
+                    "url": "https://example.com/1",
+                }
+            ],
+        }
+    )
+    assert payload["status"] == "WAITING"
+    assert payload["repos"][0]["status"] == "WAITING"
+
+
+def test_eink_payload_uses_unknown_when_settled_status_is_unresolved():
+    payload = eink_payload(
+        {
+            "type": "status",
+            "fetching": False,
+            "status": "PASS",
+            "is_running": False,
+            "builds": [
+                {
+                    "repo": "acme/web",
+                    "workflow": "CI",
+                    "status": "UNKNOWN",
+                    "url": "https://example.com/1",
+                }
+            ],
+        }
+    )
+    assert payload["status"] == "UNKNOWN"
+    assert payload["repos"][0]["status"] == "UNKNOWN"
+
+
 def test_eink_payload_lists_every_checked_repo_with_action_and_pr_counts():
     payload = eink_payload(
         {
@@ -252,3 +294,14 @@ def test_snapshot_headers_include_retry_after_and_etag():
     assert headers["ETag"] == snapshot_etag("PASS", is_running=False, builds=[])
     assert headers["Retry-After"] == "900"
     assert headers["Cache-Control"] == "no-store"
+
+
+def test_eink_repos_takes_build_details():
+    from collections.abc import Sequence
+    from typing import get_type_hints
+
+    from monitor.service.aggregator_service import BuildDetail
+    from monitor.service.snapshot import eink_repos
+
+    hints = get_type_hints(eink_repos)
+    assert hints["builds"] == Sequence[BuildDetail] | None

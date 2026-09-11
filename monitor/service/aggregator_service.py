@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import asyncio
-import enum
 import logging
 from typing import NotRequired, TypedDict
 
@@ -9,24 +8,11 @@ from aiohttp import ClientSession
 
 from monitor.ci_gateway.constants import (
     IN_PROGRESS_VALUES,
-    BuildStatus,
     CiResult,
     IntegrationAdapter,
 )
 
-
-class Result(enum.Enum):
-    PASS = "PASS"
-    FAIL = "FAIL"
-    UNKNOWN = "UNKNOWN"
-    APPROVAL = "APPROVAL"
-    CONNECTION_ERROR = "CONNECTION_ERROR"
-    NONE = "NONE"
-    RUNNING = "RUNNING"
-    WAITING = "WAITING"
-
-    def __eq__(self, other):
-        return self.value == other.value
+Result = CiResult
 
 
 class BuildDetail(TypedDict):
@@ -36,21 +22,6 @@ class BuildDetail(TypedDict):
     url: str
     pr_count: NotRequired[int | None]
     pr_url: NotRequired[str | None]
-
-
-def get_status(results: list[BuildStatus]) -> Result:
-    """Roll up workflow results: FAIL > fetch error > approval > PASS."""
-    if len(results) == 0:
-        return Result.NONE
-    if any(r['status'] == CiResult.FAIL for r in results):
-        return Result.FAIL
-    if any(r['status'] == CiResult.CONNECTION_ERROR for r in results):
-        return Result.CONNECTION_ERROR
-    if any(r['status'] == CiResult.APPROVAL for r in results):
-        return Result.APPROVAL
-    if all(r['status'] == CiResult.PASS for r in results):
-        return Result.PASS
-    return Result.UNKNOWN
 
 
 def get_status_from_details(builds: list[BuildDetail]) -> Result:

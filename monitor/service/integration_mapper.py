@@ -25,7 +25,6 @@ class IntegrationMapper:
         token_env = TOKEN_ENV_VARS[integration_type]
         adapter_cls = self.available_integrations[integration_type]
         return adapter_cls(
-            type=integration['type'],
             username=integration['username'],
             repo=integration['repo'],
             excluded_workflows=integration.get('excluded_workflows', []),

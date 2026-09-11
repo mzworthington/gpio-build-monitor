@@ -508,3 +508,12 @@ class TestGithub:
                 count, url = await action.open_pull_requests(session)
         assert count is None
         assert url is None
+
+    def test_github_action_init_has_no_kwargs_bag(self):
+        import inspect
+
+        kinds = [
+            param.kind
+            for param in inspect.signature(GitHubAction.__init__).parameters.values()
+        ]
+        assert inspect.Parameter.VAR_KEYWORD not in kinds
