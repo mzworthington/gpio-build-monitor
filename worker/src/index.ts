@@ -2,6 +2,7 @@ import {
   aggregate,
   emptyPayload,
   fetchAllBuilds,
+  githubPollDelaySeconds,
   parseMonitorConfig,
   type AggregateStatus,
   type StatusPayload,
@@ -161,6 +162,7 @@ export class StatusHub implements DurableObject {
     const { status, is_running } = aggregate(builds);
     const previous = await this.state.storage.get<AggregateStatus>(LAST_STATUS_KEY);
     const now = Date.now() / 1000;
+    const delay = githubPollDelaySeconds(config.poll_in_seconds);
     this.payload = {
       type: 'status',
       fetching: false,
@@ -169,14 +171,14 @@ export class StatusHub implements DurableObject {
       builds,
       poll_in_seconds: config.poll_in_seconds,
       last_checked_at: now,
-      next_check_at: now + config.poll_in_seconds,
+      next_check_at: now + delay,
     };
     this.broadcast();
     await this.state.storage.put(
       LAST_STATUS_KEY,
       statusToRemember(previous, status, is_running),
     );
-    await this.state.storage.setAlarm(Date.now() + config.poll_in_seconds * 1000);
+    await this.state.storage.setAlarm(Date.now() + delay * 1000);
 
     if (shouldNotifyFailure(previous, status)) {
       this.state.waitUntil(this.notifyFailure());

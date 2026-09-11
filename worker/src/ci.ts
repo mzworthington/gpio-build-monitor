@@ -188,12 +188,43 @@ function githubHeaders(token: string): HeadersInit {
   };
 }
 
+let githubPublicLock: Promise<void> = Promise.resolve();
+let githubSkipPublicUntilMs = 0;
+
+export function resetGithubPublicClient(): void {
+  githubPublicLock = Promise.resolve();
+  githubSkipPublicUntilMs = 0;
+}
+
+export function githubPollDelaySeconds(configured: number): number {
+  const wait = Math.ceil((githubSkipPublicUntilMs - Date.now()) / 1000);
+  if (wait <= 0) return configured;
+  return Math.max(configured, wait);
+}
+
 async function githubGet(url: URL, token: string): Promise<Response> {
   const authed = await fetch(url, { headers: githubHeaders(token) });
   if (authed.ok || (authed.status !== 401 && authed.status !== 403)) {
     return authed;
   }
-  return fetch(url, { headers: githubPublicHeaders() });
+
+  const queued = githubPublicLock.then(async () => {
+    if (Date.now() < githubSkipPublicUntilMs) {
+      return authed;
+    }
+    const pub = await fetch(url, { headers: githubPublicHeaders() });
+    if (pub.status === 403 && pub.headers.get('X-RateLimit-Remaining') === '0') {
+      const reset = Number(pub.headers.get('X-RateLimit-Reset'));
+      githubSkipPublicUntilMs =
+        Number.isFinite(reset) && reset > 0 ? reset * 1000 : Date.now() + 60_000;
+    }
+    return pub;
+  });
+  githubPublicLock = queued.then(
+    () => undefined,
+    () => undefined,
+  );
+  return queued;
 }
 
 /** Workflow IDs that still have YAML and are enabled (state=active). */

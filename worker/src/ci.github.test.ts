@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchAllBuilds } from './ci';
+import { fetchAllBuilds, githubPollDelaySeconds, resetGithubPublicClient } from './ci';
 
 afterEach(() => {
+  resetGithubPublicClient();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -67,6 +68,95 @@ describe('fetchAllBuilds GitHub', () => {
       String(call[0]).includes('/actions/runs'),
     );
     expect(runCalls).toHaveLength(2);
+  });
+
+  it('skips further unauthenticated GitHub GETs after a public rate-limit 403', async () => {
+    const fetchMock = vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      const headers = new Headers(init?.headers);
+      const authed = headers.has('Authorization');
+      if (url.includes('/actions/workflows')) {
+        return Response.json({
+          workflows: [{ id: 1001, state: 'active' }],
+        });
+      }
+      if (url.includes('/actions/runs')) {
+        if (authed) {
+          return Response.json({ message: 'Resource not accessible' }, { status: 403 });
+        }
+        return Response.json(
+          { message: 'API rate limit exceeded' },
+          {
+            status: 403,
+            headers: {
+              'X-RateLimit-Remaining': '0',
+              'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 3600),
+            },
+          },
+        );
+      }
+      return Response.json([], { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchAllBuilds(
+      {
+        poll_in_seconds: 60,
+        integrations: [
+          { type: 'GITHUB', username: 'super-man', repo: 'awesome' },
+          { type: 'GITHUB', username: 'super-man', repo: 'second' },
+        ],
+      },
+      { githubToken: 'secret' },
+    );
+
+    const publicRunCalls = fetchMock.mock.calls.filter((call) => {
+      const url = String(call[0]);
+      const headers = new Headers(call[1]?.headers);
+      return url.includes('/actions/runs') && !headers.has('Authorization');
+    });
+    expect(publicRunCalls).toHaveLength(1);
+  });
+
+  it('backs off GitHub polling until the public rate-limit reset', async () => {
+    const resetAt = Math.floor(Date.now() / 1000) + 3600;
+    const fetchMock = vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      const headers = new Headers(init?.headers);
+      const authed = headers.has('Authorization');
+      if (url.includes('/actions/workflows')) {
+        return Response.json({
+          workflows: [{ id: 1001, state: 'active' }],
+        });
+      }
+      if (url.includes('/actions/runs') && authed) {
+        return Response.json({ message: 'Resource not accessible' }, { status: 403 });
+      }
+      if (url.includes('/actions/runs')) {
+        return Response.json(
+          { message: 'API rate limit exceeded' },
+          {
+            status: 403,
+            headers: {
+              'X-RateLimit-Remaining': '0',
+              'X-RateLimit-Reset': String(resetAt),
+            },
+          },
+        );
+      }
+      return Response.json([], { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchAllBuilds(
+      {
+        poll_in_seconds: 60,
+        integrations: [{ type: 'GITHUB', username: 'super-man', repo: 'awesome' }],
+      },
+      { githubToken: 'secret' },
+    );
+
+    expect(githubPollDelaySeconds(60)).toBeGreaterThanOrEqual(3500);
   });
 
   it('counts open pull requests including drafts without changing CI status', async () => {
