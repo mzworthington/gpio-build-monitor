@@ -4,7 +4,7 @@
 
 ```shell
 make lint           # ruff
-make test           # ruff + pytest
+make test           # ruff + pytest (hub package coverage, 84% line floor)
 make test-eink      # native C++ tests for the e-ink snapshot parser (`device/eink`)
 ```
 
@@ -14,7 +14,7 @@ Python dependencies are in `pyproject.toml`. Git hooks use [pre-commit](https://
 |------|------|
 | `pre-commit` | `ruff check --fix` |
 | `commit-msg` | Conventional Commits subject |
-| `pre-push` | `pytest` |
+| `pre-push` | `pytest` (no coverage gate; `make test` / CI enforces 84%) |
 
 `bin/bootstrap` installs hooks automatically. To reinstall manually:
 
@@ -43,7 +43,8 @@ cd ../infra/cloudflare && pnpm install && pulumi up
 
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on pushes and pull requests to `main`:
 
-- Bootstrap, lint, and pytest
+- Bootstrap, lint, and pytest with `monitor` package coverage (`make test`)
+- Fail the test job if hub line coverage drops below 84% (excludes CLI `__main__` and Mock GPIO)
 - JUnit report upload
 - On `main` only: `deploy-worker` (`wrangler deploy` for `monitor.mzworthington.co.uk`)
 - `POSTHOG_TOKEN` GitHub Actions secret is baked onto the Worker on deploy. Privacy notice: `/privacy`. Enable **Cookieless server hash mode** in PostHog or cookieless events are dropped. An agent cannot create the GitHub secret.
