@@ -33,8 +33,8 @@ run: serve ## Alias for serve
 lint: bootstrap ## Run ruff linter
 	./$(VENV)/bin/ruff check monitor test
 
-test: bootstrap lint ## Run pytest with junit formatting
-	./$(VENV)/bin/python -m pytest test -v --junitxml=junit/test-results.xml
+test: bootstrap lint ## Run pytest with junit formatting and hub coverage
+	./$(VENV)/bin/python -m pytest test -v --junitxml=junit/test-results.xml --cov=monitor --cov-report=term-missing --cov-fail-under=84
 
 test-eink: ## Native tests for the e-ink snapshot parser (no hardware)
 	$(MAKE) -C device/eink test
