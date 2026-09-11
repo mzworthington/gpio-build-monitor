@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.21.1 (2026-09-11)
+
+### Bug Fixes
+
+- **monitor**: Apply GPIO pin map when the board starts (MZW-100)
+  ([`f9931cf`](https://github.com/mzworthington/gpio-build-monitor/commit/f9931cfb8fbaea9a4b7ed2039cc8be1c06daf0c2))
+
+
 ## v0.21.0 (2026-09-11)
 
 ### Features
