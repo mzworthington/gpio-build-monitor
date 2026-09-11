@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.22.0 (2026-09-11)
+
+### Bug Fixes
+
+- **ci**: Omit Dependabot version-update runs from board status
+  ([`b7572ac`](https://github.com/mzworthington/gpio-build-monitor/commit/b7572ac582364027ad1ab0995e68852bec998747))
+
+### Features
+
+- **github**: Implement GitHub polling delay and reset functionality
+  ([`6f623f4`](https://github.com/mzworthington/gpio-build-monitor/commit/6f623f4af718e63d2f7935c425f6363f446d7f23))
+
+
 ## v0.21.1 (2026-09-11)
 
 ### Bug Fixes
