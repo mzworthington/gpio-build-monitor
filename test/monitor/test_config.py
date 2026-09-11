@@ -4,6 +4,11 @@
 import pytest
 
 from monitor.config import ConfigError, load_config, validate_config
+from monitor.gpio.constants import Lights
+
+
+def _pin_map() -> dict[str, int]:
+    return {light.name: light.pin for light in Lights}
 
 
 def test_validate_config_accepts_valid_config(tmp_path):
@@ -88,7 +93,8 @@ def test_load_config_rejects_invalid_yaml(tmp_path, monkeypatch):
         load_config(config_path)
 
 
-def test_validate_pins_accepts_overrides():
+def test_validate_pins_accepts_overrides_without_applying_globals():
+    before = _pin_map()
     config = validate_config({
         "poll_in_seconds": 30,
         "pins": {"GREEN": 5, "RED": 6},
@@ -97,6 +103,43 @@ def test_validate_pins_accepts_overrides():
         ],
     })
     assert config["pins"] == {"GREEN": 5, "RED": 6}
+    assert _pin_map() == before
+    assert Lights.GREEN.pin == 17
+    assert Lights.RED.pin == 27
+
+
+def test_load_config_with_pin_overrides_leaves_gpio_globals_unchanged(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("GITHUB_TOKEN", "secret")
+    config_path = tmp_path / "integrations.yaml"
+    config_path.write_text(
+        "poll_in_seconds: 30\n"
+        "pins:\n"
+        "  GREEN: 5\n"
+        "  RED: 6\n"
+        "integrations:\n"
+        "  - type: GITHUB\n"
+        "    username: org\n"
+        "    repo: repo\n",
+        encoding="utf-8",
+    )
+
+    before = _pin_map()
+    config = load_config(config_path)
+
+    assert config["pins"] == {"GREEN": 5, "RED": 6}
+    assert _pin_map() == before
+
+
+def test_load_config_invalid_yaml_does_not_touch_pins(tmp_path):
+    config_path = tmp_path / "integrations.yaml"
+    config_path.write_text("poll_in_seconds: [\n", encoding="utf-8")
+
+    before = _pin_map()
+    with pytest.raises(ConfigError, match="Invalid YAML"):
+        load_config(config_path)
+    assert _pin_map() == before
 
 
 def test_validate_pins_rejects_unknown_light():

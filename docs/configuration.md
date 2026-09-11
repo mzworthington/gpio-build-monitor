@@ -51,7 +51,7 @@ integrations:
 | `outputs.websocket.enabled` | Serve the status page (default: `true` when the object is present) |
 | `outputs.websocket.host` | Bind address (default: `0.0.0.0`) |
 | `outputs.websocket.port` | HTTP/WebSocket port (default: `8080`) |
-| `pins` | Optional BCM pin overrides per light name |
+| `pins` | Optional BCM pin overrides per light name. Validated on load; applied when the GPIO board starts, not as a side effect of parse. |
 | `webhooks` | Optional webhook ingress settings |
 | `webhooks.enabled` | Listen for provider webhooks that wake an immediate refresh (default: `false`) |
 | `webhooks.host` | Bind address (default: `0.0.0.0`) |

@@ -7,7 +7,9 @@ import pytest
 from aioresponses import aioresponses
 
 import monitor.ci_gateway.integration_actions as available_integrations
+from monitor.app import build_status_outputs
 from monitor.build_monitor import BuildMonitor
+from monitor.config import validate_config
 from monitor.gpio.board import Board
 from monitor.gpio.constants import Lights
 from monitor.output.gpio_output import GpioStatusOutput
@@ -91,3 +93,30 @@ async def test_result(mocked_output, mocked_pwm):
     await run(mocked_pwm)
     assert call(Lights.GREEN.pin, 1) in mocked_output.call_args_list
     assert call(Lights.RED.pin, 0) in mocked_output.call_args_list
+
+
+@mock.patch("monitor.gpio.Mock.GPIO.setup")
+def test_hub_applies_pin_overrides_when_gpio_board_starts(mocked_setup):
+    mocked_setup.return_value = None
+    defaults = {light.name: light.pin for light in Lights}
+    config = validate_config({
+        "poll_in_seconds": 30,
+        "pins": {"GREEN": 5, "RED": 6},
+        "outputs": {"gpio": True},
+        "integrations": [
+            {"type": "GITHUB", "username": "org", "repo": "repo"},
+        ],
+    })
+
+    assert {light.name: light.pin for light in Lights} == defaults
+
+    _adapters, board, _websocket = build_status_outputs(config)
+
+    assert board is not None
+    assert {light.name: light.pin for light in Lights} == defaults
+
+    with board:
+        assert Lights.GREEN.pin == 5
+        assert Lights.RED.pin == 6
+        mocked_setup.assert_any_call(5, 0, initial=0)
+        mocked_setup.assert_any_call(6, 0, initial=0)

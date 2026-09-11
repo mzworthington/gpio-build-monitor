@@ -29,7 +29,7 @@ def build_status_outputs(config: Config) -> tuple[list[StatusOutput], Board | No
     websocket: WebSocketStatusOutput | None = None
 
     if outputs_cfg.get("gpio", True):
-        board = Board()
+        board = Board(config.get("pins"))
         adapters.append(GpioStatusOutput(board))
 
     websocket_cfg = outputs_cfg.get("websocket")

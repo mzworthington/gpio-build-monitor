@@ -8,6 +8,10 @@ from monitor.gpio.board import Board
 from monitor.gpio.constants import Lights, reset_pins
 
 
+def _pin_map() -> dict[str, int]:
+    return {light.name: light.pin for light in Lights}
+
+
 @pytest.fixture(autouse=True)
 def _reset_gpio_pins():
     reset_pins()
@@ -39,6 +43,21 @@ class TestBoard:
                      mock.call(Lights.BLUE.pin, 0, initial=0),
                      mock.call(Lights.PURPLE.pin, 0, initial=0)]
             mocked.assert_has_calls(calls, any_order=True)
+
+    @mock.patch('monitor.gpio.Mock.GPIO.setup')
+    def test_pin_overrides_apply_when_board_starts(self, mocked):
+        mocked.setup.return_value = None
+        defaults = _pin_map()
+        board = Board(pin_overrides={"GREEN": 5, "RED": 6})
+
+        assert _pin_map() == defaults
+
+        with board:
+            assert Lights.GREEN.pin == 5
+            assert Lights.RED.pin == 6
+            assert Lights.YELLOW.pin == defaults["YELLOW"]
+            mocked.assert_any_call(5, 0, initial=0)
+            mocked.assert_any_call(6, 0, initial=0)
 
     @mock.patch('monitor.gpio.Mock.GPIO.output')
     def test_turn_on(self, mocked):

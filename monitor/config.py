@@ -7,7 +7,7 @@ from typing import Any, NotRequired, TypedDict
 import yaml
 
 from monitor.ci_gateway.constants import IntegrationType
-from monitor.gpio.constants import Lights, configure_pins
+from monitor.gpio.constants import Lights
 
 
 class ConfigError(Exception):
@@ -102,7 +102,6 @@ def validate_config(raw: dict[str, Any]) -> Config:
     validate_tokens(validated_integrations)
     if webhooks is not None and webhooks["enabled"]:
         validate_webhook_secrets(validated_integrations)
-    configure_pins(pins)
 
     config = Config(
         poll_in_seconds=poll_in_seconds,
