@@ -214,4 +214,67 @@ describe('fetchAllBuilds GitHub', () => {
       'state=open',
     );
   });
+
+  it('omits Dependabot version-update runs so they do not fail the board', async () => {
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes('/actions/workflows')) {
+        return Response.json({
+          workflows: [
+            { id: 1001, state: 'active' },
+            { id: 2002, state: 'active' },
+          ],
+        });
+      }
+      if (url.includes('/actions/runs')) {
+        return Response.json({
+          workflow_runs: [
+            {
+              id: 1,
+              workflow_id: 1001,
+              name: 'CI',
+              html_url: 'https://example.com/ci',
+              created_at: '2020-01-02T00:00:00Z',
+              status: 'completed',
+              conclusion: 'success',
+              head_branch: 'main',
+            },
+            {
+              id: 34587025979,
+              workflow_id: 2002,
+              name: 'npm_and_yarn in /infra/cloudflare for js-yaml - Update #1571184910',
+              html_url: 'https://github.com/mzworthington/react-cloudflare-template/actions/runs/34587025979',
+              created_at: '2020-01-03T00:00:00Z',
+              status: 'completed',
+              conclusion: 'failure',
+              head_branch: 'main',
+            },
+          ],
+        });
+      }
+      return Response.json([]);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const builds = await fetchAllBuilds(
+      {
+        poll_in_seconds: 60,
+        integrations: [
+          { type: 'GITHUB', username: 'mzworthington', repo: 'react-cloudflare-template' },
+        ],
+      },
+      { githubToken: 'secret' },
+    );
+
+    expect(builds).toEqual([
+      {
+        repo: 'mzworthington/react-cloudflare-template',
+        workflow: 'CI',
+        status: 'PASS',
+        url: 'https://example.com/ci',
+        pr_count: 0,
+        pr_url: 'https://github.com/mzworthington/react-cloudflare-template/pulls',
+      },
+    ]);
+  });
 });

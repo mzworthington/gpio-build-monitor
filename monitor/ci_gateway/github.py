@@ -203,7 +203,7 @@ class GitHubAction(IntegrationAdapter):
 
     @staticmethod
     def workflow_identity_key(name: str) -> str:
-        """Stable key for 'latest per workflow', collapsing Dependabot Update noise."""
+        """Stable key for 'latest per workflow'."""
         match = _DEPENDABOT_UPDATE_KEY.match(name or "")
         if match:
             return match.group("head")
@@ -211,6 +211,8 @@ class GitHubAction(IntegrationAdapter):
 
     def _include_run(self, run: dict) -> bool:
         name = run.get('name') or ''
+        if _DEPENDABOT_UPDATE_KEY.match(name):
+            return False
         if name in self.excluded_workflows:
             return False
         if any(fnmatch(name, pattern) for pattern in self.excluded_workflow_patterns):

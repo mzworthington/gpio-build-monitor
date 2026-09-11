@@ -108,7 +108,7 @@ function matchGlob(name: string, pattern: string): boolean {
   return new RegExp(`^${escaped}$`).test(name);
 }
 
-/** Collapse Dependabot Update #ID (+ optional package list) to ecosystem/dir. */
+/** Dependabot version-check display names (`… - Update #N`). */
 const DEPENDABOT_UPDATE_KEY =
   /^(?<head>.+?)(?: for .+?)? - Update #\d+$/;
 
@@ -324,6 +324,7 @@ async function fetchGithub(
 
   for (const run of runs) {
     const name = run.name || '';
+    if (DEPENDABOT_UPDATE_KEY.test(name)) continue;
     if (excluded.has(name)) continue;
     if (patterns.some((p) => matchGlob(name, p))) continue;
     if (branch && branch !== '*' && run.head_branch && run.head_branch !== branch) {

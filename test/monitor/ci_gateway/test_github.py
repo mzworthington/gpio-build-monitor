@@ -380,55 +380,28 @@ class TestGithub:
         assert len(jobs) == 1
         assert jobs[0]['name'] == 'CI'
 
-    def test_collapses_dependabot_update_ids_to_newest(self):
-        """Dependabot names each check uniquely; keep one newest per ecosystem/dir."""
+    def test_omits_dependabot_version_update_runs(self):
         action = GitHubAction(
             username='super-man', repo='awesome', branch='*')
         runs = [
-            {
-                'id': 10,
-                'name': 'npm_and_yarn in /. - Update #100',
-                'head_branch': 'main',
-                'created_at': '2020-01-01T00:00:00Z',
-                'status': 'completed',
-                'conclusion': 'failure',
-            },
-            {
-                'id': 20,
-                'name': (
-                    'npm_and_yarn in /. for lodash, undici - Update #200'
-                ),
-                'head_branch': 'main',
-                'created_at': '2020-01-03T00:00:00Z',
-                'status': 'completed',
-                'conclusion': 'success',
-            },
-            {
-                'id': 30,
-                'name': 'npm_and_yarn in /app - Update #300',
-                'head_branch': 'main',
-                'created_at': '2020-01-02T00:00:00Z',
-                'status': 'completed',
-                'conclusion': 'success',
-            },
             {
                 'id': 1,
                 'name': 'CI',
                 'head_branch': 'main',
                 'created_at': '2020-01-04T00:00:00Z',
-                'status': 'completed',
-                'conclusion': 'success',
+            },
+            {
+                'id': 2,
+                'name': (
+                    'npm_and_yarn in /infra/cloudflare for js-yaml'
+                    ' - Update #1571184910'
+                ),
+                'head_branch': 'main',
+                'created_at': '2020-01-05T00:00:00Z',
             },
         ]
         jobs = action.get_unique_latest_jobs(runs)
-        names = {job['name'] for job in jobs}
-        assert names == {
-            'CI',
-            'npm_and_yarn in /. for lodash, undici - Update #200',
-            'npm_and_yarn in /app - Update #300',
-        }
-        by_id = {job['id']: job for job in jobs}
-        assert 10 not in by_id
+        assert [job['name'] for job in jobs] == ['CI']
 
     def test_picks_newest_created_at_within_stable_name(self):
         action = GitHubAction(
