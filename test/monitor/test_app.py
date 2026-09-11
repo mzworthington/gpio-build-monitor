@@ -7,12 +7,75 @@ import pytest
 from aioresponses import aioresponses
 
 import monitor.ci_gateway.integration_actions as available_integrations
+from monitor.app import build_status_outputs
 from monitor.build_monitor import BuildMonitor
 from monitor.gpio.board import Board
 from monitor.gpio.constants import Lights
 from monitor.output.gpio_output import GpioStatusOutput
 from monitor.service.aggregator_service import AggregatorService
 from monitor.service.integration_mapper import IntegrationMapper
+
+
+def test_build_status_outputs_applies_pin_overrides():
+    build_status_outputs({
+        "poll_in_seconds": 30,
+        "integrations": [],
+        "outputs": {"gpio": True},
+        "pins": {"GREEN": 5},
+    })
+    assert Lights.GREEN.pin == 5
+
+
+def test_build_status_outputs_skips_pins_when_gpio_disabled():
+    build_status_outputs({
+        "poll_in_seconds": 30,
+        "integrations": [],
+        "outputs": {"gpio": False},
+        "pins": {"GREEN": 5},
+    })
+    assert Lights.GREEN.pin == 17
+
+
+def test_build_status_outputs_gpio_only():
+    adapters, board, websocket = build_status_outputs({
+        "poll_in_seconds": 30,
+        "integrations": [],
+        "outputs": {"gpio": True},
+    })
+    assert [type(adapter).__name__ for adapter in adapters] == ["GpioStatusOutput"]
+    assert board is not None
+    assert websocket is None
+
+
+def test_build_status_outputs_websocket_only():
+    adapters, board, websocket = build_status_outputs({
+        "poll_in_seconds": 30,
+        "integrations": [],
+        "outputs": {
+            "gpio": False,
+            "websocket": {"enabled": True, "host": "127.0.0.1", "port": 8080},
+        },
+    })
+    assert [type(adapter).__name__ for adapter in adapters] == ["WebSocketStatusOutput"]
+    assert board is None
+    assert websocket is adapters[0]
+
+
+def test_build_status_outputs_gpio_and_websocket():
+    adapters, board, websocket = build_status_outputs({
+        "poll_in_seconds": 30,
+        "integrations": [],
+        "outputs": {
+            "gpio": True,
+            "websocket": {"enabled": True, "host": "127.0.0.1", "port": 8080},
+        },
+    })
+    assert [type(adapter).__name__ for adapter in adapters] == [
+        "GpioStatusOutput",
+        "WebSocketStatusOutput",
+    ]
+    assert board is not None
+    assert websocket is adapters[1]
 
 
 async def run(mocked_pwm):

@@ -87,6 +87,10 @@ def test_load_config_rejects_invalid_yaml(tmp_path, monkeypatch):
     with pytest.raises(ConfigError, match="Invalid YAML"):
         load_config(config_path)
 
+    from monitor.gpio.constants import Lights
+
+    assert Lights.GREEN.pin == 17
+
 
 def test_validate_pins_accepts_overrides():
     config = validate_config({
@@ -97,6 +101,20 @@ def test_validate_pins_accepts_overrides():
         ],
     })
     assert config["pins"] == {"GREEN": 5, "RED": 6}
+
+
+def test_validate_config_does_not_apply_pin_overrides():
+    from monitor.gpio.constants import Lights
+
+    default_green = Lights.GREEN.pin
+    validate_config({
+        "poll_in_seconds": 30,
+        "pins": {"GREEN": 5, "RED": 6},
+        "integrations": [
+            {"type": "GITHUB", "username": "org", "repo": "repo"},
+        ],
+    })
+    assert Lights.GREEN.pin == default_green
 
 
 def test_validate_pins_rejects_unknown_light():

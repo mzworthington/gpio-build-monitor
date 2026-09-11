@@ -12,6 +12,7 @@ from monitor.build_monitor import BuildMonitor
 from monitor.ci_gateway import integration_actions as available_integrations
 from monitor.config import Config, load_config, webhook_secrets_from_env
 from monitor.gpio.board import Board
+from monitor.gpio.constants import configure_pins
 from monitor.log_handler import setup_logger
 from monitor.output import CompositeStatusOutput, GpioStatusOutput, WebSocketStatusOutput
 from monitor.output.port import StatusOutput
@@ -29,6 +30,7 @@ def build_status_outputs(config: Config) -> tuple[list[StatusOutput], Board | No
     websocket: WebSocketStatusOutput | None = None
 
     if outputs_cfg.get("gpio", True):
+        configure_pins(config.get("pins"))
         board = Board()
         adapters.append(GpioStatusOutput(board))
 
