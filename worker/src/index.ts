@@ -169,7 +169,7 @@ export class StatusHub implements DurableObject {
       status,
       is_running,
       builds,
-      poll_in_seconds: config.poll_in_seconds,
+      poll_in_seconds: delay,
       last_checked_at: now,
       next_check_at: now + delay,
     };

@@ -68,6 +68,126 @@ describe('fetchAllBuilds GitHub', () => {
       String(call[0]).includes('/actions/runs'),
     );
     expect(runCalls).toHaveLength(2);
+    expect(githubPollDelaySeconds(60)).toBeGreaterThanOrEqual(20 * 60);
+  });
+
+  it('keeps the configured poll cadence when authenticated GitHub calls succeed', async () => {
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes('/actions/workflows')) {
+        return Response.json({
+          workflows: [{ id: 1001, state: 'active' }],
+        });
+      }
+      if (url.includes('/actions/runs')) {
+        return Response.json({
+          workflow_runs: [
+            {
+              id: 1,
+              workflow_id: 1001,
+              name: 'CI',
+              html_url: 'https://example.com/ci',
+              created_at: '2020-01-02T00:00:00Z',
+              status: 'completed',
+              conclusion: 'success',
+              head_branch: 'main',
+            },
+          ],
+        });
+      }
+      return Response.json([]);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchAllBuilds(
+      {
+        poll_in_seconds: 60,
+        integrations: [{ type: 'GITHUB', username: 'super-man', repo: 'awesome' }],
+      },
+      { githubToken: 'secret' },
+    );
+
+    expect(githubPollDelaySeconds(60)).toBe(60);
+  });
+
+  it('waits at least 20 minutes when public fallback has no reset or a sooner reset', async () => {
+    const fetchMock = vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      const headers = new Headers(init?.headers);
+      const authed = headers.has('Authorization');
+      if (url.includes('/actions/workflows')) {
+        return Response.json({
+          workflows: [{ id: 1001, state: 'active' }],
+        });
+      }
+      if (url.includes('/actions/runs') && authed) {
+        return Response.json({ message: 'Resource not accessible' }, { status: 403 });
+      }
+      if (url.includes('/actions/runs')) {
+        return Response.json(
+          { message: 'API rate limit exceeded' },
+          {
+            status: 403,
+            headers: {
+              'X-RateLimit-Remaining': '0',
+            },
+          },
+        );
+      }
+      return Response.json([]);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchAllBuilds(
+      {
+        poll_in_seconds: 60,
+        integrations: [{ type: 'GITHUB', username: 'super-man', repo: 'awesome' }],
+      },
+      { githubToken: 'secret' },
+    );
+
+    expect(githubPollDelaySeconds(60)).toBeGreaterThanOrEqual(20 * 60);
+  });
+
+  it('still waits at least 20 minutes when GitHub reset is sooner', async () => {
+    const resetAt = Math.floor(Date.now() / 1000) + 5 * 60;
+    const fetchMock = vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      const headers = new Headers(init?.headers);
+      const authed = headers.has('Authorization');
+      if (url.includes('/actions/workflows')) {
+        return Response.json({
+          workflows: [{ id: 1001, state: 'active' }],
+        });
+      }
+      if (url.includes('/actions/runs') && authed) {
+        return Response.json({ message: 'Resource not accessible' }, { status: 403 });
+      }
+      if (url.includes('/actions/runs')) {
+        return Response.json(
+          { message: 'API rate limit exceeded' },
+          {
+            status: 403,
+            headers: {
+              'X-RateLimit-Remaining': '0',
+              'X-RateLimit-Reset': String(resetAt),
+            },
+          },
+        );
+      }
+      return Response.json([]);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchAllBuilds(
+      {
+        poll_in_seconds: 60,
+        integrations: [{ type: 'GITHUB', username: 'super-man', repo: 'awesome' }],
+      },
+      { githubToken: 'secret' },
+    );
+
+    expect(githubPollDelaySeconds(60)).toBeGreaterThanOrEqual(20 * 60);
   });
 
   it('skips further unauthenticated GitHub GETs after a public rate-limit 403', async () => {
