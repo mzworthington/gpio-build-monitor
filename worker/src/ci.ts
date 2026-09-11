@@ -188,18 +188,53 @@ function githubHeaders(token: string): HeadersInit {
   };
 }
 
+/** Floor after any anonymous GitHub fallback so a 60s alarm cannot burn the 60/hour budget. */
+export const MIN_PUBLIC_FALLBACK_POLL_SECONDS = 20 * 60;
+
 let githubPublicLock: Promise<void> = Promise.resolve();
 let githubSkipPublicUntilMs = 0;
+let githubNextPollNotBeforeMs = 0;
 
 export function resetGithubPublicClient(): void {
   githubPublicLock = Promise.resolve();
   githubSkipPublicUntilMs = 0;
+  githubNextPollNotBeforeMs = 0;
 }
 
-export function githubPollDelaySeconds(configured: number): number {
-  const wait = Math.ceil((githubSkipPublicUntilMs - Date.now()) / 1000);
+export function githubPollDelaySeconds(
+  configured: number,
+  nowMs = Date.now(),
+): number {
+  const wait = Math.ceil((githubNextPollNotBeforeMs - nowMs) / 1000);
   if (wait <= 0) return configured;
   return Math.max(configured, wait);
+}
+
+function rateLimitResetMs(resp: Response): number | null {
+  const raw = resp.headers.get('X-RateLimit-Reset');
+  if (raw == null || raw.trim() === '') return null;
+  const reset = Number(raw);
+  return Number.isFinite(reset) && reset > 0 ? reset * 1000 : null;
+}
+
+function notePublicFallback(resp: Response, nowMs = Date.now()): void {
+  const floorMs = nowMs + MIN_PUBLIC_FALLBACK_POLL_SECONDS * 1000;
+  const resetMs = rateLimitResetMs(resp);
+  githubNextPollNotBeforeMs = Math.max(
+    githubNextPollNotBeforeMs,
+    resetMs ?? 0,
+    floorMs,
+  );
+  if (
+    resp.status === 403 &&
+    resp.headers.get('X-RateLimit-Remaining')?.trim() === '0'
+  ) {
+    githubSkipPublicUntilMs = Math.max(
+      githubSkipPublicUntilMs,
+      resetMs ?? 0,
+      floorMs,
+    );
+  }
 }
 
 async function githubGet(url: URL, token: string): Promise<Response> {
@@ -213,11 +248,7 @@ async function githubGet(url: URL, token: string): Promise<Response> {
       return authed;
     }
     const pub = await fetch(url, { headers: githubPublicHeaders() });
-    if (pub.status === 403 && pub.headers.get('X-RateLimit-Remaining') === '0') {
-      const reset = Number(pub.headers.get('X-RateLimit-Reset'));
-      githubSkipPublicUntilMs =
-        Number.isFinite(reset) && reset > 0 ? reset * 1000 : Date.now() + 60_000;
-    }
+    notePublicFallback(pub);
     return pub;
   });
   githubPublicLock = queued.then(

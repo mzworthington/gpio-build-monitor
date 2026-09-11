@@ -73,7 +73,12 @@ board. CircleCI is unchanged. Use `excluded_workflows` /
 
 If an authenticated call returns 401 or 403 (rate limit or a PAT without
 Actions read), the poller retries the same public endpoints without
-credentials so public repos still light the board.
+credentials so public repos still light the board. On the hosted Worker, a
+public fallback then backs the Durable Object alarm off until GitHub's
+`X-RateLimit-Reset` (or at least 20 minutes). A later unauthenticated 403
+with `X-RateLimit-Remaining: 0` stops further anonymous GETs in that poll
+so nine repos cannot stampede the 60/hour budget. Authenticated 200s keep
+the configured cadence.
 
 ### Dependabot Update runs
 
