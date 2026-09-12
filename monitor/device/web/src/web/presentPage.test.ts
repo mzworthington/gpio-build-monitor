@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { presentChrome, summarizeRepos } from './presentPage';
+import {
+  collectOpenFindings,
+  collectOpenPulls,
+  findingCardClass,
+  prChipClass,
+  presentChrome,
+  securityChipClass,
+  summarizeRepos,
+} from './presentPage';
 
 describe('summarizeRepos', () => {
   it('rolls a repo to FAIL when any settled workflow failed', () => {
@@ -107,5 +115,83 @@ describe('presentChrome', () => {
         builds: [],
       }).lights.red,
     ).toBe('on');
+  });
+});
+
+describe('open glances', () => {
+  const repos = summarizeRepos([
+    {
+      repo: 'acme/web',
+      workflow: 'CI',
+      status: 'PASS',
+      url: 'https://example.com/ci',
+      pull_requests: {
+        count: 2,
+        url: 'https://github.com/acme/web/pulls',
+        items: [
+          { number: 12, title: 'Ready', url: 'https://github.com/acme/web/pull/12', draft: false },
+          { number: 13, title: 'WIP', url: 'https://github.com/acme/web/pull/13', draft: true },
+        ],
+      },
+      security: {
+        count: 2,
+        url: 'https://github.com/acme/web/security',
+        vulnerabilities: {
+          count: 1,
+          url: 'https://github.com/acme/web/security/dependabot',
+          items: [
+            {
+              number: 8,
+              title: 'Prototype pollution',
+              severity: 'high',
+              url: 'https://github.com/acme/web/security/dependabot/8',
+              state: 'open',
+            },
+          ],
+        },
+        codeql: {
+          count: 1,
+          url: 'https://github.com/acme/web/security/code-scanning',
+          items: [
+            {
+              number: 9,
+              title: 'Path injection',
+              severity: 'critical',
+              url: 'https://github.com/acme/web/security/code-scanning/9',
+              state: 'open',
+            },
+          ],
+        },
+      },
+    },
+    {
+      repo: 'acme/ops',
+      workflow: 'build',
+      status: 'PASS',
+      url: 'https://example.com/ops',
+      pull_requests: null,
+      security: null,
+    },
+  ]);
+
+  it('lists ready pull requests before drafts and skips CircleCI', () => {
+    expect(collectOpenPulls(repos).map((item) => item.number)).toEqual([12, 13]);
+  });
+
+  it('tags findings with Dependabot or CodeQL and sorts by severity', () => {
+    expect(collectOpenFindings(repos).map((item) => `${item.source}:${item.severity}`)).toEqual([
+      'CodeQL:critical',
+      'Dependabot:high',
+    ]);
+  });
+
+  it('colors chips by count and worst severity', () => {
+    const ops = repos.find((entry) => entry.repo === 'acme/ops');
+    const web = repos.find((entry) => entry.repo === 'acme/web');
+    expect(prChipClass(0)).toBe('chip chip-muted');
+    expect(prChipClass(2)).toBe('chip chip-pr');
+    expect(securityChipClass(ops?.security ?? null)).toBe('chip chip-muted');
+    expect(securityChipClass(web?.security)).toBe('chip chip-find-hot');
+    expect(findingCardClass('medium')).toBe('glance-card finding-medium');
   });
 });

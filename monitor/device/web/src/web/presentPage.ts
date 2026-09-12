@@ -1,4 +1,10 @@
-import type { BuildDetail, PullRequests, SecurityFindings } from '../ci';
+import type {
+  BuildDetail,
+  PullRequestItem,
+  PullRequests,
+  SecurityFinding,
+  SecurityFindings,
+} from '../ci';
 import { shownStatus } from './shownStatus';
 
 const IN_PROGRESS = new Set(['RUNNING', 'WAITING']);
@@ -146,4 +152,128 @@ export function presentChrome(snapshot: {
     },
     issues: snapshot.builds.filter((build) => ATTENTION.has(build.status)),
   };
+}
+
+export type FindingSource = 'Dependabot' | 'CodeQL';
+
+export type TaggedFinding = SecurityFinding & { source: FindingSource };
+
+export type OpenPullGlance = PullRequestItem & {
+  repo: string;
+  org: string;
+  name: string;
+};
+
+export type OpenFindingGlance = TaggedFinding & {
+  repo: string;
+  org: string;
+  name: string;
+};
+
+const SEVERITY_RANK = ['critical', 'high', 'medium', 'low'] as const;
+
+export function taggedSecurityItems(security: SecurityFindings | null | undefined): TaggedFinding[] {
+  if (!security) {
+    return [];
+  }
+  return [
+    ...security.vulnerabilities.items.map((item) => ({ ...item, source: 'Dependabot' as const })),
+    ...security.codeql.items.map((item) => ({ ...item, source: 'CodeQL' as const })),
+  ];
+}
+
+export function normalizeSeverity(severity: string | null | undefined): string {
+  const value = String(severity || '').toLowerCase();
+  return (SEVERITY_RANK as readonly string[]).includes(value) ? value : 'open';
+}
+
+export function severityRank(severity: string | null | undefined): number {
+  const index = (SEVERITY_RANK as readonly string[]).indexOf(normalizeSeverity(severity));
+  return index >= 0 ? index : SEVERITY_RANK.length;
+}
+
+export function worstSeverity(items: Array<{ severity: string | null }>): string | null {
+  if (items.length === 0) {
+    return null;
+  }
+  return items.reduce((worst, item) =>
+    (severityRank(item.severity) < severityRank(worst) ? normalizeSeverity(item.severity) : worst),
+  'open');
+}
+
+export function prChipClass(count: number): string {
+  return count > 0 ? 'chip chip-pr' : 'chip chip-muted';
+}
+
+export function securityChipClass(security: SecurityFindings | null | undefined): string {
+  if (!security) {
+    return 'chip chip-muted';
+  }
+  if ((security.count || 0) <= 0) {
+    return 'chip chip-find-ok';
+  }
+  const items = taggedSecurityItems(security);
+  const worst = worstSeverity(items);
+  if (worst === 'critical' || worst === 'high' || items.length === 0) {
+    return 'chip chip-find-hot';
+  }
+  if (worst === 'medium') {
+    return 'chip chip-find-warm';
+  }
+  return 'chip chip-find-ok';
+}
+
+export function pullRowClass(draft: boolean): string {
+  return draft ? 'glance-row pr-draft' : 'glance-row';
+}
+
+export function findingRowClass(severity: string | null | undefined): string {
+  return `glance-row finding-${normalizeSeverity(severity)}`;
+}
+
+export function pullCardClass(draft: boolean): string {
+  return draft ? 'glance-card pr-draft' : 'glance-card';
+}
+
+export function findingCardClass(severity: string | null | undefined): string {
+  return `glance-card finding-${normalizeSeverity(severity)}`;
+}
+
+export function collectOpenPulls(repos: RepoSummary[]): OpenPullGlance[] {
+  const glances: OpenPullGlance[] = [];
+  for (const entry of repos) {
+    for (const item of entry.pull_requests?.items ?? []) {
+      glances.push({ ...item, repo: entry.repo, org: entry.org, name: entry.name });
+    }
+  }
+  return glances.sort((a, b) => {
+    if (a.draft !== b.draft) {
+      return a.draft ? 1 : -1;
+    }
+    const repo = a.repo.localeCompare(b.repo);
+    if (repo !== 0) {
+      return repo;
+    }
+    return b.number - a.number;
+  });
+}
+
+export function collectOpenFindings(repos: RepoSummary[]): OpenFindingGlance[] {
+  const glances: OpenFindingGlance[] = [];
+  for (const entry of repos) {
+    for (const item of taggedSecurityItems(entry.security)) {
+      glances.push({ ...item, repo: entry.repo, org: entry.org, name: entry.name });
+    }
+  }
+  return glances.sort((a, b) => {
+    const rank = severityRank(a.severity) - severityRank(b.severity);
+    if (rank !== 0) {
+      return rank;
+    }
+    const repo = a.repo.localeCompare(b.repo);
+    if (repo !== 0) {
+      return repo;
+    }
+    return a.title.localeCompare(b.title);
+  });
 }
