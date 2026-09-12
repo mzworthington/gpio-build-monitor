@@ -26,7 +26,7 @@ import {
 import type { PushMessage } from '@block65/webcrypto-web-push';
 import { posthogConfigResponse } from './api/posthogConfig';
 import { statusSnapshotResponse } from './api/snapshot';
-import { isStatusHubPath } from './api/statusHubRoutes';
+import { statusHubInternalPath } from './api/statusHubRoutes';
 import { isPythonApiPath, pythonApiUrl } from './api/pythonApi';
 import { handleWebhook } from './api/webhooks';
 
@@ -295,8 +295,11 @@ export default {
       return fetch(new Request(pythonApiUrl(request.url, env.PYTHON_API_ORIGIN), request));
     }
 
-    if (isStatusHubPath(url.pathname)) {
-      return statusStub(env).fetch(request);
+    const hubPath = statusHubInternalPath(url.pathname);
+    if (hubPath) {
+      const hubUrl = new URL(request.url);
+      hubUrl.pathname = hubPath;
+      return statusStub(env).fetch(new Request(hubUrl, request));
     }
 
     if (url.pathname === '/api/push/vapid-public-key') {

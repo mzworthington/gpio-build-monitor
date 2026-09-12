@@ -4,55 +4,54 @@ import * as pulumi from '@pulumi/pulumi';
 const config = new pulumi.Config();
 const accountId = config.require('accountId');
 const zoneId = config.require('zoneId');
-const pagesProjectName = config.get('pagesProjectName') ?? config.get('workerName');
-if (!pagesProjectName) {
-  throw new Error('Set pagesProjectName (or workerName) to the Pages project name');
+
+function resolveWorkerName(): string {
+  const name = config.get('workerName') ?? config.get('pagesProjectName');
+  if (!name) {
+    throw new Error('Set workerName (or pagesProjectName) to the Worker script name');
+  }
+  return name;
 }
 
-/** Public hostnames for the status UI (Pages custom domains). */
 function resolveHostnames(): string[] {
   const listed =
-    config.getObject<string[]>('pagesHostnames') ??
-    config.getObject<string[]>('workerHostnames');
+    config.getObject<string[]>('workerHostnames') ??
+    config.getObject<string[]>('pagesHostnames');
   if (listed && listed.length > 0) return listed;
   throw new Error(
-    'Set pagesHostnames (or workerHostnames) to a JSON array, e.g. ["monitor.mzworthington.co.uk"]',
+    'Set workerHostnames (or pagesHostnames) to a JSON array, e.g. ["monitor.mzworthington.co.uk"]',
   );
 }
 
-const pagesHostnames = resolveHostnames();
+const workerName = resolveWorkerName();
+const hostnames = resolveHostnames();
+const zone = cloudflare.getZoneOutput({ zoneId });
 
 const pagesProject = new cloudflare.PagesProject('site', {
   accountId,
-  name: pagesProjectName,
+  name: workerName,
   productionBranch: 'main',
 });
 
-for (const hostname of pagesHostnames) {
-  const safe = hostname.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
-  const dns = new cloudflare.DnsRecord(
-    `pages-dns-${safe}`,
-    {
-      zoneId,
-      name: hostname,
-      type: 'CNAME',
-      content: pagesProject.subdomain,
-      proxied: true,
-      ttl: 1,
-      comment: 'Cloudflare Pages',
-    },
-    { deleteBeforeReplace: true },
-  );
+const worker = new cloudflare.Worker(
+  'monitor',
+  {
+    accountId,
+    name: workerName,
+  },
+  { ignoreChanges: ['subdomain', 'observability'] },
+);
 
-  new cloudflare.PagesDomain(
-    `pages-domain-${safe}`,
-    {
-      accountId,
-      projectName: pagesProject.name,
-      name: hostname,
-    },
-    { dependsOn: [dns] },
-  );
+for (const hostname of hostnames) {
+  const safe = hostname.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+  new cloudflare.WorkersCustomDomain(`worker-domain-${safe}`, {
+    accountId,
+    zoneId,
+    zoneName: zone.name,
+    hostname,
+    service: worker.name,
+  });
 
   new cloudflare.ObservatoryScheduledTest(`observatory-${safe}`, {
     zoneId,
@@ -60,9 +59,8 @@ for (const hostname of pagesHostnames) {
   });
 }
 
-const zone = cloudflare.getZoneOutput({ zoneId });
-
+export const workerNameOut = worker.name;
+export const workerId = worker.id;
+export const hostnamesOut = hostnames;
 export const pagesProjectNameOut = pagesProject.name;
-export const pagesSubdomain = pagesProject.subdomain;
-export const pagesHostnamesOut = pagesHostnames;
 export const zoneName = zone.name;
