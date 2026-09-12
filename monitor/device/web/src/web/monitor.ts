@@ -4,6 +4,9 @@ import {
   collectOpenPulls,
   findingCardClass,
   findingRowClass,
+  openFindingKey,
+  openPullKey,
+  repoFindingKey,
   prChipClass,
   presentChrome,
   pullCardClass,
@@ -62,6 +65,9 @@ export type MonitorPage = {
   securityItems: (entry: RepoSummary) => TaggedFinding[];
   openPulls: () => OpenPullGlance[];
   openFindings: () => OpenFindingGlance[];
+  openPullKey: (pull: { repo: string; number: number }) => string;
+  openFindingKey: (finding: { repo: string; source: string; number: number }) => string;
+  repoFindingKey: (finding: { source: string; number: number }) => string;
   openCount: () => number;
   openLabel: () => string;
   pullRowClass: (draft: boolean) => string;
@@ -186,6 +192,9 @@ export function registerMonitor(alpine: AlpineHost): void {
     openFindings(this: MonitorPage) {
       return collectOpenFindings(this.repos);
     },
+    openPullKey,
+    openFindingKey,
+    repoFindingKey,
     openCount(this: MonitorPage) {
       return this.openPulls().length + this.openFindings().length;
     },

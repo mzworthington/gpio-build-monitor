@@ -195,7 +195,7 @@
         x-cloak
         x-show="openPulls().length && (openTab === 'prs' || !openFindings().length)"
       >
-        <template x-for="pull in openPulls()" :key="'open-pr-' + pull.repo + pull.number">
+        <template x-for="pull in openPulls()" :key="openPullKey(pull)">
           <li :class="pullCardClass(pull.draft)">
             <a
               x-show="pull.url"
@@ -228,7 +228,7 @@
         x-cloak
         x-show="openFindings().length && (openTab === 'findings' || !openPulls().length)"
       >
-        <template x-for="finding in openFindings()" :key="'open-sec-' + finding.repo + finding.source + finding.number">
+        <template x-for="finding in openFindings()" :key="openFindingKey(finding)">
           <li :class="findingCardClass(finding.severity)">
             <a
               x-show="finding.url"
@@ -373,7 +373,7 @@
               <div class="repo-section" x-show="securityItems(entry).length">
                 <p class="repo-section-label">Findings</p>
                 <ul class="glance-list">
-                <template x-for="finding in securityItems(entry)" :key="'sec-' + finding.source + finding.number">
+                <template x-for="finding in securityItems(entry)" :key="repoFindingKey(finding)">
                   <li :class="findingRowClass(finding.severity)">
                     <a
                       x-show="finding.url"

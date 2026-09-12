@@ -3,8 +3,11 @@ import {
   collectOpenFindings,
   collectOpenPulls,
   findingCardClass,
+  openFindingKey,
+  openPullKey,
   prChipClass,
   presentChrome,
+  repoFindingKey,
   securityChipClass,
   summarizeRepos,
 } from './presentPage';
@@ -193,5 +196,41 @@ describe('open glances', () => {
     expect(securityChipClass(ops?.security ?? null)).toBe('chip chip-muted');
     expect(securityChipClass(web?.security)).toBe('chip chip-find-hot');
     expect(findingCardClass('medium')).toBe('glance-card finding-medium');
+  });
+
+  it('keeps open-board keys distinct when repo names share a prefix', () => {
+    expect(openPullKey({ repo: 'acme/web', number: 12 })).toBe('open-pr:acme/web:12');
+    expect(openPullKey({ repo: 'acme/web1', number: 2 })).toBe('open-pr:acme/web1:2');
+    expect(openFindingKey({ repo: 'acme/web', source: 'Dependabot', number: 8 })).toBe(
+      'open-sec:acme/web:Dependabot:8',
+    );
+    expect(openFindingKey({ repo: 'acme/webDependabot', source: '', number: 8 })).toBe(
+      'open-sec:acme/webDependabot::8',
+    );
+    expect(repoFindingKey({ source: 'Dependabot', number: 12 })).toBe('sec:Dependabot:12');
+    expect(repoFindingKey({ source: 'Dependabot1', number: 2 })).toBe('sec:Dependabot1:2');
+  });
+
+  it('treats Dependabot findings without severity as needing attention', () => {
+    expect(
+      securityChipClass({
+        count: 1,
+        url: 'https://github.com/acme/web/security',
+        vulnerabilities: {
+          count: 1,
+          url: 'https://github.com/acme/web/security/dependabot',
+          items: [
+            {
+              number: 2,
+              title: 'left-pad',
+              severity: null,
+              url: 'https://github.com/acme/web/security/dependabot/2',
+              state: 'open',
+            },
+          ],
+        },
+        codeql: { count: 0, url: 'https://github.com/acme/web/security/code-scanning', items: [] },
+      }),
+    ).toBe('chip chip-find-warm');
   });
 });

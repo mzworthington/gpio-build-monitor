@@ -33,6 +33,9 @@ def test_status_page_lists_pull_request_and_security_items():
     assert 'id="open"' in html
     assert "openPulls()" in html
     assert "openFindings()" in html
+    assert "openPullKey(pull)" in html
+    assert "openFindingKey(finding)" in html
+    assert "repoFindingKey(finding)" in html
     assert "repo-section-label" in html
     assert "prChipClass(entry)" in html
     assert "finding.source" in html

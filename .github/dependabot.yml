@@ -45,6 +45,9 @@ updates:
       web-dependencies:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
     commit-message:
       prefix: npm
 
@@ -61,5 +64,8 @@ updates:
       pulumi-dependencies:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
     commit-message:
       prefix: npm
