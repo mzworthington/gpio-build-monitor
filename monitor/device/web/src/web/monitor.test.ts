@@ -54,4 +54,29 @@ describe('registerMonitor', () => {
       }).repos,
     ).toEqual([expect.objectContaining({ repo: 'acme/web', status: 'FAIL' })]);
   });
+
+  it('keeps watched repos collapsed until the operator opens one', () => {
+    const alpine = { data: vi.fn() };
+    registerMonitor(alpine);
+    const factory = alpine.data.mock.calls[0]?.[1] as () => {
+      repoIsOpen: (repo: string) => boolean;
+      rememberRepo: (repo: string, open: boolean) => void;
+      applySnapshot: (snapshot: {
+        status: string;
+        is_running: boolean;
+        fetching: boolean;
+        builds: Array<{ repo: string; workflow: string; status: string; url: string }>;
+      }) => unknown;
+    };
+    const page = factory();
+    page.applySnapshot({
+      status: 'PASS',
+      is_running: false,
+      fetching: false,
+      builds: [
+        { repo: 'mzworthington/archlens', workflow: 'CI', status: 'PASS', url: 'https://example.com/ci' },
+      ],
+    });
+    expect(page.repoIsOpen('mzworthington/archlens')).toBe(false);
+  });
 });
