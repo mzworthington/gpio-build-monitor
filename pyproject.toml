@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "monitor"
-version = "0.24.0"
+version = "0.25.0"
 description = "Build monitor for CI status via a WebSocket UI and Raspberry Pi GPIO follower"
 readme = "README.md"
 license = { file = "LICENSE" }

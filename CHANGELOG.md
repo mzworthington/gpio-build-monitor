@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v0.25.0 (2026-09-12)
+
+### Features
+
+- **web**: Surface pull requests and security findings
+  ([#38](https://github.com/mzworthington/gpio-build-monitor/pull/38),
+  [`29c0fd6`](https://github.com/mzworthington/gpio-build-monitor/commit/29c0fd69ada07a94b6f7f378dea86b2a95f704bb))
+
+
 ## v0.24.0 (2026-09-12)
 
 ### Features
