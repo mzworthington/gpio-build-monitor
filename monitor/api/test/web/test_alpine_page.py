@@ -159,3 +159,14 @@ def test_design_pack_syncs_into_web_public():
 def test_status_site_is_not_under_legacy_monitor_web():
     legacy = ROOT / "monitor" / "web" / "index.html"
     assert not legacy.is_file()
+
+
+def test_status_word_scales_inside_the_dial_core():
+    css = (WEB_PUBLIC / "styles.css").read_text(encoding="utf-8")
+    core_i = css.index(".status-dial-core {")
+    core = css[core_i : css.index("}", core_i) + 1]
+    word_i = css.index(".status-word {")
+    word = css[word_i : css.index("}", word_i) + 1]
+    assert "container-type: inline-size" in core
+    assert "cqi" in word
+    assert "max-width: 100%" in word

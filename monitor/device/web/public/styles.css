@@ -382,12 +382,13 @@ h1 {
   display: grid;
   place-items: center;
   align-content: center;
-  gap: 0.55rem;
+  gap: 0.45rem;
   width: 72%;
   aspect-ratio: 1;
-  padding: 1rem;
+  padding: 0.7rem 0.85rem;
   border-radius: 50%;
   overflow: hidden;
+  container-type: inline-size;
   background: radial-gradient(
     circle at 50% 40%,
     color-mix(in srgb, var(--ring) 12%, #151b24),
@@ -400,11 +401,11 @@ h1 {
 
 .status-word {
   margin: 0;
-  max-width: none;
+  max-width: 100%;
   font-family: var(--font-display);
-  font-size: clamp(1.55rem, 4.6vw, 2rem);
+  font-size: clamp(1.05rem, 22cqi, 1.45rem);
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.045em;
   line-height: 1;
   color: var(--ring);
   white-space: nowrap;
