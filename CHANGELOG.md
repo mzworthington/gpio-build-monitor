@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.22.2 (2026-09-12)
+
+### Bug Fixes
+
+- **web**: Serve Alpine /api on the status Worker
+  ([`75b9350`](https://github.com/mzworthington/gpio-build-monitor/commit/75b935032ce5f9d866bb738b3b66ce131bcef286))
+
+### Refactoring
+
+- Directory cleanup
+  ([`10664e1`](https://github.com/mzworthington/gpio-build-monitor/commit/10664e1c6757a2860fd10b97b0ada8ebc8e2a552))
+
+
 ## v0.22.1 (2026-09-12)
 
 ### Bug Fixes
