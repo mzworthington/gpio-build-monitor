@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v0.25.1 (2026-09-12)
+
+### Bug Fixes
+
+- **web**: Keep dependabot finding rows from colliding
+  ([#40](https://github.com/mzworthington/gpio-build-monitor/pull/40),
+  [`5261a89`](https://github.com/mzworthington/gpio-build-monitor/commit/5261a89241a35ada5412aa9b1b5b1394af261b70))
+
+
 ## v0.25.0 (2026-09-12)
 
 ### Features
