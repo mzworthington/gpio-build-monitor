@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest';
-import { aggregate, keepLastValidPayload } from './ci';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { aggregate, fetchAllBuilds, keepLastValidPayload } from './ci';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 describe('aggregate', () => {
   it('uses RUNNING when every workflow is still in progress', () => {
@@ -85,5 +90,47 @@ describe('keepLastValidPayload', () => {
     };
     expect(keepLastValidPayload(previous, next).builds).toEqual(next.builds);
     expect(keepLastValidPayload(previous, next).status).toBe('PASS');
+  });
+});
+
+describe('fetchAllBuilds CircleCI', () => {
+  it('returns null security findings', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes('/pipeline/') && url.includes('/workflow')) {
+        return Response.json({
+          items: [
+            {
+              id: 'wf-1',
+              name: 'build',
+              status: 'success',
+              created_at: '2020-01-02T00:00:00Z',
+            },
+          ],
+        });
+      }
+      if (url.includes('/pipeline')) {
+        return Response.json({ items: [{ id: 'pipe-1' }] });
+      }
+      return new Response('not found', { status: 404 });
+    }));
+
+    const builds = await fetchAllBuilds(
+      {
+        poll_in_seconds: 60,
+        integrations: [{ type: 'CIRCLECI', username: 'super-man', repo: 'awesome' }],
+      },
+      { circleToken: 'secret' },
+    );
+
+    expect(builds).toEqual([
+      {
+        repo: 'super-man/awesome',
+        workflow: 'build',
+        status: 'PASS',
+        url: 'https://github.com/super-man/awesome',
+        security: null,
+      },
+    ]);
   });
 });

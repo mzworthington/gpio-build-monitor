@@ -187,6 +187,7 @@ async def test_status_snapshot_matches_websocket_payload():
                         "status": "FAIL",
                         "workflow_count": 2,
                         "pr_count": 0,
+                        "security_count": 0,
                         "is_running": False,
                     }
                 ]
@@ -202,6 +203,7 @@ async def test_status_snapshot_matches_websocket_payload():
                         "status": "FAIL",
                         "workflow_count": 2,
                         "pr_count": 0,
+                        "security_count": 0,
                         "is_running": False,
                         "workflows": [
                             {"workflow": "CI", "status": "FAIL"},

@@ -58,6 +58,9 @@ export function decideGitHub(eventName: string | null): WebhookDecision {
   if (!eventName) return 'ignore';
   if (eventName === 'ping') return 'ack';
   if (eventName === 'workflow_run' || eventName === 'pull_request') return 'refresh';
+  if (eventName === 'dependabot_alert' || eventName === 'code_scanning_alert') {
+    return 'refresh';
+  }
   return 'ignore';
 }
 

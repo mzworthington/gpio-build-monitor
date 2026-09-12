@@ -10,6 +10,7 @@ from monitor.ci_gateway.constants import (
     IN_PROGRESS_VALUES,
     CiResult,
     IntegrationAdapter,
+    SecurityFindings,
 )
 
 Result = CiResult
@@ -22,6 +23,7 @@ class BuildDetail(TypedDict):
     url: str
     pr_count: NotRequired[int | None]
     pr_url: NotRequired[str | None]
+    security: NotRequired[SecurityFindings | None]
 
 
 def get_status_from_details(builds: list[BuildDetail]) -> Result:
@@ -85,6 +87,7 @@ class RepoSummary(TypedDict):
     url: str
     pr_count: int | None
     pr_url: str | None
+    security: SecurityFindings | None
     workflows: list[BuildDetail]
 
 
@@ -109,6 +112,10 @@ def repo_summaries(builds: list[BuildDetail]) -> list[RepoSummary]:
         )
         if pr_count is not None and not pr_url and "/" in repo:
             pr_url = f"https://github.com/{repo}/pulls"
+        security = next(
+            (build.get("security") for build in repo_builds if build.get("security") is not None),
+            None,
+        )
         workflows = sorted(
             repo_builds,
             key=lambda item: (item.get("workflow") or "").lower(),
@@ -121,6 +128,7 @@ def repo_summaries(builds: list[BuildDetail]) -> list[RepoSummary]:
             "url": url,
             "pr_count": pr_count,
             "pr_url": pr_url,
+            "security": security,
             "workflows": workflows,
         })
 
@@ -156,9 +164,10 @@ class AggregatorService:
         integration: IntegrationAdapter,
     ) -> list[BuildDetail]:
         repo = f"{integration.username}/{integration.repo}"
-        latest, pull_requests = await asyncio.gather(
+        latest, pull_requests, security = await asyncio.gather(
             integration.get_latest(session),
             integration.open_pull_requests(session),
+            integration.security_findings(session),
             return_exceptions=True,
         )
         pr_count: int | None = None
@@ -167,6 +176,12 @@ class AggregatorService:
             logging.exception("Failed to fetch pull requests for %s", repo)
         else:
             pr_count, pr_url = pull_requests
+
+        findings: SecurityFindings | None = None
+        if isinstance(security, Exception):
+            logging.exception("Failed to fetch security findings for %s", repo)
+        else:
+            findings = security
 
         if isinstance(latest, Exception):
             logging.exception("Failed to fetch build status for %s", repo)
@@ -178,6 +193,7 @@ class AggregatorService:
                     url="",
                     pr_count=pr_count,
                     pr_url=pr_url,
+                    security=findings,
                 )
             ]
 
@@ -189,6 +205,7 @@ class AggregatorService:
                 url=build["vcs"],
                 pr_count=pr_count,
                 pr_url=pr_url,
+                security=findings,
             )
             for build in latest
         ]

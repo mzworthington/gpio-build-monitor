@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchAllBuilds, githubPollDelaySeconds, resetGithubPublicClient } from './ci';
+import { fetchAllBuilds, githubPollDelaySeconds, githubSecurityFindings, resetGithubPublicClient } from './ci';
 
 afterEach(() => {
   resetGithubPublicClient();
@@ -62,6 +62,7 @@ describe('fetchAllBuilds GitHub', () => {
         url: 'https://example.com/ci',
         pr_count: null,
         pr_url: null,
+        security: githubSecurityFindings('super-man/awesome', 0, 0),
       },
     ]);
     const runCalls = fetchMock.mock.calls.filter((call) =>
@@ -208,6 +209,7 @@ describe('fetchAllBuilds GitHub', () => {
         url: 'https://example.com/ci',
         pr_count: 2,
         pr_url: 'https://github.com/super-man/awesome/pulls',
+        security: githubSecurityFindings('super-man/awesome', 0, 0),
       },
     ]);
     expect(String(fetchMock.mock.calls.find((call) => String(call[0]).includes('/pulls'))?.[0])).toContain(
@@ -274,7 +276,114 @@ describe('fetchAllBuilds GitHub', () => {
         url: 'https://example.com/ci',
         pr_count: 0,
         pr_url: 'https://github.com/mzworthington/react-cloudflare-template/pulls',
+        security: githubSecurityFindings('mzworthington/react-cloudflare-template', 0, 0),
       },
     ]);
+  });
+
+  it('counts open Dependabot and CodeQL alerts without changing CI status', async () => {
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes('/actions/workflows')) {
+        return Response.json({
+          workflows: [{ id: 1001, state: 'active' }],
+        });
+      }
+      if (url.includes('/actions/runs')) {
+        return Response.json({
+          workflow_runs: [
+            {
+              id: 1,
+              workflow_id: 1001,
+              name: 'CI',
+              html_url: 'https://example.com/ci',
+              created_at: '2020-01-02T00:00:00Z',
+              status: 'completed',
+              conclusion: 'success',
+              head_branch: 'main',
+            },
+          ],
+        });
+      }
+      if (url.includes('/dependabot/alerts')) {
+        return Response.json([{ number: 1 }, { number: 2 }]);
+      }
+      if (url.includes('/code-scanning/alerts')) {
+        return Response.json([{ number: 9 }]);
+      }
+      if (url.includes('/pulls')) {
+        return Response.json([]);
+      }
+      return new Response('not found', { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const builds = await fetchAllBuilds(
+      {
+        poll_in_seconds: 60,
+        integrations: [{ type: 'GITHUB', username: 'super-man', repo: 'awesome' }],
+      },
+      { githubToken: 'secret' },
+    );
+
+    expect(builds).toEqual([
+      {
+        repo: 'super-man/awesome',
+        workflow: 'CI',
+        status: 'PASS',
+        url: 'https://example.com/ci',
+        pr_count: 0,
+        pr_url: 'https://github.com/super-man/awesome/pulls',
+        security: githubSecurityFindings('super-man/awesome', 2, 1),
+      },
+    ]);
+    expect(builds[0]?.security?.vulnerabilities.items).toEqual([]);
+    expect(builds[0]?.security?.codeql.items).toEqual([]);
+    expect(
+      String(fetchMock.mock.calls.find((call) => String(call[0]).includes('/code-scanning/alerts'))?.[0]),
+    ).toContain('tool_name=CodeQL');
+  });
+
+  it('omits security findings when GitHub forbids both alert APIs', async () => {
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes('/actions/workflows')) {
+        return Response.json({
+          workflows: [{ id: 1001, state: 'active' }],
+        });
+      }
+      if (url.includes('/actions/runs')) {
+        return Response.json({
+          workflow_runs: [
+            {
+              id: 1,
+              workflow_id: 1001,
+              name: 'CI',
+              html_url: 'https://example.com/ci',
+              created_at: '2020-01-02T00:00:00Z',
+              status: 'completed',
+              conclusion: 'success',
+              head_branch: 'main',
+            },
+          ],
+        });
+      }
+      if (url.includes('/dependabot/alerts') || url.includes('/code-scanning/alerts')) {
+        return Response.json({ message: 'Forbidden' }, { status: 403 });
+      }
+      return Response.json([]);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const builds = await fetchAllBuilds(
+      {
+        poll_in_seconds: 60,
+        integrations: [{ type: 'GITHUB', username: 'super-man', repo: 'awesome' }],
+      },
+      { githubToken: 'secret' },
+    );
+
+    expect(builds[0]?.status).toBe('PASS');
+    expect(builds[0]?.security).toBeNull();
   });
 });

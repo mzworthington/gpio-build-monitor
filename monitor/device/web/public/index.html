@@ -185,17 +185,30 @@
                   <span class="issue-name" x-text="entry.name"></span>
                 </span>
                 <span class="repo-meta" x-text="workflowMeta(entry)"></span>
-                <a
-                  class="repo-prs"
-                  x-show="entry.pr_count != null"
-                  :href="entry.pr_url"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  :title="'Open pull requests for ' + entry.repo"
-                  :aria-label="entry.pr_count + ' open pull requests for ' + entry.repo"
-                  x-text="prLabel(entry)"
-                  @click.stop
-                ></a>
+                <span class="repo-glances">
+                  <a
+                    class="repo-prs"
+                    x-show="entry.pr_count != null"
+                    :href="entry.pr_url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    :title="'Open pull requests for ' + entry.repo"
+                    :aria-label="entry.pr_count + ' open pull requests for ' + entry.repo"
+                    x-text="prLabel(entry)"
+                    @click.stop
+                  ></a>
+                  <a
+                    class="repo-security"
+                    x-show="entry.security != null"
+                    :href="entry.security && entry.security.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    :title="'Open security findings for ' + entry.repo"
+                    :aria-label="(entry.security ? entry.security.count : 0) + ' security findings for ' + entry.repo"
+                    x-text="securityLabel(entry)"
+                    @click.stop
+                  ></a>
+                </span>
                 <span class="repo-status" x-text="entry.status"></span>
                 <a
                   class="repo-external"

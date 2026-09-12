@@ -40,6 +40,12 @@ def test_github_decide_pull_request_refreshes():
     assert GitHubWebhook().decide("pull_request") is RefreshDecision.REFRESH
 
 
+def test_github_decide_security_alerts_refresh():
+    provider = GitHubWebhook()
+    assert provider.decide("dependabot_alert") is RefreshDecision.REFRESH
+    assert provider.decide("code_scanning_alert") is RefreshDecision.REFRESH
+
+
 def test_github_decide_ping_acks():
     assert GitHubWebhook().decide("ping") is RefreshDecision.ACK
 

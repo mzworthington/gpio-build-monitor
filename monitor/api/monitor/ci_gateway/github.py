@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import asyncio
 import logging
 import os
 import re
@@ -14,6 +15,8 @@ from monitor.ci_gateway.constants import (
     CiResult,
     IntegrationAdapter,
     IntegrationType,
+    SecurityFindings,
+    SecuritySource,
 )
 
 ALL_BRANCHES = "*"
@@ -23,6 +26,37 @@ ALL_BRANCHES = "*"
 _DEPENDABOT_UPDATE_KEY = re.compile(
     r"^(?P<head>.+?)(?: for .+?)? - Update #\d+$"
 )
+_LINK_NEXT = re.compile(r'<([^>]+)>\s*;\s*rel="next"', re.IGNORECASE)
+_ALERT_PAGE_CAP = 10
+_ALERT_PAGE_SIZE = "100"
+
+
+def github_security_payload(
+    username: str,
+    repo: str,
+    *,
+    vulnerabilities: int,
+    codeql: int,
+) -> SecurityFindings:
+    """Glance payload: counts now, empty ``items`` for later alert rows."""
+    base = f"https://github.com/{username}/{repo}/security"
+    return {
+        "count": vulnerabilities + codeql,
+        "url": base,
+        "vulnerabilities": _security_source(f"{base}/dependabot", vulnerabilities),
+        "codeql": _security_source(f"{base}/code-scanning", codeql),
+    }
+
+
+def _security_source(url: str, count: int) -> SecuritySource:
+    return {"count": count, "url": url, "items": []}
+
+
+def link_rel_next(link_header: str | None) -> str | None:
+    if not link_header:
+        return None
+    match = _LINK_NEXT.search(link_header)
+    return match.group(1) if match else None
 
 
 class GitHubAction(IntegrationAdapter):
@@ -163,6 +197,81 @@ class GitHubAction(IntegrationAdapter):
             len(payload),
             f'https://github.com/{self.username}/{self.repo}/pulls',
         )
+
+    async def security_findings(self, session: ClientSession) -> SecurityFindings | None:
+        """Open Dependabot (vulnerabilities) + CodeQL alert counts.
+
+        Nested ``items`` stay empty until the API grows per-alert detail.
+        Missing permission or token yields None (same as GitLab/CircleCI).
+        """
+        if not self.token:
+            return None
+        base = f"https://api.github.com/repos/{self.username}/{self.repo}"
+        try:
+            vuln_count, codeql_count = await asyncio.gather(
+                self._open_alert_count(
+                    session,
+                    f"{base}/dependabot/alerts",
+                ),
+                self._open_alert_count(
+                    session,
+                    f"{base}/code-scanning/alerts",
+                    extra={"tool_name": "CodeQL"},
+                ),
+            )
+        except Exception:
+            logging.warning(
+                "GitHub security findings unavailable for %s/%s",
+                self.username,
+                self.repo,
+            )
+            return None
+        if vuln_count is None and codeql_count is None:
+            return None
+        return github_security_payload(
+            self.username,
+            self.repo,
+            vulnerabilities=vuln_count or 0,
+            codeql=codeql_count or 0,
+        )
+
+    async def _open_alert_count(
+        self,
+        session: ClientSession,
+        url: str,
+        extra: dict[str, str] | None = None,
+    ) -> int | None:
+        """Count open alerts. 404 (not enabled) is 0; 401/403 is unknown."""
+        params: dict[str, str] = {
+            "state": "open",
+            "per_page": _ALERT_PAGE_SIZE,
+            **(extra or {}),
+        }
+        next_url: str | None = url
+        total = 0
+        pages = 0
+        while next_url and pages < _ALERT_PAGE_CAP:
+            resp = await session.get(
+                next_url,
+                params=params if pages == 0 else None,
+                headers=self._auth_headers(),
+            )
+            status = resp.status
+            link = resp.headers.get("Link")
+            if status == 404:
+                await resp.release()
+                return 0 if pages == 0 else total
+            if status != 200:
+                await resp.release()
+                return None if pages == 0 else total
+            payload = await resp.json()
+            if not isinstance(payload, list):
+                return None if pages == 0 else total
+            total += len(payload)
+            next_url = link_rel_next(link)
+            pages += 1
+            params = {}
+        return total
 
     @staticmethod
     def map_result(latest) -> BuildStatus:

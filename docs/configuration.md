@@ -79,7 +79,7 @@ When `webhooks.enabled` is `true`, the monitor listens for:
 
 | Provider | Path | Events that refresh |
 |----------|------|---------------------|
-| GitHub | `POST /webhooks/github` | `workflow_run`, `pull_request` (`ping` is acknowledged only) |
+| GitHub | `POST /webhooks/github` | `workflow_run`, `pull_request`, `dependabot_alert`, `code_scanning_alert` (`ping` is acknowledged only) |
 | CircleCI | `POST /webhooks/circleci` | `workflow-completed`, `job-completed` |
 
 A valid event breaks out of the wait and calls the same CI APIs as a timed poll. Status is still loaded via `get_latest()` so adapters remain the source of truth. CircleCI outbound webhooks are terminal-only, so the reconcile poll is still needed for the yellow “running” LED.
@@ -97,6 +97,12 @@ export CIRCLE_CI_TOKEN=...
 export GITHUB_WEBHOOK_SECRET=...
 export CIRCLE_CI_WEBHOOK_SECRET=...
 ```
+
+`GITHUB_TOKEN` needs `security_events` (classic) or Dependabot alerts + code
+scanning read (fine-grained) to populate `security` on the status API. Without
+that scope GitHub returns `null`, same as CircleCI/GitLab. Counts are open
+Dependabot vulnerabilities plus CodeQL alerts; `items` stays empty until the
+API grows per-alert detail.
 
 Only set the variables for providers present in your config. `monitor check-config` fails fast if any are missing.
 

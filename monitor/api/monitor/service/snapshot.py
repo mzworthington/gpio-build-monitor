@@ -71,6 +71,41 @@ def open_pr_glances(builds: Sequence[Mapping[str, Any]] | None) -> list[dict[str
     return glances
 
 
+def security_glances(builds: Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any]]:
+    glances: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for build in builds or []:
+        repo = str(build.get("repo") or "")
+        security = build.get("security")
+        if not repo or repo in seen or not isinstance(security, Mapping):
+            continue
+        count = security.get("count")
+        if count is None:
+            continue
+        try:
+            numeric = int(count)
+        except (TypeError, ValueError):
+            continue
+        seen.add(repo)
+        glances.append({
+            "repo": repo,
+            "count": numeric,
+            "url": security.get("url") or f"https://github.com/{repo}/security",
+            "vulnerabilities": _source_count(security.get("vulnerabilities")),
+            "codeql": _source_count(security.get("codeql")),
+        })
+    return glances
+
+
+def _source_count(source: object) -> int:
+    if not isinstance(source, Mapping):
+        return 0
+    try:
+        return int(source.get("count") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
 def snapshot_etag(
     status: str | Result,
     *,
@@ -84,6 +119,7 @@ def snapshot_etag(
             "builds": list(builds or []),
             "is_running": is_running,
             "open_prs": open_pr_glances(builds),
+            "security": security_glances(builds),
             "status": value,
         },
         separators=(",", ":"),
@@ -99,6 +135,7 @@ def eink_repo_row(summary: Mapping[str, Any], *, include_workflows: bool) -> dic
         "status": summary["status"],
         "workflow_count": summary["workflow_count"],
         "pr_count": int(summary["pr_count"] or 0),
+        "security_count": _source_count(summary.get("security")),
         "is_running": bool(summary["is_running"]),
     }
     if include_workflows:
@@ -128,6 +165,8 @@ def _details_from_payload_builds(raw: object) -> list[BuildDetail]:
         pr_url = item.get("pr_url")
         if pr_url:
             row["pr_url"] = str(pr_url)
+        if "security" in item:
+            row["security"] = item.get("security")
         details.append(row)
     return details
 

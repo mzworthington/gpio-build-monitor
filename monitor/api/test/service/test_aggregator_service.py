@@ -17,6 +17,8 @@ class StubIntegration:
         error=None,
         prs=(None, None),
         pr_error=None,
+        security=None,
+        security_error=None,
     ):
         self.username = username
         self.repo = repo
@@ -25,6 +27,8 @@ class StubIntegration:
         self.error = error
         self.prs = prs
         self.pr_error = pr_error
+        self.security = security
+        self.security_error = security_error
 
     def get_type(self):
         return self.integration_type
@@ -38,6 +42,11 @@ class StubIntegration:
         if self.pr_error:
             raise self.pr_error
         return self.prs
+
+    async def security_findings(self, session):
+        if self.security_error:
+            raise self.security_error
+        return self.security
 
 
 @pytest.mark.asyncio
@@ -142,6 +151,7 @@ async def test_contains_failed():
             "url": "",
             "pr_count": None,
             "pr_url": None,
+            "security": None,
         },
         {
             "repo": "c/d",
@@ -150,6 +160,7 @@ async def test_contains_failed():
             "url": "https://example.com/fail",
             "pr_count": None,
             "pr_url": None,
+            "security": None,
         },
     ]
 
@@ -280,6 +291,7 @@ def test_repo_summaries_groups_workflows_and_worst_status():
             "url": "https://github.com/mzworthington/archlens",
             "pr_count": None,
             "pr_url": None,
+            "security": None,
             "workflows": [
                 {
                     "repo": "mzworthington/archlens",
@@ -303,6 +315,7 @@ def test_repo_summaries_groups_workflows_and_worst_status():
             "url": "https://github.com/mzworthington/edge-dns",
             "pr_count": None,
             "pr_url": None,
+            "security": None,
             "workflows": [
                 {
                     "repo": "mzworthington/edge-dns",
@@ -340,6 +353,72 @@ async def test_github_pr_count_does_not_change_aggregate_status():
     assert result["status"] == Result.PASS
     assert result["builds"][0]["pr_count"] == 3
     assert result["builds"][0]["pr_url"] == "https://github.com/a/b/pulls"
+
+
+@pytest.mark.asyncio
+async def test_github_security_findings_do_not_change_aggregate_status():
+    findings = {
+        "count": 4,
+        "url": "https://github.com/a/b/security",
+        "vulnerabilities": {
+            "count": 3,
+            "url": "https://github.com/a/b/security/dependabot",
+            "items": [],
+        },
+        "codeql": {
+            "count": 1,
+            "url": "https://github.com/a/b/security/code-scanning",
+            "items": [],
+        },
+    }
+    integrations = [
+        StubIntegration(
+            'a',
+            'b',
+            IntegrationType.GITHUB,
+            [
+                dict(
+                    status=CiResult.PASS,
+                    type=IntegrationType.GITHUB,
+                    vcs='',
+                    id='',
+                    name='CI',
+                    start='',
+                ),
+            ],
+            security=findings,
+        ),
+    ]
+    async with aiohttp.ClientSession() as session:
+        result = await AggregatorService(integrations).run(session)
+    assert result["status"] == Result.PASS
+    assert result["builds"][0]["security"] == findings
+
+
+@pytest.mark.asyncio
+async def test_failed_security_fetch_leaves_workflows_intact():
+    integrations = [
+        StubIntegration(
+            'a',
+            'b',
+            IntegrationType.GITHUB,
+            [
+                dict(
+                    status=CiResult.PASS,
+                    type=IntegrationType.GITHUB,
+                    vcs='',
+                    id='',
+                    name='CI',
+                    start='',
+                ),
+            ],
+            security_error=RuntimeError('security down'),
+        ),
+    ]
+    async with aiohttp.ClientSession() as session:
+        result = await AggregatorService(integrations).run(session)
+    assert result["status"] == Result.PASS
+    assert result["builds"][0]["security"] is None
 
 
 @pytest.mark.asyncio
@@ -389,6 +468,40 @@ def test_repo_summaries_keeps_github_pr_count_over_circle_null():
     ])
     assert summaries[0]["pr_count"] == 2
     assert summaries[0]["pr_url"] == "https://github.com/acme/web/pulls"
+
+
+def test_repo_summaries_keeps_github_security_over_circle_null():
+    findings = {
+        "count": 2,
+        "url": "https://github.com/acme/web/security",
+        "vulnerabilities": {
+            "count": 2,
+            "url": "https://github.com/acme/web/security/dependabot",
+            "items": [],
+        },
+        "codeql": {
+            "count": 0,
+            "url": "https://github.com/acme/web/security/code-scanning",
+            "items": [],
+        },
+    }
+    summaries = repo_summaries([
+        {
+            "repo": "acme/web",
+            "workflow": "CI",
+            "status": "PASS",
+            "url": "https://github.com/acme/web/actions/1",
+            "security": findings,
+        },
+        {
+            "repo": "acme/web",
+            "workflow": "build",
+            "status": "PASS",
+            "url": "https://github.com/acme/web",
+            "security": None,
+        },
+    ])
+    assert summaries[0]["security"] == findings
 
 
 def test_rollup_status_is_the_ci_result_enum():

@@ -21,6 +21,7 @@ export interface RepoGlance {
   status: string;
   workflow_count: number;
   pr_count: number;
+  security_count: number;
   is_running: boolean;
   workflows?: Array<{ workflow: string; status: string }>;
 }
@@ -47,11 +48,13 @@ export function repoGlances(
     const { status, is_running } = aggregate(group);
     const prRaw = group.find((build) => build.pr_count != null)?.pr_count;
     const prCount = Number(prRaw);
+    const security = group.find((build) => build.security != null)?.security;
     const row: RepoGlance = {
       repo,
       status,
       workflow_count: group.length,
       pr_count: Number.isFinite(prCount) ? prCount : 0,
+      security_count: Number.isFinite(Number(security?.count)) ? Number(security?.count) : 0,
       is_running,
     };
     if (includeWorkflows) {
@@ -92,11 +95,51 @@ export function openPrGlances(
   return glances;
 }
 
+export function securityGlances(
+  builds: StatusPayload['builds'],
+): Array<{
+  repo: string;
+  count: number;
+  url: string;
+  vulnerabilities: number;
+  codeql: number;
+}> {
+  const glances: Array<{
+    repo: string;
+    count: number;
+    url: string;
+    vulnerabilities: number;
+    codeql: number;
+  }> = [];
+  const seen = new Set<string>();
+  for (const build of builds) {
+    const repo = build.repo || '';
+    const security = build.security;
+    if (!repo || seen.has(repo) || security == null) {
+      continue;
+    }
+    const numeric = Number(security.count);
+    if (!Number.isFinite(numeric)) {
+      continue;
+    }
+    seen.add(repo);
+    glances.push({
+      repo,
+      count: numeric,
+      url: security.url || `https://github.com/${repo}/security`,
+      vulnerabilities: Number(security.vulnerabilities?.count) || 0,
+      codeql: Number(security.codeql?.count) || 0,
+    });
+  }
+  return glances;
+}
+
 export function snapshotEtag(payload: StatusPayload): string {
   const body = JSON.stringify({
     builds: payload.builds,
     is_running: payload.is_running,
     open_prs: openPrGlances(payload.builds),
+    security: securityGlances(payload.builds),
     status: payload.status,
   });
   const digest = hexSha256(body).slice(0, 16);

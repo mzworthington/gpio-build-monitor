@@ -155,6 +155,12 @@ class TestCircleCi:
         assert count is None
         assert url is None
 
+    @pytest.mark.asyncio
+    async def test_security_findings_are_absent(self):
+        action = CircleCI(username='super-man', repo='awesome')
+        async with aiohttp.ClientSession() as session:
+            assert await action.security_findings(session) is None
+
     def test_circleci_init_has_no_kwargs_bag(self):
         import inspect
 

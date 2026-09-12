@@ -190,6 +190,7 @@ def test_eink_payload_lists_every_checked_repo_with_action_and_pr_counts():
             "status": "PASS",
             "workflow_count": 1,
             "pr_count": 2,
+            "security_count": 0,
             "is_running": False,
         },
         {
@@ -197,6 +198,7 @@ def test_eink_payload_lists_every_checked_repo_with_action_and_pr_counts():
             "status": "FAIL",
             "workflow_count": 2,
             "pr_count": 0,
+            "security_count": 0,
             "is_running": False,
         },
     ]
@@ -258,6 +260,7 @@ def test_eink_payload_keeps_pr_count_on_green_repos():
             "status": "PASS",
             "workflow_count": 1,
             "pr_count": 4,
+            "security_count": 0,
             "is_running": False,
         }
     ]
@@ -283,6 +286,81 @@ def test_snapshot_etag_changes_when_only_pr_count_changes():
         builds=[{**builds[0], "pr_count": 2}],
     )
     assert first != second
+
+
+def test_snapshot_etag_changes_when_only_security_count_changes():
+    builds = [
+        {
+            "repo": "acme/web",
+            "workflow": "CI",
+            "status": "PASS",
+            "url": "https://example.com/1",
+            "security": {
+                "count": 0,
+                "url": "https://github.com/acme/web/security",
+                "vulnerabilities": {
+                    "count": 0,
+                    "url": "https://github.com/acme/web/security/dependabot",
+                    "items": [],
+                },
+                "codeql": {
+                    "count": 0,
+                    "url": "https://github.com/acme/web/security/code-scanning",
+                    "items": [],
+                },
+            },
+        }
+    ]
+    first = snapshot_etag("PASS", is_running=False, builds=builds)
+    second = snapshot_etag(
+        "PASS",
+        is_running=False,
+        builds=[{**builds[0], "security": {**builds[0]["security"], "count": 2}}],
+    )
+    assert first != second
+
+
+def test_eink_payload_keeps_security_count_on_green_repos():
+    payload = eink_payload(
+        {
+            "type": "status",
+            "fetching": False,
+            "status": "PASS",
+            "is_running": False,
+            "builds": [
+                {
+                    "repo": "acme/web",
+                    "workflow": "CI",
+                    "status": "PASS",
+                    "url": "https://example.com/1",
+                    "security": {
+                        "count": 5,
+                        "url": "https://github.com/acme/web/security",
+                        "vulnerabilities": {
+                            "count": 2,
+                            "url": "https://github.com/acme/web/security/dependabot",
+                            "items": [],
+                        },
+                        "codeql": {
+                            "count": 3,
+                            "url": "https://github.com/acme/web/security/code-scanning",
+                            "items": [],
+                        },
+                    },
+                },
+            ],
+        }
+    )
+    assert payload["repos"] == [
+        {
+            "repo": "acme/web",
+            "status": "PASS",
+            "workflow_count": 1,
+            "pr_count": 0,
+            "security_count": 5,
+            "is_running": False,
+        }
+    ]
 
 
 def test_snapshot_headers_include_retry_after_and_etag():

@@ -42,6 +42,7 @@ export type MonitorPage = {
   repoName: (repo: string) => string;
   workflowMeta: (entry: RepoSummary) => string;
   prLabel: (entry: RepoSummary) => string;
+  securityLabel: (entry: RepoSummary) => string;
   repoRowClass: (entry: RepoSummary) => string;
   workflowRowClass: (workflow: BuildDetail) => string;
   issueClass: (issue: BuildDetail) => string;
@@ -127,6 +128,10 @@ export function registerMonitor(alpine: AlpineHost): void {
     },
     prLabel(entry: RepoSummary) {
       return `${entry.pr_count} PR${entry.pr_count === 1 ? '' : 's'}`;
+    },
+    securityLabel(entry: RepoSummary) {
+      const count = entry.security?.count ?? 0;
+      return `${count} finding${count === 1 ? '' : 's'}`;
     },
     repoRowClass(entry: RepoSummary) {
       return `repo-row repo-${String(entry.status || '').toLowerCase()}${entry.is_running ? ' is-running' : ''}`;
