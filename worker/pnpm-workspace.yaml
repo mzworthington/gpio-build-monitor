@@ -8,3 +8,7 @@ onlyBuiltDependencies:
   - esbuild
   - workerd
   - sharp
+overrides:
+  # miniflare still pins sharp 0.35.2; 0.35.4 ships libheif 1.23.2
+  # (GHSA-g89c-p67h-r497, GHSA-2jg2-4ch7-h545 / GHSA-rgj7-g3m4-5g8c).
+  sharp: 0.35.4

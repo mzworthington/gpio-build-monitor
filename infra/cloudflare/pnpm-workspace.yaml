@@ -4,4 +4,8 @@ allowBuilds:
   protobufjs: true
 minimumReleaseAgeExclude:
   - '@pulumi/cloudflare'
+overrides:
+  # @pulumi/pulumi still pins js-yaml 4.3.1; 4.3.2 counts empty merge
+  # sources against maxTotalMergeKeys (GHSA-2883-xcg3-v3hh).
+  js-yaml: 4.3.2
 
