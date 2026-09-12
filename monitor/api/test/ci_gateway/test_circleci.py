@@ -151,9 +151,8 @@ class TestCircleCi:
     async def test_open_pull_requests_are_absent(self):
         action = CircleCI(username='super-man', repo='awesome')
         async with aiohttp.ClientSession() as session:
-            count, url = await action.open_pull_requests(session)
+            count = await action.open_pull_requests(session)
         assert count is None
-        assert url is None
 
     @pytest.mark.asyncio
     async def test_security_findings_are_absent(self):

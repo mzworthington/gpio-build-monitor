@@ -10,6 +10,7 @@ from monitor.ci_gateway.constants import (
     IN_PROGRESS_VALUES,
     CiResult,
     IntegrationAdapter,
+    PullRequests,
     SecurityFindings,
 )
 
@@ -21,8 +22,7 @@ class BuildDetail(TypedDict):
     workflow: str
     status: str
     url: str
-    pr_count: NotRequired[int | None]
-    pr_url: NotRequired[str | None]
+    pull_requests: NotRequired[PullRequests | None]
     security: NotRequired[SecurityFindings | None]
 
 
@@ -85,8 +85,7 @@ class RepoSummary(TypedDict):
     workflow_count: int
     is_running: bool
     url: str
-    pr_count: int | None
-    pr_url: str | None
+    pull_requests: PullRequests | None
     security: SecurityFindings | None
     workflows: list[BuildDetail]
 
@@ -102,16 +101,14 @@ def repo_summaries(builds: list[BuildDetail]) -> list[RepoSummary]:
         status = get_status_from_details(repo_builds).value
         is_running = builds_in_progress(repo_builds)
         url = f"https://github.com/{repo}" if "/" in repo else ""
-        pr_count = next(
-            (build.get("pr_count") for build in repo_builds if build.get("pr_count") is not None),
+        pull_requests = next(
+            (
+                build.get("pull_requests")
+                for build in repo_builds
+                if build.get("pull_requests") is not None
+            ),
             None,
         )
-        pr_url = next(
-            (build.get("pr_url") for build in repo_builds if build.get("pr_url")),
-            None,
-        )
-        if pr_count is not None and not pr_url and "/" in repo:
-            pr_url = f"https://github.com/{repo}/pulls"
         security = next(
             (build.get("security") for build in repo_builds if build.get("security") is not None),
             None,
@@ -126,8 +123,7 @@ def repo_summaries(builds: list[BuildDetail]) -> list[RepoSummary]:
             "workflow_count": len(repo_builds),
             "is_running": is_running,
             "url": url,
-            "pr_count": pr_count,
-            "pr_url": pr_url,
+            "pull_requests": pull_requests,
             "security": security,
             "workflows": workflows,
         })
@@ -164,18 +160,17 @@ class AggregatorService:
         integration: IntegrationAdapter,
     ) -> list[BuildDetail]:
         repo = f"{integration.username}/{integration.repo}"
-        latest, pull_requests, security = await asyncio.gather(
+        latest, fetched_pulls, security = await asyncio.gather(
             integration.get_latest(session),
             integration.open_pull_requests(session),
             integration.security_findings(session),
             return_exceptions=True,
         )
-        pr_count: int | None = None
-        pr_url: str | None = None
-        if isinstance(pull_requests, Exception):
+        pull_requests: PullRequests | None = None
+        if isinstance(fetched_pulls, Exception):
             logging.exception("Failed to fetch pull requests for %s", repo)
         else:
-            pr_count, pr_url = pull_requests
+            pull_requests = fetched_pulls
 
         findings: SecurityFindings | None = None
         if isinstance(security, Exception):
@@ -191,8 +186,7 @@ class AggregatorService:
                     workflow="(fetch)",
                     status=CiResult.CONNECTION_ERROR.value,
                     url="",
-                    pr_count=pr_count,
-                    pr_url=pr_url,
+                    pull_requests=pull_requests,
                     security=findings,
                 )
             ]
@@ -203,8 +197,7 @@ class AggregatorService:
                 workflow=build["name"],
                 status=build["status"].value,
                 url=build["vcs"],
-                pr_count=pr_count,
-                pr_url=pr_url,
+                pull_requests=pull_requests,
                 security=findings,
             )
             for build in latest

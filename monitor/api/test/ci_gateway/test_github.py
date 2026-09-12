@@ -8,7 +8,16 @@ import pytest
 from aioresponses import aioresponses
 from monitor.ci_gateway.constants import CiResult as Result
 from monitor.ci_gateway.constants import IntegrationType
-from monitor.ci_gateway.github import APIError, GitHubAction, github_security_payload, link_rel_next
+from monitor.ci_gateway.github import (
+    APIError,
+    GitHubAction,
+    github_pull_requests_payload,
+    github_security_payload,
+    link_rel_next,
+    map_codeql_alert,
+    map_dependabot_alert,
+    map_pull_request,
+)
 
 os.environ['GITHUB_TOKEN'] = 'secret'
 
@@ -465,16 +474,42 @@ class TestGithub:
             m.get(
                 _PULLS_URL,
                 payload=[
-                    {'number': 1, 'draft': False},
-                    {'number': 2, 'draft': True},
+                    {
+                        'number': 1,
+                        'title': 'Ready',
+                        'html_url': 'https://github.com/super-man/awesome/pull/1',
+                        'draft': False,
+                    },
+                    {
+                        'number': 2,
+                        'title': 'WIP',
+                        'html_url': 'https://github.com/super-man/awesome/pull/2',
+                        'draft': True,
+                    },
                 ],
                 status=200,
             )
             action = GitHubAction(username='super-man', repo='awesome')
             async with aiohttp.ClientSession() as session:
-                count, url = await action.open_pull_requests(session)
-        assert count == 2
-        assert url == 'https://github.com/super-man/awesome/pulls'
+                pulls = await action.open_pull_requests(session)
+        assert pulls == github_pull_requests_payload(
+            'super-man',
+            'awesome',
+            [
+                {
+                    'number': 1,
+                    'title': 'Ready',
+                    'url': 'https://github.com/super-man/awesome/pull/1',
+                    'draft': False,
+                },
+                {
+                    'number': 2,
+                    'title': 'WIP',
+                    'url': 'https://github.com/super-man/awesome/pull/2',
+                    'draft': True,
+                },
+            ],
+        )
 
     @pytest.mark.asyncio
     async def test_open_pull_requests_returns_absent_on_error(self):
@@ -483,36 +518,91 @@ class TestGithub:
             m.get(_PULLS_URL, body='', status=500, repeat=True)
             action = GitHubAction(username='super-man', repo='awesome')
             async with aiohttp.ClientSession() as session:
-                count, url = await action.open_pull_requests(session)
-        assert count is None
-        assert url is None
+                pulls = await action.open_pull_requests(session)
+        assert pulls is None
+
+    def test_maps_dependabot_codeql_and_pull_items(self):
+        assert map_dependabot_alert({
+            'number': 8,
+            'state': 'open',
+            'html_url': 'https://github.com/super-man/awesome/security/dependabot/8',
+            'dependency': {'package': {'name': 'lodash'}},
+            'security_advisory': {'summary': 'Prototype pollution', 'severity': 'high'},
+            'security_vulnerability': {'severity': 'high'},
+        }) == {
+            'number': 8,
+            'title': 'Prototype pollution',
+            'severity': 'high',
+            'url': 'https://github.com/super-man/awesome/security/dependabot/8',
+            'state': 'open',
+        }
+        assert map_codeql_alert({
+            'number': 3,
+            'state': 'open',
+            'html_url': 'https://github.com/super-man/awesome/security/code-scanning/3',
+            'rule': {
+                'id': 'js/sql-injection',
+                'description': 'SQL injection',
+                'security_severity_level': 'critical',
+            },
+        }) == {
+            'number': 3,
+            'title': 'SQL injection',
+            'severity': 'critical',
+            'url': 'https://github.com/super-man/awesome/security/code-scanning/3',
+            'state': 'open',
+        }
+        assert map_pull_request({
+            'number': 12,
+            'title': 'Fix board',
+            'html_url': 'https://github.com/super-man/awesome/pull/12',
+            'draft': True,
+        }) == {
+            'number': 12,
+            'title': 'Fix board',
+            'url': 'https://github.com/super-man/awesome/pull/12',
+            'draft': True,
+        }
 
     @pytest.mark.asyncio
     async def test_security_findings_counts_dependabot_and_codeql(self):
         import aiohttp
+        dependabot = [{
+            'number': 1,
+            'state': 'open',
+            'html_url': 'https://github.com/super-man/awesome/security/dependabot/1',
+            'security_advisory': {'summary': 'XSS'},
+            'security_vulnerability': {'severity': 'medium'},
+        }, {
+            'number': 2,
+            'state': 'open',
+            'html_url': 'https://github.com/super-man/awesome/security/dependabot/2',
+            'dependency': {'package': {'name': 'left-pad'}},
+        }]
+        codeql = [{
+            'number': 9,
+            'state': 'open',
+            'html_url': 'https://github.com/super-man/awesome/security/code-scanning/9',
+            'rule': {'id': 'py/path-injection', 'description': 'Path injection'},
+        }]
         with aioresponses() as m:
-            m.get(
-                _DEPENDABOT_URL,
-                payload=[{'number': 1}, {'number': 2}],
-                status=200,
-            )
-            m.get(
-                _CODEQL_URL,
-                payload=[{'number': 9}],
-                status=200,
-            )
+            m.get(_DEPENDABOT_URL, payload=dependabot, status=200)
+            m.get(_CODEQL_URL, payload=codeql, status=200)
             action = GitHubAction(username='super-man', repo='awesome')
             async with aiohttp.ClientSession() as session:
                 findings = await action.security_findings(session)
         assert findings == github_security_payload(
             'super-man',
             'awesome',
-            vulnerabilities=2,
-            codeql=1,
+            vulnerabilities=[
+                map_dependabot_alert(dependabot[0]),
+                map_dependabot_alert(dependabot[1]),
+            ],
+            codeql=[map_codeql_alert(codeql[0])],
         )
         assert findings['count'] == 3
-        assert findings['vulnerabilities']['items'] == []
-        assert findings['codeql']['items'] == []
+        assert findings['vulnerabilities']['items'][0]['title'] == 'XSS'
+        assert findings['codeql']['items'][0]['title'] == 'Path injection'
 
     @pytest.mark.asyncio
     async def test_security_findings_treats_missing_codeql_as_zero(self):
@@ -526,6 +616,8 @@ class TestGithub:
         assert findings['count'] == 1
         assert findings['vulnerabilities']['count'] == 1
         assert findings['codeql']['count'] == 0
+        assert findings['codeql']['items'] == []
+        assert findings['vulnerabilities']['items'][0]['number'] == 4
 
     @pytest.mark.asyncio
     async def test_security_findings_absent_when_both_forbidden(self):
@@ -559,6 +651,7 @@ class TestGithub:
                 findings = await action.security_findings(session)
         assert findings['vulnerabilities']['count'] == 3
         assert findings['count'] == 3
+        assert [item['number'] for item in findings['vulnerabilities']['items']] == [1, 2, 3]
 
     @pytest.mark.asyncio
     async def test_security_findings_absent_without_token(self, monkeypatch):

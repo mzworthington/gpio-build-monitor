@@ -130,6 +130,7 @@ describe('fetchAllBuilds CircleCI', () => {
         status: 'PASS',
         url: 'https://github.com/super-man/awesome',
         security: null,
+        pull_requests: null,
       },
     ]);
   });

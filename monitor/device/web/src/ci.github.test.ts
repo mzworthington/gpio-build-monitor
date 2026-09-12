@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchAllBuilds, githubPollDelaySeconds, githubSecurityFindings, resetGithubPublicClient } from './ci';
+import {
+  fetchAllBuilds,
+  githubPollDelaySeconds,
+  githubPullRequests,
+  githubSecurityFindings,
+  resetGithubPublicClient,
+} from './ci';
 
 afterEach(() => {
   resetGithubPublicClient();
@@ -60,9 +66,8 @@ describe('fetchAllBuilds GitHub', () => {
         workflow: 'CI',
         status: 'PASS',
         url: 'https://example.com/ci',
-        pr_count: null,
-        pr_url: null,
-        security: githubSecurityFindings('super-man/awesome', 0, 0),
+        pull_requests: null,
+        security: githubSecurityFindings('super-man/awesome', [], []),
       },
     ]);
     const runCalls = fetchMock.mock.calls.filter((call) =>
@@ -185,7 +190,20 @@ describe('fetchAllBuilds GitHub', () => {
         });
       }
       if (url.includes('/pulls')) {
-        return Response.json([{ number: 1, draft: false }, { number: 2, draft: true }]);
+        return Response.json([
+          {
+            number: 1,
+            title: 'Ready',
+            html_url: 'https://github.com/super-man/awesome/pull/1',
+            draft: false,
+          },
+          {
+            number: 2,
+            title: 'WIP',
+            html_url: 'https://github.com/super-man/awesome/pull/2',
+            draft: true,
+          },
+        ]);
       }
       return new Response('not found', { status: 404 });
     });
@@ -207,9 +225,21 @@ describe('fetchAllBuilds GitHub', () => {
         workflow: 'CI',
         status: 'PASS',
         url: 'https://example.com/ci',
-        pr_count: 2,
-        pr_url: 'https://github.com/super-man/awesome/pulls',
-        security: githubSecurityFindings('super-man/awesome', 0, 0),
+        pull_requests: githubPullRequests('super-man/awesome', [
+          {
+            number: 1,
+            title: 'Ready',
+            url: 'https://github.com/super-man/awesome/pull/1',
+            draft: false,
+          },
+          {
+            number: 2,
+            title: 'WIP',
+            url: 'https://github.com/super-man/awesome/pull/2',
+            draft: true,
+          },
+        ]),
+        security: githubSecurityFindings('super-man/awesome', [], []),
       },
     ]);
     expect(String(fetchMock.mock.calls.find((call) => String(call[0]).includes('/pulls'))?.[0])).toContain(
@@ -274,9 +304,8 @@ describe('fetchAllBuilds GitHub', () => {
         workflow: 'CI',
         status: 'PASS',
         url: 'https://example.com/ci',
-        pr_count: 0,
-        pr_url: 'https://github.com/mzworthington/react-cloudflare-template/pulls',
-        security: githubSecurityFindings('mzworthington/react-cloudflare-template', 0, 0),
+        pull_requests: githubPullRequests('mzworthington/react-cloudflare-template', []),
+        security: githubSecurityFindings('mzworthington/react-cloudflare-template', [], []),
       },
     ]);
   });
@@ -306,10 +335,31 @@ describe('fetchAllBuilds GitHub', () => {
         });
       }
       if (url.includes('/dependabot/alerts')) {
-        return Response.json([{ number: 1 }, { number: 2 }]);
+        return Response.json([
+          {
+            number: 1,
+            state: 'open',
+            html_url: 'https://github.com/super-man/awesome/security/dependabot/1',
+            security_advisory: { summary: 'XSS' },
+            security_vulnerability: { severity: 'medium' },
+          },
+          {
+            number: 2,
+            state: 'open',
+            html_url: 'https://github.com/super-man/awesome/security/dependabot/2',
+            dependency: { package: { name: 'left-pad' } },
+          },
+        ]);
       }
       if (url.includes('/code-scanning/alerts')) {
-        return Response.json([{ number: 9 }]);
+        return Response.json([
+          {
+            number: 9,
+            state: 'open',
+            html_url: 'https://github.com/super-man/awesome/security/code-scanning/9',
+            rule: { id: 'py/path-injection', description: 'Path injection' },
+          },
+        ]);
       }
       if (url.includes('/pulls')) {
         return Response.json([]);
@@ -332,13 +382,39 @@ describe('fetchAllBuilds GitHub', () => {
         workflow: 'CI',
         status: 'PASS',
         url: 'https://example.com/ci',
-        pr_count: 0,
-        pr_url: 'https://github.com/super-man/awesome/pulls',
-        security: githubSecurityFindings('super-man/awesome', 2, 1),
+        pull_requests: githubPullRequests('super-man/awesome', []),
+        security: githubSecurityFindings(
+          'super-man/awesome',
+          [
+            {
+              number: 1,
+              title: 'XSS',
+              severity: 'medium',
+              url: 'https://github.com/super-man/awesome/security/dependabot/1',
+              state: 'open',
+            },
+            {
+              number: 2,
+              title: 'left-pad',
+              severity: null,
+              url: 'https://github.com/super-man/awesome/security/dependabot/2',
+              state: 'open',
+            },
+          ],
+          [
+            {
+              number: 9,
+              title: 'Path injection',
+              severity: null,
+              url: 'https://github.com/super-man/awesome/security/code-scanning/9',
+              state: 'open',
+            },
+          ],
+        ),
       },
     ]);
-    expect(builds[0]?.security?.vulnerabilities.items).toEqual([]);
-    expect(builds[0]?.security?.codeql.items).toEqual([]);
+    expect(builds[0]?.security?.vulnerabilities.items).toHaveLength(2);
+    expect(builds[0]?.security?.codeql.items[0]?.title).toBe('Path injection');
     expect(
       String(fetchMock.mock.calls.find((call) => String(call[0]).includes('/code-scanning/alerts'))?.[0]),
     ).toContain('tool_name=CodeQL');

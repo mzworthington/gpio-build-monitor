@@ -28,6 +28,13 @@ def test_status_page_lets_alpine_render_status_without_vanilla_app_js():
     assert not (WEB_PUBLIC / "app.js").is_file()
 
 
+def test_status_page_lists_pull_request_and_security_items():
+    html = (WEB_PUBLIC / "index.html").read_text(encoding="utf-8")
+    assert 'x-show="entry.pull_requests != null"' in html
+    assert "prItems(entry)" in html
+    assert "securityItems(entry)" in html
+
+
 def test_status_page_does_not_load_handwritten_countdown_script():
     html = (WEB_PUBLIC / "index.html").read_text(encoding="utf-8")
     assert 'src="/countdown.js"' not in html

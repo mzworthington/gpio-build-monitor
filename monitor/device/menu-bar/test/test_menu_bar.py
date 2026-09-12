@@ -133,16 +133,35 @@ def test_plugin_output_shows_open_prs_only_when_positive():
                     "workflow": "CI",
                     "status": "PASS",
                     "url": "https://github.com/acme/web/actions/1",
-                    "pr_count": 2,
-                    "pr_url": "https://github.com/acme/web/pulls",
+                    "pull_requests": {
+                        "count": 2,
+                        "url": "https://github.com/acme/web/pulls",
+                        "items": [
+                            {
+                                "number": 1,
+                                "title": "Ready",
+                                "url": "https://github.com/acme/web/pull/1",
+                                "draft": False,
+                            },
+                            {
+                                "number": 2,
+                                "title": "WIP",
+                                "url": "https://github.com/acme/web/pull/2",
+                                "draft": True,
+                            },
+                        ],
+                    },
                 },
                 {
                     "repo": "acme/ops",
                     "workflow": "CI",
                     "status": "PASS",
                     "url": "https://github.com/acme/ops/actions/1",
-                    "pr_count": 0,
-                    "pr_url": "https://github.com/acme/ops/pulls",
+                    "pull_requests": {
+                        "count": 0,
+                        "url": "https://github.com/acme/ops/pulls",
+                        "items": [],
+                    },
                 },
             ],
         },
@@ -151,6 +170,11 @@ def test_plugin_output_shows_open_prs_only_when_positive():
         "-- 2 open PRs" in line and "href=https://github.com/acme/web/pulls" in line
         for line in text.splitlines()
     )
+    assert any(
+        "---- Ready" in line and "href=https://github.com/acme/web/pull/1" in line
+        for line in text.splitlines()
+    )
+    assert any("---- WIP (draft)" in line for line in text.splitlines())
     assert "open PR" not in "\n".join(
         line for line in text.splitlines() if line.startswith("ops") or line.startswith("--") and "ops" in line
     )
@@ -175,12 +199,35 @@ def test_plugin_output_shows_security_findings_only_when_positive():
                         "vulnerabilities": {
                             "count": 2,
                             "url": "https://github.com/acme/web/security/dependabot",
-                            "items": [],
+                            "items": [
+                                {
+                                    "number": 1,
+                                    "title": "XSS",
+                                    "severity": "high",
+                                    "url": "https://github.com/acme/web/security/dependabot/1",
+                                    "state": "open",
+                                },
+                                {
+                                    "number": 2,
+                                    "title": "RCE",
+                                    "severity": "critical",
+                                    "url": "https://github.com/acme/web/security/dependabot/2",
+                                    "state": "open",
+                                },
+                            ],
                         },
                         "codeql": {
                             "count": 1,
                             "url": "https://github.com/acme/web/security/code-scanning",
-                            "items": [],
+                            "items": [
+                                {
+                                    "number": 9,
+                                    "title": "SQL injection",
+                                    "severity": "high",
+                                    "url": "https://github.com/acme/web/security/code-scanning/9",
+                                    "state": "open",
+                                },
+                            ],
                         },
                     },
                 },
@@ -199,6 +246,8 @@ def test_plugin_output_shows_security_findings_only_when_positive():
         and "href=https://github.com/acme/web/security" in line
         for line in text.splitlines()
     )
+    assert any("---- XSS (high)" in line for line in text.splitlines())
+    assert any("---- SQL injection (high)" in line for line in text.splitlines())
     assert "-- 0 security" not in text
 
 

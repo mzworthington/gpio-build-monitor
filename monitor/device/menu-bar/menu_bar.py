@@ -167,6 +167,57 @@ def _workflow_line(build: Mapping[str, Any], *, nested: bool = False) -> str:
     return prefix + _line(workflow, **params)
 
 
+def _source(workflows: Sequence[Mapping[str, Any]], key: str) -> Mapping[str, Any] | None:
+    found = next((build.get(key) for build in workflows if build.get(key) is not None), None)
+    return found if isinstance(found, Mapping) else None
+
+
+def _source_count(source: Mapping[str, Any] | None) -> int | None:
+    if source is None:
+        return None
+    try:
+        return int(source.get("count"))
+    except (TypeError, ValueError):
+        return None
+
+
+def _nested_items(*sources: object) -> list[object]:
+    items: list[object] = []
+    for source in sources:
+        if not isinstance(source, Mapping):
+            continue
+        raw = source.get("items")
+        if isinstance(raw, Sequence) and not isinstance(raw, str | bytes):
+            items.extend(raw)
+    return items
+
+
+def _item_lines(items: object, *, sfimage: str) -> list[str]:
+    if not isinstance(items, Sequence) or isinstance(items, str | bytes):
+        return []
+    lines: list[str] = []
+    for item in items:
+        if not isinstance(item, Mapping):
+            continue
+        title = str(item.get("title") or "").strip()
+        if not title:
+            continue
+        extra = ""
+        if item.get("draft") is True:
+            extra = " (draft)"
+        elif item.get("severity"):
+            extra = f" ({item.get('severity')})"
+        params = {
+            "sfimage": sfimage,
+            "length": "56",
+        }
+        href = str(item.get("url") or "")
+        if href:
+            params["href"] = href
+        lines.append(_line(f"---- {title}{extra}", **params))
+    return lines
+
+
 def _attention_line(build: Mapping[str, Any]) -> str:
     repo = _short_repo(str(build.get("repo") or "?"))
     workflow = str(build.get("workflow") or "?")
@@ -224,18 +275,13 @@ def plugin_output(
             }
             lines.append(_line(_short_repo(repo), **params))
             lines.extend(_workflow_line(build, nested=True) for build in workflows)
-            pr_count = next(
-                (build.get("pr_count") for build in workflows if build.get("pr_count") is not None),
-                None,
-            )
-            if pr_count is not None and int(pr_count) > 0:
-                pr_url = next(
-                    (str(build.get("pr_url") or "") for build in workflows if build.get("pr_url")),
-                    "",
-                )
+            pulls = _source(workflows, "pull_requests")
+            pr_count = _source_count(pulls)
+            if pr_count is not None and pr_count > 0:
+                pr_url = str(pulls.get("url") or "") if pulls else ""
                 if not pr_url and "/" in repo:
                     pr_url = f"https://github.com/{repo}/pulls"
-                noun = "open PR" if int(pr_count) == 1 else "open PRs"
+                noun = "open PR" if pr_count == 1 else "open PRs"
                 lines.append(
                     _line(
                         f"-- {pr_count} {noun}",
@@ -243,27 +289,30 @@ def plugin_output(
                         href=pr_url,
                     )
                 )
-            security = next(
-                (build.get("security") for build in workflows if build.get("security") is not None),
-                None,
-            )
-            if isinstance(security, dict):
-                try:
-                    finding_count = int(security.get("count") or 0)
-                except (TypeError, ValueError):
-                    finding_count = 0
-                if finding_count > 0:
-                    security_url = str(security.get("url") or "")
-                    if not security_url and "/" in repo:
-                        security_url = f"https://github.com/{repo}/security"
-                    noun = "security finding" if finding_count == 1 else "security findings"
-                    lines.append(
-                        _line(
-                            f"-- {finding_count} {noun}",
-                            sfimage="shield",
-                            href=security_url,
-                        )
+                lines.extend(_item_lines(_nested_items(pulls), sfimage="arrow.triangle.branch"))
+            security = _source(workflows, "security")
+            finding_count = _source_count(security)
+            if finding_count is not None and finding_count > 0:
+                security_url = str(security.get("url") or "") if security else ""
+                if not security_url and "/" in repo:
+                    security_url = f"https://github.com/{repo}/security"
+                noun = "security finding" if finding_count == 1 else "security findings"
+                lines.append(
+                    _line(
+                        f"-- {finding_count} {noun}",
+                        sfimage="shield",
+                        href=security_url,
                     )
+                )
+                lines.extend(
+                    _item_lines(
+                        _nested_items(
+                            security.get("vulnerabilities") if security else None,
+                            security.get("codeql") if security else None,
+                        ),
+                        sfimage="shield",
+                    )
+                )
             if "/" in repo:
                 lines.append(_line("-- Open on GitHub", href=f"https://github.com/{repo}"))
         lines.append("---")
