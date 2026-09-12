@@ -1,10 +1,10 @@
 # Mac menu bar (SwiftBar)
 
-Glanceable CI status in the macOS menu bar — same colours as the desk LEDs,
+Glanceable CI status in the macOS menu bar: the same colours as the desk LEDs,
 without running the Pi poller on your laptop.
 
 The plugin reads the public snapshot at
-`https://monitor.mzworthington.co.uk/status` (or your local monitor). It does
+`https://monitor.mzworthington.co.uk/status` (or `/api/status`). It does
 not need GitHub tokens.
 
 ## Install

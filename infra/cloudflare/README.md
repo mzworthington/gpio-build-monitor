@@ -4,27 +4,25 @@ Two deployments share this product:
 
 | Deployment | Where | Role |
 |------------|--------|------|
-| **Frontend** | Cloudflare Pages | Static status UI at `monitor.mzworthington.co.uk` |
-| **API** | Python (`monitor/`) | CI poll, `/status`, `/ws`, webhooks, GPIO on the Pi |
-| **Headless** | Raspberry Pi | Same Python process drives desk LEDs |
+| **Hosted hub** | Cloudflare Worker custom domain | Alpine UI + StatusHub at `monitor.mzworthington.co.uk` |
+| **Pages (optional)** | Cloudflare Pages | Same static files on `*.pages.dev` only |
+| **Local hub** | Python (`monitor/api`) | `bin/serve` on a laptop (`:8080`) |
+| **Headless** | Raspberry Pi | GPIO follower of the hosted `/api` |
 
-This stack owns the **Pages** hostname. Zone lifecycle stays in
-[edge-dns](https://github.com/mzworthington/edge-dns).
+This stack owns the **Worker custom domain**. Zone lifecycle stays in
+[edge-dns](https://github.com/mzworthington/edge-dns). Do not bind Pages to
+`monitor.mzworthington.co.uk`.
 
 | Resource | Purpose |
 |----------|---------|
-| `PagesProject` | Direct-upload Pages project |
-| `DnsRecord` + `PagesDomain` | Hostname → Pages |
+| `Worker` + `WorkersCustomDomain` | Hostname → StatusHub Worker |
+| `PagesProject` | Direct-upload Pages project (`*.pages.dev`) |
 | `ObservatoryScheduledTest` | Synthetic Speed test per hostname |
 
-The UI ships via `wrangler pages deploy` from [`monitor/device/web/`](../../monitor/device/web/) — locally or through the
-`deploy-pages` job in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
-on every push to `main`. Set GitHub Actions variable `MONITOR_API_ORIGIN` to the
-public Python API origin (for example `https://api.monitor.mzworthington.co.uk`)
-so the page opens `/ws` on Python, not on Pages.
+The public UI ships with `wrangler deploy` from [`monitor/device/web/`](../../monitor/device/web/) (`pnpm deploy:api`, or the `deploy-api` job in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) on `main`). Put `MONITOR_CONFIG` and `GITHUB_TOKEN` on the Worker. Leave `PYTHON_API_ORIGIN` empty in production so StatusHub is the hub.
 
-Config accepts `pagesProjectName` / `pagesHostnames` or the older
-`workerName` / `workerHostnames` keys.
+Config accepts `workerName` / `workerHostnames` or the older
+`pagesProjectName` / `pagesHostnames` keys (same values).
 
 ## Quick setup
 
@@ -32,7 +30,7 @@ Config accepts `pagesProjectName` / `pagesHostnames` or the older
 # From repo root
 bin/setup-cloudflare-hosting.sh
 
-cd monitor/device/web && pnpm install && MONITOR_API_ORIGIN=https://api.example.example pnpm deploy
+cd monitor/device/web && pnpm install && pnpm deploy:api
 
 cd ../../../infra/cloudflare && pulumi up
 ```
@@ -41,6 +39,6 @@ cd ../../../infra/cloudflare && pulumi up
 
 | Path | Purpose |
 |------|---------|
-| [`monitor/device/web/`](../../monitor/device/web/) | TypeScript frontend (Alpine) + Pages deploy |
-| [`monitor/api/`](../../monitor/api/) | Python API |
+| [`monitor/device/web/`](../../monitor/device/web/) | Alpine UI + Worker (StatusHub) |
+| [`monitor/api/`](../../monitor/api/) | Python hub for local `bin/serve` |
 | [`docs/pi-setup.md`](../../docs/pi-setup.md) | Headless Pi / GPIO |

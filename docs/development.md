@@ -26,16 +26,15 @@ pre-commit install --hook-type commit-msg
 
 ## Cloudflare
 
-Hosted UI: Cloudflare Pages from `monitor/device/web/public/`. Python API runs on the Pi (or any host). Custom domain via `infra/cloudflare`.
+Public hostname: Cloudflare Worker from `monitor/device/web/` (`pnpm deploy:api`). Pages still deploys to `*.pages.dev`. Custom domain via `infra/cloudflare`. Python `monitor/api` is local (`bin/serve`).
 
 ```shell
 bin/setup-cloudflare-hosting.sh
-cd monitor/device/web && pnpm install && pnpm test && pnpm typecheck && MONITOR_API_ORIGIN=https://api.example pnpm deploy
+cd monitor/device/web && pnpm install && pnpm test && pnpm typecheck && pnpm deploy:api
 cd ../../../infra/cloudflare && pnpm install && pulumi up
 ```
 
-The status page is TypeScript Alpine (`monitor/device/web/src/web/`) bundled into `monitor/device/web/public/monitor.js`. CI `web` and `deploy-pages` jobs run that build. Set Actions variable `MONITOR_API_ORIGIN` to the public Python API.
-
+The status page is TypeScript Alpine (`monitor/device/web/src/web/`) bundled into `monitor/device/web/public/monitor.js`. CI `web` and `deploy-api` run that build. Leave `PYTHON_API_ORIGIN` empty so StatusHub is the hub.
 
 [`.github/workflows/pulumi-cloudflare.yml`](../.github/workflows/pulumi-cloudflare.yml) previews/applies the Pulumi stack via the shared edge-dns reusable workflow.
 
@@ -45,8 +44,8 @@ The status page is TypeScript Alpine (`monitor/device/web/src/web/`) bundled int
 
 - Bootstrap, lint, and pytest
 - JUnit report upload
-- On `main` only: `deploy-pages` (`wrangler pages deploy` for `monitor.mzworthington.co.uk`)
-- Set Actions variable `MONITOR_API_ORIGIN` to the public Python API. Privacy notice: `/privacy`.
+- On `main` only: `deploy-pages` (`wrangler pages deploy` for `*.pages.dev`) and `deploy-api` (`wrangler deploy` for `monitor.mzworthington.co.uk`)
+- Privacy notice: `/privacy`
 - On `main` only: `release` when application code changed since the last tag
 
 ### Releases

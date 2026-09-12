@@ -109,7 +109,13 @@ def test_pages_ships_default_posthog_config():
     assert path.is_file()
 
 
-def test_pulumi_example_declares_pages_project():
+def test_readme_hosted_hub_is_the_worker():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "forwards it to the Python process" not in readme
+    assert "StatusHub" in readme
+    infra = (ROOT / "infra" / "cloudflare" / "README.md").read_text(encoding="utf-8")
+    assert "Worker custom domain" in infra
+    assert "PagesDomain" not in infra
     example = (ROOT / "infra" / "cloudflare" / "Pulumi.prod.yaml.example").read_text(encoding="utf-8")
     assert "pagesProjectName" in example
     assert "pagesHostnames" in example

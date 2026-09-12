@@ -1,7 +1,7 @@
 # CrossPoint Build monitor activity
 
-A `UiListActivity` that fetches `GET /status?view=eink`, parses it with the
-shared `monitor/device/eink` library, and lists jobs plus open PRs.
+A `UiListActivity` that fetches `GET /status?view=eink` (or `/api/status?view=eink`),
+parses it with the shared `monitor/device/eink` library, and lists jobs plus open PRs.
 
 Keep the CrossPoint submodule on upstream. Overlay lives here:
 `patches/home-build-monitor.patch` plus `MonitorActivity`. `pio run` applies the

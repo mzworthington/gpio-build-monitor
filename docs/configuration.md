@@ -71,7 +71,7 @@ credentials so public repos still light the board.
 
 GitHub Dependabot names each version check uniquely (`npm_and_yarn in /infra/cloudflare for js-yaml - Update #123`). Those runs are omitted from the board by default (Pi and hosted Worker). They are not product CI, and a failed updater job should not turn the desk light red. Use `excluded_workflows` / `excluded_workflow_patterns` for other noise. Dependabot *PRs* still count in the open-PR glance when they exist.
 
-With WebSocket enabled, open `http://<host>:8080/` for the Alpine status page (GPIO, WebSocket, or both).
+With WebSocket enabled, open `http://<host>:8080/` for the Alpine status page.
 
 ## Webhooks
 
@@ -84,7 +84,7 @@ When `webhooks.enabled` is `true`, the monitor listens for:
 
 A valid event breaks out of the wait and calls the same CI APIs as a timed poll. Status is still loaded via `get_latest()` so adapters remain the source of truth. CircleCI outbound webhooks are terminal-only, so the reconcile poll is still needed for the yellow “running” LED.
 
-The Pi (or tunnel in front of it) must be reachable from GitHub/CircleCI. Expose `/webhooks/*` over HTTPS with a tunnel or reverse proxy; `/health` is available for connectivity checks.
+This block is for a local Python hub (`bin/serve`). Production webhooks go to the Worker: [webhooks.md](webhooks.md).
 
 ## Environment variables
 
@@ -110,7 +110,7 @@ Only set the variables for providers present in your config. `monitor check-conf
 | `LOG_LEVEL` | Log level for `bin/serve` (default: `debug`) |
 | `CONF_FILE` | Config path for `bin/serve` (default: `monitor/api/monitor/integrations.yaml`) |
 | - | `bin/serve` loads a gitignored `.env` from the repo root when present, then `pnpm install` / `pnpm build:web` as needed |
-| `MONITOR_API_ORIGIN` | Public Python API origin stamped into the Pages HTML on deploy |
+| `MONITOR_API_ORIGIN` | Origin the Pi GPIO follower (and optional local clients) use. Default `https://monitor.mzworthington.co.uk` |
 | `MONITOR_HOME` | Pi install directory (default: `/home/pi/gpio-build-monitor`) |
 | `MONITOR_VENV` | Virtualenv used on the Pi (default: `$MONITOR_HOME/.venv`) |
 | `MONITOR_SERVICE` | systemd unit name (default: `gpio-build-monitor`) |

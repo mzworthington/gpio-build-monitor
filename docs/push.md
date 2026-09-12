@@ -41,7 +41,7 @@ pnpm exec wrangler secret put VAPID_PRIVATE_KEY --name gpio-build-monitor
 you just added the push code:
 
 ```bash
-pnpm deploy
+pnpm deploy:api
 ```
 
 ## Try it

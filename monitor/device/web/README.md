@@ -1,8 +1,12 @@
-# Frontend (Cloudflare Pages)
+# Frontend (Cloudflare Worker)
 
-Static status UI. Live data comes from the **Python API** at `https://monitor.mzworthington.co.uk/api` (`/api/status`, `/api/ws`).
+Public status UI and StatusHub on one Worker. Live origin:
+`https://monitor.mzworthington.co.uk` (`GET /api/status`, `wss://…/api/ws`;
+`/status` and `/ws` still work).
 
-A Worker route `monitor.mzworthington.co.uk/api*` forwards those paths to `PYTHON_API_ORIGIN` (the Python process). Leave `MONITOR_API_ORIGIN` empty so the SPA uses the page origin.
+Production leaves `PYTHON_API_ORIGIN` empty so the Worker is the hub. If you
+set it, `/api/status`, `/api/ws`, `/api/health`, and `/api/webhooks/*` proxy to
+that Python origin.
 
 ```bash
 pnpm install
@@ -10,22 +14,21 @@ pnpm test
 pnpm typecheck
 pnpm build:web   # TypeScript Alpine → ./public/monitor.js
 
-pnpm deploy      # Pages UI
-PYTHON_API_ORIGIN=https://your-python-host pnpm deploy:api
+pnpm deploy:api  # Worker + assets (public hostname)
+pnpm deploy      # Pages project on *.pages.dev only
 ```
 
-On `main`, CI deploys Pages (`deploy-pages`) and the `/api` Worker (`deploy-api`).
-Set Actions variable `PYTHON_API_ORIGIN` to the public Python origin (scheme + host, no `/api` suffix).
-
-Python CORS: `outputs.websocket.cors_origins` must include
-`https://monitor.mzworthington.co.uk` if the API is not same-origin behind the Worker.
+On `main`, CI deploys Pages (`deploy-pages`, `*.pages.dev`) and the Worker
+(`deploy-api`). `deploy:api` must run `pnpm build:web` first so `/monitor.js` is
+the bundle, not HTML.
 
 Local:
 
 ```bash
-# from repo root (Python API including /api/*):
+# from repo root (Python hub including /api/*):
 bin/serve
-cd monitor/device/web && pnpm install && pnpm dev
+# Worker locally:
+cd monitor/device/web && pnpm install && pnpm dev:worker
 ```
 
-Infra (Pages hostname): [../../../infra/cloudflare/README.md](../../../infra/cloudflare/README.md).
+Infra (Worker custom domain): [../../../infra/cloudflare/README.md](../../../infra/cloudflare/README.md).

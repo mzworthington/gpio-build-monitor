@@ -23,7 +23,7 @@ For bugs and failed jobs, use `agent-debug`. Do not open the full feature lifecy
 ## Project notes
 
 - Raspberry Pi GPIO follower lives in `monitor/device/pi` (`gpio_pi`). It follows `https://monitor.mzworthington.co.uk/api` and does not poll CI.
-- Hosted status API + UI is Cloudflare Pages + Worker (`monitor/device/web/`) on `monitor.mzworthington.co.uk` (`infra/cloudflare` Pulumi). The Python package `monitor/api` is a local hub for development.
+- Hosted status API + UI is a Cloudflare Worker (`monitor/device/web/`) on `monitor.mzworthington.co.uk` (`infra/cloudflare` Pulumi). Pages still exists for `*.pages.dev`. The Python package `monitor/api` is a local hub for development.
 - Xteink X3 runs CrossPoint plus a Build monitor overlay (`monitor/device/eink/`). Do not run the Pi poller on the ESP32.
 - Conventional commit-msg: `.githooks/commit-msg` (`git config core.hooksPath .githooks` once per clone).
 

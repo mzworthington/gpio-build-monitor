@@ -2,7 +2,7 @@
 
 ## Pin map
 
-Default BCM pins (configurable via `pins` in `integrations.yaml`):
+Default BCM pins (in `monitor/device/pi/gpio_pi/gpio/constants.py`):
 
 | Light | Default pin |
 |-------|-------------|

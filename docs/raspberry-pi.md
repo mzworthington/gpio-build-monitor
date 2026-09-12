@@ -1,6 +1,6 @@
 # Raspberry Pi
 
-For a full ordered checklist (clone → systemd → Cloudflare Tunnel → optional webhooks/updates), use **[Pi setup](pi-setup.md)**.
+For a full ordered checklist (clone → systemd → optional updates), use **[Pi setup](pi-setup.md)**.
 
 This page keeps reference notes that sit beside that guide.
 

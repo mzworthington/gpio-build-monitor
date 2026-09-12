@@ -2,7 +2,7 @@
 
 Headless deployment: Raspberry Pi drives **GPIO LEDs** by following the hosted
 Build Monitor API (`https://monitor.mzworthington.co.uk/api`). CI polling lives
-on the Cloudflare Worker. The public website is Cloudflare Pages. You do
+on the Cloudflare Worker. The public website is that Worker. You do
 **not** need Cloudflare Tunnel, GitHub tokens, or `integrations.yaml` on the Pi.
 
 Assumes the repo lives at `/home/pi/gpio-build-monitor`. Adjust paths and the
