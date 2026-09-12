@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "deploy": "pnpm build:web && wrangler pages deploy ./public --project-name gpio-build-monitor",
-    "deploy:api": "wrangler deploy",
+    "deploy:api": "pnpm build:web && wrangler deploy",
     "dev": "esbuild src/web/start.ts --bundle --outfile=./public/monitor.js --format=iife --sourcemap --watch --servedir=./public",
     "dev:worker": "wrangler dev",
     "build:web": "esbuild src/web/start.ts --bundle --outfile=./public/monitor.js --format=iife",

@@ -126,6 +126,18 @@ def test_pages_deploy_waits_for_frontend_tests():
     assert "web" in needs
 
 
+def test_api_worker_deploy_builds_the_alpine_bundle():
+    import json
+
+    import yaml
+
+    ci = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"))
+    runs = "\n".join(str(step.get("run", "")) for step in ci["jobs"]["deploy-api"]["steps"])
+    assert "build:web" in runs
+    package = json.loads((WEB / "package.json").read_text(encoding="utf-8"))
+    assert "build:web" in package["scripts"]["deploy:api"]
+
+
 def test_web_public_ships_static_site():
     for name in (
         "styles.css",

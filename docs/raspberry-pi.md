@@ -18,13 +18,12 @@ This page keeps reference notes that sit beside that guide.
    pip install RPi.GPIO
    ```
 
-3. Create your config and set tokens in the shell or an env file - see [Configuration](configuration.md).
+3. Optional: set `MONITOR_API_ORIGIN` (default `https://monitor.mzworthington.co.uk`).
 
-4. Validate and run (note `-O` for real GPIO):
+4. Run with `-O` for real GPIO:
 
    ```shell
-   monitor check-config --conf monitor/integrations.yaml
-   python -O -m monitor run --conf monitor/integrations.yaml --log-level info
+   python -O -m gpio_pi
    ```
 
 Public hostname and systemd install steps: [pi-setup.md](pi-setup.md).
@@ -36,8 +35,7 @@ For a persistent service, use the unit file in `monitor/device/pi/` (also covere
 ```shell
 sudo mkdir -p /etc/gpio-build-monitor
 sudo cp monitor/device/pi/env.example /etc/gpio-build-monitor/env
-sudo cp monitor/integrations.yaml /etc/gpio-build-monitor/integrations.yaml
-# edit /etc/gpio-build-monitor/env with your tokens
+# optional: edit MONITOR_API_ORIGIN
 sudo cp monitor/device/pi/gpio-build-monitor.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now gpio-build-monitor
@@ -47,7 +45,7 @@ The unit file assumes the repo lives at `/home/pi/gpio-build-monitor`. Adjust `W
 
 ## Optional webhooks
 
-See [pi-setup.md](pi-setup.md#6-optional-webhooks) and [Configuration](configuration.md#webhooks).
+Webhooks are handled by the hosted Worker, not the Pi. See [webhooks.md](webhooks.md).
 
 ## Auto-updates
 

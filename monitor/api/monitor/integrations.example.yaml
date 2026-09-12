@@ -1,7 +1,6 @@
 poll_in_seconds: 60
 log_dir: logs
 outputs:
-  gpio: false
   websocket:
     enabled: true
     host: "0.0.0.0"
@@ -12,12 +11,6 @@ webhooks:
   enabled: true
   host: "0.0.0.0"
   port: 8080
-pins:
-  GREEN: 17
-  YELLOW: 18
-  BLUE: 22
-  RED: 27
-  PURPLE: 23
 integrations:
   - type: GITHUB
     username: your-github-org
@@ -27,5 +20,3 @@ integrations:
     username: your-circle-org
     repo: your-repo
     excluded_workflows: []
-# Pi desk lights: outputs.gpio true, websocket.enabled false,
-# outputs.api.origin https://monitor.mzworthington.co.uk, integrations: []

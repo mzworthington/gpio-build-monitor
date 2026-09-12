@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "monitor"
 version = "0.22.2"
-description = "Build monitor for CI status via GPIO LEDs and/or a WebSocket UI"
+description = "Build monitor for CI status via a WebSocket UI and Raspberry Pi GPIO follower"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "Matthew Z Worthington", email = "worthingtown@gmail.com" }]
@@ -30,22 +30,23 @@ dev = [
 
 [project.scripts]
 monitor = "monitor.__main__:cli"
+gpio-pi = "gpio_pi.__main__:main"
 
 [project.urls]
 Homepage = "https://github.com/mzworthington/gpio-build-monitor"
 Repository = "https://github.com/mzworthington/gpio-build-monitor"
 
 [tool.setuptools.packages.find]
-where = ["monitor/api"]
-include = ["monitor", "monitor.*"]
+where = ["monitor/api", "monitor/device/pi"]
+include = ["monitor", "monitor.*", "gpio_pi", "gpio_pi.*"]
 exclude = ["test", "test.*"]
 
 [tool.setuptools.package-data]
 monitor = ["integrations.example.yaml"]
 
 [tool.pytest.ini_options]
-testpaths = ["test", "monitor/api/test", "monitor/device/menu-bar/test", "monitor/device/eink/test"]
-pythonpath = ["monitor/api", "monitor/device/menu-bar"]
+testpaths = ["test", "monitor/api/test", "monitor/device/menu-bar/test", "monitor/device/eink/test", "monitor/device/pi/test"]
+pythonpath = ["monitor/api", "monitor/device/menu-bar", "monitor/device/pi"]
 addopts = "--import-mode=importlib"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"

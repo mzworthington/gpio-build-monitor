@@ -31,7 +31,7 @@ serve: bootstrap ## Run the build monitor locally (mock GPIO in debug mode)
 run: serve ## Alias for serve
 
 lint: bootstrap ## Run ruff linter
-	./$(VENV)/bin/ruff check monitor/api/monitor monitor/api/test test monitor/device/menu-bar
+	./$(VENV)/bin/ruff check monitor/api/monitor monitor/api/test test monitor/device/menu-bar monitor/device/pi
 
 test: bootstrap lint ## Run pytest with junit formatting and a hub coverage floor
 	./$(VENV)/bin/python -m pytest -v --junitxml=junit/test-results.xml --cov=monitor --cov-report=term-missing --cov-fail-under=84

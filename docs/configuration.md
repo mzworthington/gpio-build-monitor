@@ -12,7 +12,6 @@ cp monitor/api/monitor/integrations.example.yaml monitor/api/monitor/integration
 poll_in_seconds: 60
 log_dir: logs
 outputs:
-  gpio: true
   websocket:
     enabled: true
     host: "0.0.0.0"
@@ -21,12 +20,6 @@ webhooks:
   enabled: true
   host: "0.0.0.0"
   port: 8081
-pins:
-  GREEN: 17
-  YELLOW: 18
-  BLUE: 22
-  RED: 27
-  PURPLE: 23
 integrations:
   - type: GITHUB
     username: your-github-org
@@ -45,13 +38,12 @@ integrations:
 |-------|-------------|
 | `poll_in_seconds` | Seconds between reconcile polls (default: 30). With webhooks enabled this is the fallback cadence; events wake an immediate refresh. |
 | `log_dir` | Directory for `monitor.log` (default: `logs/`) |
-| `outputs` | Optional status adapters (default: GPIO only) |
-| `outputs.gpio` | Drive Raspberry Pi LEDs (default: `true`) |
-| `outputs.websocket` | Optional browser UI over WebSockets |
-| `outputs.websocket.enabled` | Serve the status page (default: `true` when the object is present) |
+| `outputs` | Optional status adapters (default: WebSocket on `0.0.0.0:8080`) |
+| `outputs.websocket` | Browser UI over WebSockets (Python hub / local serve) |
+| `outputs.websocket.enabled` | Serve the status page (default: `true`) |
 | `outputs.websocket.host` | Bind address (default: `0.0.0.0`) |
 | `outputs.websocket.port` | HTTP/WebSocket port (default: `8080`) |
-| `pins` | Optional BCM pin overrides per light name |
+| `pins` | BCM pin overrides live on the Pi GPIO follower, not in the hub YAML |
 | `webhooks` | Optional webhook ingress settings |
 | `webhooks.enabled` | Listen for provider webhooks that wake an immediate refresh (default: `false`) |
 | `webhooks.host` | Bind address (default: `0.0.0.0`) |

@@ -11,7 +11,7 @@ from monitor.config import ConfigError, load_config
 
 cli_app = typer.Typer(
     add_completion=False,
-    help="Build monitor for CI status (GPIO LEDs and/or WebSocket UI)",
+    help="Build monitor for CI status (WebSocket UI)",
     no_args_is_help=True,
 )
 
@@ -82,8 +82,6 @@ def check_config(
 
     outputs = config["outputs"]
     enabled = []
-    if outputs.get("gpio", True):
-        enabled.append("gpio")
     websocket = outputs.get("websocket")
     if websocket and websocket.get("enabled"):
         enabled.append(f"websocket:{websocket['host']}:{websocket['port']}")

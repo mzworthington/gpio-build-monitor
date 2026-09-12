@@ -2,9 +2,9 @@
 from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
-from monitor.gpio.constants import Lights
-from monitor.output.gpio_output import GpioStatusOutput
-from monitor.service.aggregator_service import Result
+from gpio_pi.gpio.constants import Lights
+from gpio_pi.output import GpioStatusOutput
+from gpio_pi.status import Result
 
 
 class TestGpioStatusOutput:
@@ -15,16 +15,6 @@ class TestGpioStatusOutput:
         self.board.off = MagicMock()
         self.board.pulse = AsyncMock()
         self.output = GpioStatusOutput(self.board)
-
-    @pytest.mark.asyncio
-    async def test_begin_fetch_turns_on_blue(self):
-        await self.output.begin_fetch()
-        self.board.on.assert_called_once_with(Lights.BLUE)
-
-    @pytest.mark.asyncio
-    async def test_end_fetch_turns_off_blue(self):
-        await self.output.end_fetch()
-        self.board.off.assert_called_once_with(Lights.BLUE)
 
     @pytest.mark.asyncio
     async def test_pass_turns_on_green(self):

@@ -111,8 +111,6 @@ export function keepLastValidPayload(
       builds.push(...remembered);
     } else if (incoming) {
       builds.push(...incoming);
-    } else if (remembered) {
-      builds.push(...remembered);
     }
   }
   const { status, is_running } = aggregate(builds);

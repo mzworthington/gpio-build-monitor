@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from monitor.app import _maybe_start_webhooks, _run_device, _run_loop
+from monitor.app import _maybe_start_webhooks, _run_loop
 from monitor.service.refresh_signal import RefreshSignal
 
 
@@ -88,28 +88,3 @@ async def test_maybe_start_webhooks_starts_ingress_when_enabled():
     kwargs = started.await_args.kwargs
     assert kwargs["host"] == "127.0.0.1"
     assert kwargs["port"] == 8765
-
-
-@pytest.mark.asyncio
-async def test_run_device_follows_hosted_api_instead_of_polling():
-    output = MagicMock()
-    session = MagicMock()
-    follow = AsyncMock()
-    monitor = MagicMock()
-    refresh = RefreshSignal()
-    config = {
-        "poll_in_seconds": 30,
-        "integrations": [],
-        "outputs": {
-            "gpio": True,
-            "api": {"origin": "https://monitor.mzworthington.co.uk"},
-        },
-    }
-    with patch("monitor.app.follow_api", follow):
-        await _run_device(config, monitor, output, session, refresh)
-    follow.assert_awaited_once_with(
-        "https://monitor.mzworthington.co.uk",
-        output,
-        session,
-    )
-    monitor.run.assert_not_called()

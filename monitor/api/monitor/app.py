@@ -11,11 +11,8 @@ from aiohttp import web
 from monitor.build_monitor import BuildMonitor
 from monitor.ci_gateway import integration_actions as available_integrations
 from monitor.config import Config, load_config, webhook_secrets_from_env
-from monitor.gpio.board import Board
-from monitor.gpio.constants import configure_pins
 from monitor.log_handler import setup_logger
-from monitor.output import CompositeStatusOutput, GpioStatusOutput, WebSocketStatusOutput
-from monitor.output.api_follower import follow_api
+from monitor.output import CompositeStatusOutput, WebSocketStatusOutput
 from monitor.output.port import StatusOutput
 from monitor.service.aggregator_service import AggregatorService
 from monitor.service.integration_mapper import IntegrationMapper
@@ -28,17 +25,11 @@ def build_status_outputs(
     *,
     webhook_signal: RefreshSignal | None = None,
     webhook_secrets: dict[str, str | None] | None = None,
-) -> tuple[list[StatusOutput], Board | None, WebSocketStatusOutput | None]:
-    """Create configured status adapters. Caller owns Board / WebSocket lifecycles."""
+) -> tuple[list[StatusOutput], WebSocketStatusOutput | None]:
+    """Create configured status adapters. Caller owns WebSocket lifecycle."""
     outputs_cfg = config["outputs"]
     adapters: list[StatusOutput] = []
-    board: Board | None = None
     websocket: WebSocketStatusOutput | None = None
-
-    if outputs_cfg.get("gpio", True):
-        configure_pins(config.get("pins"))
-        board = Board()
-        adapters.append(GpioStatusOutput(board))
 
     websocket_cfg = outputs_cfg.get("websocket")
     if websocket_cfg and websocket_cfg.get("enabled", False):
@@ -59,7 +50,7 @@ def build_status_outputs(
         )
         adapters.append(websocket)
 
-    return adapters, board, websocket
+    return adapters, websocket
 
 
 async def main(conf_file: str | Path, level, log_dir: str | None = None):
@@ -75,7 +66,7 @@ async def main(conf_file: str | Path, level, log_dir: str | None = None):
 
     refresh = RefreshSignal()
     secrets = webhook_secrets_from_env()
-    adapters, board, websocket = build_status_outputs(
+    adapters, websocket = build_status_outputs(
         config,
         webhook_signal=refresh,
         webhook_secrets=secrets,
@@ -84,9 +75,6 @@ async def main(conf_file: str | Path, level, log_dir: str | None = None):
         IntegrationMapper(available_integrations.get_all()).get(integrations)
     )
     async with AsyncExitStack() as stack:
-        if board is not None:
-            stack.enter_context(board)
-            logging.info("GPIO board initialised")
         if websocket is not None:
             await stack.enter_async_context(websocket)
 
@@ -101,25 +89,10 @@ async def main(conf_file: str | Path, level, log_dir: str | None = None):
             webhook_runner = await _maybe_start_webhooks(config, refresh)
         try:
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                await _run_device(config, monitor, output, session, refresh)
+                await _run_loop(monitor, session, refresh, poll_in_seconds)
         finally:
             if webhook_runner is not None:
                 await webhook_runner.cleanup()
-
-
-async def _run_device(
-    config: Config,
-    monitor: BuildMonitor,
-    output: StatusOutput,
-    session: aiohttp.ClientSession,
-    refresh: RefreshSignal,
-) -> None:
-    api = config["outputs"].get("api")
-    if api:
-        logging.info("Following hosted API at %s", api["origin"])
-        await follow_api(api["origin"], output, session)
-        return
-    await _run_loop(monitor, session, refresh, config["poll_in_seconds"])
 
 
 async def _run_loop(

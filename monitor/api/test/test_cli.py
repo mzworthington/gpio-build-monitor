@@ -23,7 +23,7 @@ def test_check_config_success(tmp_path, monkeypatch):
 
     assert result.exit_code == 0
     assert "Config OK" in result.stdout
-    assert "outputs=gpio" in result.stdout
+    assert "outputs=websocket:" in result.stdout
 
 
 def test_check_config_mentions_webhooks(tmp_path, monkeypatch):

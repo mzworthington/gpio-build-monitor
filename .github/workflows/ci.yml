@@ -168,6 +168,10 @@ jobs:
         working-directory: monitor/device/web
         run: pnpm install --frozen-lockfile
 
+      - name: Build Alpine UI
+        working-directory: monitor/device/web
+        run: pnpm build:web
+
       - name: Deploy API Worker
         working-directory: monitor/device/web
         env:

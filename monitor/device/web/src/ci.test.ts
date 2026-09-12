@@ -54,4 +54,36 @@ describe('keepLastValidPayload', () => {
     expect(keepLastValidPayload(previous, next).builds).toEqual(previous.builds);
     expect(keepLastValidPayload(previous, next).status).toBe('PASS');
   });
+
+  it('drops remembered CONNECTION_ERROR repos that the new snapshot does not include', () => {
+    const previous = {
+      type: 'status' as const,
+      fetching: false,
+      status: 'CONNECTION_ERROR' as const,
+      is_running: false,
+      builds: [
+        { repo: 'acme/web', workflow: 'CI', status: 'PASS', url: 'https://example.com/1' },
+        {
+          repo: 'acme/dotfiles',
+          workflow: '(missing GITHUB_TOKEN)',
+          status: 'CONNECTION_ERROR',
+          url: 'https://github.com/acme/dotfiles',
+        },
+      ],
+      poll_in_seconds: 60,
+      last_checked_at: 1,
+      next_check_at: 61,
+    };
+    const next = {
+      ...previous,
+      status: 'PASS' as const,
+      last_checked_at: 2,
+      next_check_at: 62,
+      builds: [
+        { repo: 'acme/web', workflow: 'CI', status: 'PASS', url: 'https://example.com/1' },
+      ],
+    };
+    expect(keepLastValidPayload(previous, next).builds).toEqual(next.builds);
+    expect(keepLastValidPayload(previous, next).status).toBe('PASS');
+  });
 });

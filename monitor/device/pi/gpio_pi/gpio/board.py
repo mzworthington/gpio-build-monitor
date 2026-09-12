@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 if __debug__:
-    from monitor.gpio.Mock import GPIO
+    from gpio_pi.gpio.Mock import GPIO
 else:
     from RPi import GPIO
 
@@ -13,7 +13,7 @@ from .constants import Lights
 
 class Board:
     def __enter__(self):
-        logging.info('Setting up GPIO')
+        logging.info("Setting up GPIO")
         self.GPIO = GPIO
 
         self.GPIO.setmode(GPIO.BCM)
@@ -36,26 +36,24 @@ class Board:
         return self
 
     def on(self, light: Lights):
-        logging.debug(f'Light {light} turning on...')
+        logging.debug("Light %s turning on...", light)
         self.GPIO.output(light.pin, self.GPIO.HIGH)
-        logging.debug(f'Light {light} on')
 
     async def pulse(self, light: Lights):
         pin = light.pin
         if pin in self.tasks:
-            logging.debug(f'Light {light} is already pulsing.')
+            logging.debug("Light %s is already pulsing.", light)
             return
 
         dc = 0
         pwm = self.pwm.get(pin)
         if pwm is None:
-            logging.error(f'Failed to pulse light {light}')
+            logging.error("Failed to pulse light %s", light)
             return
 
         pwm.start(dc)
 
         self.tasks[pin] = asyncio.create_task(pulse(pwm))
-        logging.debug(f'Light {light} pulsing...')
         await asyncio.sleep(0.001)
 
     def off(self, light: Lights):
@@ -69,12 +67,11 @@ class Board:
             task.cancel()
             self.tasks.pop(pin)
 
-        logging.debug(f'Light {light} turning off...')
+        logging.debug("Light %s turning off...", light)
         self.GPIO.output(pin, self.GPIO.LOW)
-        logging.debug(f'Light {light} off')
 
     def __exit__(self, type, value, traceback):
-        logging.info('Cleaning up GPIO')
+        logging.info("Cleaning up GPIO")
         self.GPIO.cleanup()
 
 

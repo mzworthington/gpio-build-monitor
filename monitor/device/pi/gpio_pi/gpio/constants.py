@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import enum
 
 _DEFAULT_PINS: dict[str, int] = {
@@ -23,9 +21,6 @@ class Lights(enum.Enum):
     @property
     def pin(self) -> int:
         return _pins[self.name]
-
-    def __str__(self):
-        return f"{{ Colour: {self.name}, Pin: {self.pin} }}"
 
 
 def configure_pins(overrides: dict[str, int] | None) -> None:

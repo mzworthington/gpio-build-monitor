@@ -86,46 +86,6 @@ def test_load_config_rejects_invalid_yaml(tmp_path, monkeypatch):
     with pytest.raises(ConfigError, match="Invalid YAML"):
         load_config(config_path)
 
-    from monitor.gpio.constants import Lights
-
-    assert Lights.GREEN.pin == 17
-
-
-def test_validate_pins_accepts_overrides():
-    config = validate_config({
-        "poll_in_seconds": 30,
-        "pins": {"GREEN": 5, "RED": 6},
-        "integrations": [
-            {"type": "GITHUB", "username": "org", "repo": "repo"},
-        ],
-    })
-    assert config["pins"] == {"GREEN": 5, "RED": 6}
-
-
-def test_validate_config_does_not_apply_pin_overrides():
-    from monitor.gpio.constants import Lights
-
-    default_green = Lights.GREEN.pin
-    validate_config({
-        "poll_in_seconds": 30,
-        "pins": {"GREEN": 5, "RED": 6},
-        "integrations": [
-            {"type": "GITHUB", "username": "org", "repo": "repo"},
-        ],
-    })
-    assert Lights.GREEN.pin == default_green
-
-
-def test_validate_pins_rejects_unknown_light():
-    with pytest.raises(ConfigError, match="pins.NOT_A_LIGHT"):
-        validate_config({
-            "poll_in_seconds": 30,
-            "pins": {"NOT_A_LIGHT": 1},
-            "integrations": [
-                {"type": "GITHUB", "username": "org", "repo": "repo"},
-            ],
-        })
-
 
 def test_validate_webhooks_optional_and_defaults():
     config = validate_config({
@@ -178,14 +138,15 @@ def test_validate_webhooks_rejects_bad_port():
         })
 
 
-def test_validate_outputs_defaults_to_gpio_only():
+def test_validate_outputs_defaults_to_websocket_only():
     config = validate_config({
         "poll_in_seconds": 30,
         "integrations": [
             {"type": "GITHUB", "username": "org", "repo": "repo"},
         ],
     })
-    assert config["outputs"] == {"gpio": True}
+    assert "gpio" not in config["outputs"]
+    assert config["outputs"]["websocket"]["enabled"] is True
     assert config["integrations"][0]["branch"] == "main"
 
 
@@ -245,14 +206,12 @@ def test_validate_outputs_accepts_websocket():
     config = validate_config({
         "poll_in_seconds": 30,
         "outputs": {
-            "gpio": False,
             "websocket": {"enabled": True, "host": "127.0.0.1", "port": 9090},
         },
         "integrations": [
             {"type": "GITHUB", "username": "org", "repo": "repo"},
         ],
     })
-    assert config["outputs"]["gpio"] is False
     assert config["outputs"]["websocket"] == {
         "enabled": True,
         "host": "127.0.0.1",
@@ -264,7 +223,6 @@ def test_validate_websocket_cors_origins_for_pages():
     config = validate_config({
         "poll_in_seconds": 30,
         "outputs": {
-            "gpio": False,
             "websocket": {
                 "enabled": True,
                 "host": "127.0.0.1",
@@ -281,29 +239,14 @@ def test_validate_websocket_cors_origins_for_pages():
     ]
 
 
-def test_validate_outputs_requires_at_least_one_enabled():
-    with pytest.raises(ConfigError, match="At least one output"):
+def test_validate_outputs_requires_websocket_enabled():
+    with pytest.raises(ConfigError, match="outputs.websocket.enabled must be true"):
         validate_config({
             "poll_in_seconds": 30,
             "outputs": {
-                "gpio": False,
                 "websocket": {"enabled": False},
             },
             "integrations": [
                 {"type": "GITHUB", "username": "org", "repo": "repo"},
             ],
         })
-
-
-def test_validate_outputs_accepts_gpio_api_client_without_ci_tokens(monkeypatch):
-    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
-    config = validate_config({
-        "poll_in_seconds": 30,
-        "outputs": {
-            "gpio": True,
-            "websocket": {"enabled": False},
-            "api": {"origin": "https://monitor.mzworthington.co.uk"},
-        },
-        "integrations": [],
-    })
-    assert config["outputs"]["api"]["origin"] == "https://monitor.mzworthington.co.uk"

@@ -1,16 +1,11 @@
-#!/usr/bin/env python3
-
 from collections.abc import Sequence
 
-from monitor.gpio.board import Board
-from monitor.gpio.constants import Lights
-from monitor.service.aggregator_service import BuildDetail, Result
+from gpio_pi.gpio.constants import Lights
+from gpio_pi.status import Result
 
 
 class GpioStatusOutput:
-    """Maps aggregated CI status onto GPIO LEDs."""
-
-    def __init__(self, board: Board):
+    def __init__(self, board):
         self._board = board
 
     async def begin_fetch(self) -> None:
@@ -24,25 +19,17 @@ class GpioStatusOutput:
         status: Result,
         *,
         is_running: bool,
-        builds: Sequence[BuildDetail] | None = None,
+        builds: Sequence[object] | None = None,
     ) -> None:
         match status:
             case Result.PASS:
                 self._board.off(Lights.PURPLE)
                 self._board.on(Lights.GREEN)
                 self._board.off(Lights.RED)
-            case Result.FAIL:
+            case Result.FAIL | Result.UNKNOWN:
                 self._board.off(Lights.PURPLE)
                 self._board.off(Lights.GREEN)
                 self._board.on(Lights.RED)
-            case Result.UNKNOWN:
-                self._board.off(Lights.PURPLE)
-                self._board.off(Lights.GREEN)
-                self._board.on(Lights.RED)
-            case Result.APPROVAL:
-                self._board.off(Lights.PURPLE)
-                self._board.off(Lights.GREEN)
-                self._board.off(Lights.RED)
             case Result.CONNECTION_ERROR:
                 self._board.on(Lights.PURPLE)
                 self._board.off(Lights.GREEN)

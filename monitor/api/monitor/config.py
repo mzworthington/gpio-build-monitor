@@ -7,7 +7,6 @@ from typing import Any, NotRequired, TypedDict
 import yaml
 
 from monitor.ci_gateway.constants import IntegrationType
-from monitor.gpio.constants import Lights
 
 
 class ConfigError(Exception):
@@ -30,14 +29,8 @@ class WebSocketOutputConfig(TypedDict):
     cors_origins: NotRequired[list[str]]
 
 
-class ApiOutputConfig(TypedDict):
-    origin: str
-
-
 class OutputsConfig(TypedDict):
-    gpio: bool
     websocket: NotRequired[WebSocketOutputConfig]
-    api: NotRequired[ApiOutputConfig]
 
 
 class WebhookConfig(TypedDict):
@@ -50,7 +43,6 @@ class Config(TypedDict):
     poll_in_seconds: int
     integrations: list[IntegrationConfig]
     outputs: OutputsConfig
-    pins: NotRequired[dict[str, int]]
     log_dir: NotRequired[str]
     webhooks: NotRequired[WebhookConfig]
 
@@ -67,7 +59,11 @@ WEBHOOK_SECRET_ENV_VARS: dict[IntegrationType, str] = {
 
 DEFAULT_WEBHOOK_HOST = "0.0.0.0"
 DEFAULT_WEBHOOK_PORT = 8080
-_DEFAULT_OUTPUTS: OutputsConfig = {"gpio": True}
+_DEFAULT_WEBSOCKET: WebSocketOutputConfig = {
+    "enabled": True,
+    "host": "0.0.0.0",
+    "port": 8080,
+}
 
 
 def load_config(conf_file: str | Path) -> Config:
@@ -92,24 +88,21 @@ def validate_config(raw: dict[str, Any]) -> Config:
     if not isinstance(poll_in_seconds, int) or poll_in_seconds <= 0:
         raise ConfigError("poll_in_seconds must be a positive integer")
 
-    pins = _validate_pins(raw.get("pins"))
     log_dir = _validate_log_dir(raw.get("log_dir"))
     webhooks = _validate_webhooks(raw.get("webhooks"))
     outputs = _validate_outputs(raw.get("outputs"))
-    api_client = "api" in outputs
 
     integrations = raw.get("integrations")
     if not isinstance(integrations, list):
         raise ConfigError("integrations must be a list")
-    if not integrations and not api_client:
+    if not integrations:
         raise ConfigError("integrations must be a non-empty list")
 
     validated_integrations: list[IntegrationConfig] = []
     for index, integration in enumerate(integrations):
         validated_integrations.append(_validate_integration(integration, index))
 
-    if validated_integrations and not api_client:
-        validate_tokens(validated_integrations)
+    validate_tokens(validated_integrations)
     if webhooks is not None and webhooks["enabled"]:
         validate_webhook_secrets(validated_integrations)
 
@@ -118,8 +111,6 @@ def validate_config(raw: dict[str, Any]) -> Config:
         integrations=validated_integrations,
         outputs=outputs,
     )
-    if pins is not None:
-        config["pins"] = pins
     if log_dir is not None:
         config["log_dir"] = log_dir
     if webhooks is not None:
@@ -129,27 +120,20 @@ def validate_config(raw: dict[str, Any]) -> Config:
 
 def _validate_outputs(raw: Any) -> OutputsConfig:
     if raw is None:
-        return dict(_DEFAULT_OUTPUTS)
+        return {"websocket": dict(_DEFAULT_WEBSOCKET)}
 
     if not isinstance(raw, dict):
         raise ConfigError("outputs must be an object")
 
-    gpio = raw.get("gpio", True)
-    if not isinstance(gpio, bool):
-        raise ConfigError("outputs.gpio must be a boolean")
-
-    outputs: OutputsConfig = {"gpio": gpio}
-
     if "websocket" in raw:
-        outputs["websocket"] = _validate_websocket(raw.get("websocket"))
+        websocket = _validate_websocket(raw.get("websocket"))
+    else:
+        websocket = dict(_DEFAULT_WEBSOCKET)
 
-    if "api" in raw:
-        outputs["api"] = _validate_api(raw.get("api"))
+    if not websocket.get("enabled", False):
+        raise ConfigError("outputs.websocket.enabled must be true")
 
-    if not outputs["gpio"] and not outputs.get("websocket", {}).get("enabled", False):
-        raise ConfigError("At least one output must be enabled (gpio or websocket)")
-
-    return outputs
+    return {"websocket": websocket}
 
 
 def _validate_websocket(raw: Any) -> WebSocketOutputConfig:
@@ -177,35 +161,6 @@ def _validate_websocket(raw: Any) -> WebSocketOutputConfig:
             raise ConfigError("outputs.websocket.cors_origins must be a list of origin URLs")
         config["cors_origins"] = [item.strip() for item in origins]
     return config
-
-
-def _validate_api(raw: Any) -> ApiOutputConfig:
-    if not isinstance(raw, dict):
-        raise ConfigError("outputs.api must be an object")
-    origin = raw.get("origin")
-    if not isinstance(origin, str) or not origin.strip():
-        raise ConfigError("outputs.api.origin must be a non-empty URL")
-    return ApiOutputConfig(origin=origin.strip())
-
-
-def _validate_pins(raw: Any) -> dict[str, int] | None:
-    if raw is None:
-        return None
-    if not isinstance(raw, dict):
-        raise ConfigError("pins must be an object mapping light names to pin numbers")
-
-    validated: dict[str, int] = {}
-    for name, pin in raw.items():
-        if name not in Lights.__members__:
-            supported = ", ".join(sorted(Lights.__members__))
-            raise ConfigError(
-                f"pins.{name} is unknown (expected one of: {supported})"
-            )
-        if not isinstance(pin, int) or pin < 0:
-            raise ConfigError(f"pins.{name} must be a non-negative integer")
-        validated[name] = pin
-
-    return validated
 
 
 def _validate_log_dir(raw: Any) -> str | None:
