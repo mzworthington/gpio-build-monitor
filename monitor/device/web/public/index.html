@@ -188,12 +188,12 @@
                 <span class="repo-glances">
                   <a
                     class="repo-prs"
-                    x-show="entry.pr_count != null"
-                    :href="entry.pr_url"
+                    x-show="entry.pull_requests != null"
+                    :href="entry.pull_requests && entry.pull_requests.url"
                     target="_blank"
                     rel="noopener noreferrer"
                     :title="'Open pull requests for ' + entry.repo"
-                    :aria-label="entry.pr_count + ' open pull requests for ' + entry.repo"
+                    :aria-label="(entry.pull_requests ? entry.pull_requests.count : 0) + ' open pull requests for ' + entry.repo"
                     x-text="prLabel(entry)"
                     @click.stop
                   ></a>
@@ -221,6 +221,7 @@
                   @click.stop
                 >↗</a>
               </summary>
+              <div class="repo-details">
               <ul class="repo-workflows">
                 <template x-for="workflow in entry.workflows" :key="workflow.workflow + workflow.status">
                   <li :class="workflowRowClass(workflow)">
@@ -242,6 +243,49 @@
                   </li>
                 </template>
               </ul>
+              <ul class="repo-items" x-show="prItems(entry).length">
+                <template x-for="pull in prItems(entry)" :key="'pr-' + pull.number">
+                  <li :class="itemRowClass('pr', pull)">
+                    <a
+                      x-show="pull.url"
+                      :href="pull.url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <span class="workflow-name" x-text="pull.title"></span>
+                      <span class="workflow-status" x-text="itemStatus('pr', pull)"></span>
+                    </a>
+                    <template x-if="!pull.url">
+                      <span>
+                        <span class="workflow-name" x-text="pull.title"></span>
+                        <span class="workflow-status" x-text="itemStatus('pr', pull)"></span>
+                      </span>
+                    </template>
+                  </li>
+                </template>
+              </ul>
+              <ul class="repo-items" x-show="securityItems(entry).length">
+                <template x-for="finding in securityItems(entry)" :key="'sec-' + finding.url + finding.number">
+                  <li :class="itemRowClass('security', finding)">
+                    <a
+                      x-show="finding.url"
+                      :href="finding.url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <span class="workflow-name" x-text="finding.title"></span>
+                      <span class="workflow-status" x-text="itemStatus('security', finding)"></span>
+                    </a>
+                    <template x-if="!finding.url">
+                      <span>
+                        <span class="workflow-name" x-text="finding.title"></span>
+                        <span class="workflow-status" x-text="itemStatus('security', finding)"></span>
+                      </span>
+                    </template>
+                  </li>
+                </template>
+              </ul>
+              </div>
             </details>
           </li>
         </template>

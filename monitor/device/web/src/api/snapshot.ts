@@ -26,6 +26,11 @@ export interface RepoGlance {
   workflows?: Array<{ workflow: string; status: string }>;
 }
 
+function sourceCount(source: { count?: number } | null | undefined): number {
+  const numeric = Number(source?.count);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
 export function repoGlances(
   builds: StatusPayload['builds'],
   { includeWorkflows = false }: { includeWorkflows?: boolean } = {},
@@ -46,15 +51,14 @@ export function repoGlances(
   const rows: RepoGlance[] = [];
   for (const [repo, group] of byRepo) {
     const { status, is_running } = aggregate(group);
-    const prRaw = group.find((build) => build.pr_count != null)?.pr_count;
-    const prCount = Number(prRaw);
+    const pulls = group.find((build) => build.pull_requests != null)?.pull_requests;
     const security = group.find((build) => build.security != null)?.security;
     const row: RepoGlance = {
       repo,
       status,
       workflow_count: group.length,
-      pr_count: Number.isFinite(prCount) ? prCount : 0,
-      security_count: Number.isFinite(Number(security?.count)) ? Number(security?.count) : 0,
+      pr_count: sourceCount(pulls),
+      security_count: sourceCount(security),
       is_running,
     };
     if (includeWorkflows) {
@@ -78,10 +82,11 @@ export function openPrGlances(
   const seen = new Set<string>();
   for (const build of builds) {
     const repo = build.repo || '';
-    if (!repo || seen.has(repo) || build.pr_count == null) {
+    const pulls = build.pull_requests;
+    if (!repo || seen.has(repo) || pulls == null) {
       continue;
     }
-    const numeric = Number(build.pr_count);
+    const numeric = Number(pulls.count);
     if (!Number.isFinite(numeric) || numeric <= 0) {
       continue;
     }
@@ -89,7 +94,7 @@ export function openPrGlances(
     glances.push({
       repo,
       pr_count: numeric,
-      pr_url: build.pr_url || `https://github.com/${repo}/pulls`,
+      pr_url: pulls.url || `https://github.com/${repo}/pulls`,
     });
   }
   return glances;

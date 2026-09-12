@@ -4,8 +4,10 @@ import asyncio
 import logging
 import os
 import re
+from collections.abc import Callable
 from fnmatch import fnmatch
 from itertools import groupby
+from typing import TypeVar
 
 from aiohttp import ClientSession
 
@@ -15,6 +17,9 @@ from monitor.ci_gateway.constants import (
     CiResult,
     IntegrationAdapter,
     IntegrationType,
+    PullRequestItem,
+    PullRequests,
+    SecurityFinding,
     SecurityFindings,
     SecuritySource,
 )
@@ -35,21 +40,108 @@ def github_security_payload(
     username: str,
     repo: str,
     *,
-    vulnerabilities: int,
-    codeql: int,
+    vulnerabilities: list[SecurityFinding],
+    codeql: list[SecurityFinding],
 ) -> SecurityFindings:
-    """Glance payload: counts now, empty ``items`` for later alert rows."""
     base = f"https://github.com/{username}/{repo}/security"
     return {
-        "count": vulnerabilities + codeql,
+        "count": len(vulnerabilities) + len(codeql),
         "url": base,
-        "vulnerabilities": _security_source(f"{base}/dependabot", vulnerabilities),
+        "vulnerabilities": _security_source(
+            f"{base}/dependabot",
+            vulnerabilities,
+        ),
         "codeql": _security_source(f"{base}/code-scanning", codeql),
     }
 
 
-def _security_source(url: str, count: int) -> SecuritySource:
-    return {"count": count, "url": url, "items": []}
+def github_pull_requests_payload(
+    username: str,
+    repo: str,
+    items: list[PullRequestItem],
+) -> PullRequests:
+    return {
+        "count": len(items),
+        "url": f"https://github.com/{username}/{repo}/pulls",
+        "items": items,
+    }
+
+
+def _security_source(url: str, items: list[SecurityFinding]) -> SecuritySource:
+    return {"count": len(items), "url": url, "items": items}
+
+
+def map_dependabot_alert(alert: object) -> SecurityFinding | None:
+    if not isinstance(alert, dict):
+        return None
+    number = alert.get("number")
+    if not isinstance(number, int):
+        return None
+    advisory = alert.get("security_advisory") if isinstance(alert.get("security_advisory"), dict) else {}
+    vuln = (
+        alert.get("security_vulnerability")
+        if isinstance(alert.get("security_vulnerability"), dict)
+        else {}
+    )
+    dependency = alert.get("dependency") if isinstance(alert.get("dependency"), dict) else {}
+    package = dependency.get("package") if isinstance(dependency.get("package"), dict) else {}
+    title = (
+        advisory.get("summary")
+        or package.get("name")
+        or f"Dependabot alert #{number}"
+    )
+    severity = vuln.get("severity") or advisory.get("severity")
+    return {
+        "number": number,
+        "title": str(title),
+        "severity": str(severity) if severity else None,
+        "url": str(alert.get("html_url") or ""),
+        "state": str(alert.get("state") or "open"),
+    }
+
+
+def map_codeql_alert(alert: object) -> SecurityFinding | None:
+    if not isinstance(alert, dict):
+        return None
+    number = alert.get("number")
+    if not isinstance(number, int):
+        return None
+    rule = alert.get("rule") if isinstance(alert.get("rule"), dict) else {}
+    title = rule.get("description") or rule.get("id") or f"CodeQL alert #{number}"
+    severity = rule.get("security_severity_level") or rule.get("severity")
+    return {
+        "number": number,
+        "title": str(title),
+        "severity": str(severity) if severity else None,
+        "url": str(alert.get("html_url") or ""),
+        "state": str(alert.get("state") or "open"),
+    }
+
+
+def map_pull_request(pull: object) -> PullRequestItem | None:
+    if not isinstance(pull, dict):
+        return None
+    number = pull.get("number")
+    if not isinstance(number, int):
+        return None
+    return {
+        "number": number,
+        "title": str(pull.get("title") or f"Pull request #{number}"),
+        "url": str(pull.get("html_url") or ""),
+        "draft": bool(pull.get("draft")),
+    }
+
+
+_T = TypeVar("_T")
+
+
+def _map_items(payload: list[object], mapper: Callable[[object], _T | None]) -> list[_T]:
+    items: list[_T] = []
+    for row in payload:
+        mapped = mapper(row)
+        if mapped is not None:
+            items.append(mapped)
+    return items
 
 
 def link_rel_next(link_header: str | None) -> str | None:
@@ -175,48 +267,47 @@ class GitHubAction(IntegrationAdapter):
         logging.info('Response %s', response)
         return response
 
-    async def open_pull_requests(self, session: ClientSession) -> tuple[int | None, str | None]:
+    async def open_pull_requests(self, session: ClientSession) -> PullRequests | None:
         base = 'https://api.github.com'
         url = f'{base}/repos/{self.username}/{self.repo}/pulls'
-        try:
-            payload = await self._get_json(
-                session,
-                url,
-                {'state': 'open', 'per_page': '100'},
-            )
-        except APIError:
+        payload = await self._paged_list(
+            session,
+            url,
+            allow_public_retry=True,
+            empty_on_404=False,
+        )
+        if payload is None:
             logging.warning(
                 'GitHub pull requests unavailable for %s/%s',
                 self.username,
                 self.repo,
             )
-            return None, None
-        if not isinstance(payload, list):
-            return None, None
-        return (
-            len(payload),
-            f'https://github.com/{self.username}/{self.repo}/pulls',
+            return None
+        return github_pull_requests_payload(
+            self.username,
+            self.repo,
+            _map_items(payload, map_pull_request),
         )
 
     async def security_findings(self, session: ClientSession) -> SecurityFindings | None:
-        """Open Dependabot (vulnerabilities) + CodeQL alert counts.
-
-        Nested ``items`` stay empty until the API grows per-alert detail.
-        Missing permission or token yields None (same as GitLab/CircleCI).
-        """
+        """Open Dependabot (vulnerabilities) + CodeQL alerts with item rows."""
         if not self.token:
             return None
         base = f"https://api.github.com/repos/{self.username}/{self.repo}"
         try:
-            vuln_count, codeql_count = await asyncio.gather(
-                self._open_alert_count(
+            vuln_rows, codeql_rows = await asyncio.gather(
+                self._paged_list(
                     session,
                     f"{base}/dependabot/alerts",
+                    allow_public_retry=False,
+                    empty_on_404=True,
                 ),
-                self._open_alert_count(
+                self._paged_list(
                     session,
                     f"{base}/code-scanning/alerts",
                     extra={"tool_name": "CodeQL"},
+                    allow_public_retry=False,
+                    empty_on_404=True,
                 ),
             )
         except Exception:
@@ -226,52 +317,75 @@ class GitHubAction(IntegrationAdapter):
                 self.repo,
             )
             return None
-        if vuln_count is None and codeql_count is None:
+        if vuln_rows is None and codeql_rows is None:
             return None
         return github_security_payload(
             self.username,
             self.repo,
-            vulnerabilities=vuln_count or 0,
-            codeql=codeql_count or 0,
+            vulnerabilities=_map_items(vuln_rows or [], map_dependabot_alert),
+            codeql=_map_items(codeql_rows or [], map_codeql_alert),
         )
 
-    async def _open_alert_count(
+    async def _paged_list(
         self,
         session: ClientSession,
         url: str,
         extra: dict[str, str] | None = None,
-    ) -> int | None:
-        """Count open alerts. 404 (not enabled) is 0; 401/403 is unknown."""
+        *,
+        allow_public_retry: bool,
+        empty_on_404: bool,
+    ) -> list[object] | None:
+        """Fetch open-state list pages. None means unavailable."""
         params: dict[str, str] = {
             "state": "open",
             "per_page": _ALERT_PAGE_SIZE,
             **(extra or {}),
         }
+        headers = self._auth_headers() if self.token else self._public_headers()
         next_url: str | None = url
-        total = 0
+        collected: list[object] = []
         pages = 0
+        public_retried = False
         while next_url and pages < _ALERT_PAGE_CAP:
             resp = await session.get(
                 next_url,
                 params=params if pages == 0 else None,
-                headers=self._auth_headers(),
+                headers=headers,
             )
             status = resp.status
             link = resp.headers.get("Link")
+            if (
+                status in {401, 403}
+                and allow_public_retry
+                and self.token
+                and not public_retried
+                and pages == 0
+            ):
+                await resp.release()
+                headers = self._public_headers()
+                public_retried = True
+                logging.warning(
+                    'GitHub %s returned %s; retrying without credentials',
+                    url,
+                    status,
+                )
+                continue
             if status == 404:
                 await resp.release()
-                return 0 if pages == 0 else total
+                if pages == 0:
+                    return [] if empty_on_404 else None
+                return collected
             if status != 200:
                 await resp.release()
-                return None if pages == 0 else total
+                return None if pages == 0 else collected
             payload = await resp.json()
             if not isinstance(payload, list):
-                return None if pages == 0 else total
-            total += len(payload)
+                return None if pages == 0 else collected
+            collected.extend(payload)
             next_url = link_rel_next(link)
             pages += 1
             params = {}
-        return total
+        return collected
 
     @staticmethod
     def map_result(latest) -> BuildStatus:

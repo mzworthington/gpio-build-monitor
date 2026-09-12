@@ -41,13 +41,25 @@ export interface SecurityFindings {
   codeql: SecuritySource;
 }
 
+export interface PullRequestItem {
+  number: number;
+  title: string;
+  url: string;
+  draft: boolean;
+}
+
+export interface PullRequests {
+  count: number;
+  url: string;
+  items: PullRequestItem[];
+}
+
 export interface BuildDetail {
   repo: string;
   workflow: string;
   status: string;
   url: string;
-  pr_count?: number | null;
-  pr_url?: string | null;
+  pull_requests?: PullRequests | null;
   security?: SecurityFindings | null;
 }
 
@@ -369,8 +381,7 @@ async function fetchGithub(
         workflow: `(github ${resp.status})`,
         status: 'CONNECTION_ERROR',
         url: `https://github.com/${repo}`,
-        pr_count: pullGlance.count,
-        pr_url: pullGlance.url,
+        pull_requests: pullGlance,
         security,
       },
     ];
@@ -421,45 +432,122 @@ async function fetchGithub(
     workflow: run.name,
     status: mapGithubConclusion(run),
     url: run.html_url,
-    pr_count: pullGlance.count,
-    pr_url: pullGlance.url,
+    pull_requests: pullGlance,
     security,
   }));
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+}
+
+function nestedRecord(parent: Record<string, unknown>, key: string): Record<string, unknown> {
+  return asRecord(parent[key]) ?? {};
+}
+
+function mapItems<T>(payload: unknown[], mapper: (row: unknown) => T | null): T[] {
+  const items: T[] = [];
+  for (const row of payload) {
+    const mapped = mapper(row);
+    if (mapped !== null) {
+      items.push(mapped);
+    }
+  }
+  return items;
+}
+
+export function mapPullRequest(pull: unknown): PullRequestItem | null {
+  const row = asRecord(pull);
+  if (!row || typeof row.number !== 'number') {
+    return null;
+  }
+  return {
+    number: row.number,
+    title: String(row.title || `Pull request #${row.number}`),
+    url: String(row.html_url || ''),
+    draft: Boolean(row.draft),
+  };
+}
+
+export function mapDependabotAlert(alert: unknown): SecurityFinding | null {
+  const row = asRecord(alert);
+  if (!row || typeof row.number !== 'number') {
+    return null;
+  }
+  const advisory = nestedRecord(row, 'security_advisory');
+  const vuln = nestedRecord(row, 'security_vulnerability');
+  const pkg = nestedRecord(nestedRecord(row, 'dependency'), 'package');
+  const title = advisory.summary || pkg.name || `Dependabot alert #${row.number}`;
+  const severity = vuln.severity || advisory.severity;
+  return {
+    number: row.number,
+    title: String(title),
+    severity: severity ? String(severity) : null,
+    url: String(row.html_url || ''),
+    state: String(row.state || 'open'),
+  };
+}
+
+export function mapCodeqlAlert(alert: unknown): SecurityFinding | null {
+  const row = asRecord(alert);
+  if (!row || typeof row.number !== 'number') {
+    return null;
+  }
+  const rule = nestedRecord(row, 'rule');
+  const title = rule.description || rule.id || `CodeQL alert #${row.number}`;
+  const severity = rule.security_severity_level || rule.severity;
+  return {
+    number: row.number,
+    title: String(title),
+    severity: severity ? String(severity) : null,
+    url: String(row.html_url || ''),
+    state: String(row.state || 'open'),
+  };
+}
+
+export function githubPullRequests(repo: string, items: PullRequestItem[]): PullRequests {
+  return {
+    count: items.length,
+    url: `https://github.com/${repo}/pulls`,
+    items,
+  };
 }
 
 async function fetchGithubOpenPulls(
   repo: string,
   token: string,
-): Promise<{ count: number | null; url: string | null }> {
-  const url = new URL(`https://api.github.com/repos/${repo}/pulls`);
-  url.searchParams.set('state', 'open');
-  url.searchParams.set('per_page', '100');
+): Promise<PullRequests | null> {
   try {
-    const resp = await githubGet(url, token);
-    if (!resp.ok) {
-      return { count: null, url: null };
+    const rows = await listOpenGithubPages(
+      `https://api.github.com/repos/${repo}/pulls`,
+      (url) => githubGet(url, token),
+      {},
+      { emptyOn404: false },
+    );
+    if (rows == null) {
+      return null;
     }
-    const payload = (await resp.json()) as unknown;
-    if (!Array.isArray(payload)) {
-      return { count: null, url: null };
-    }
-    return { count: payload.length, url: `https://github.com/${repo}/pulls` };
+    return githubPullRequests(repo, mapItems(rows, mapPullRequest));
   } catch {
-    return { count: null, url: null };
+    return null;
   }
 }
 
 export function githubSecurityFindings(
   repo: string,
-  vulnerabilities: number,
-  codeql: number,
+  vulnerabilities: SecurityFinding[],
+  codeql: SecurityFinding[],
 ): SecurityFindings {
   const url = `https://github.com/${repo}/security`;
   return {
-    count: vulnerabilities + codeql,
+    count: vulnerabilities.length + codeql.length,
     url,
-    vulnerabilities: { count: vulnerabilities, url: `${url}/dependabot`, items: [] },
-    codeql: { count: codeql, url: `${url}/code-scanning`, items: [] },
+    vulnerabilities: {
+      count: vulnerabilities.length,
+      url: `${url}/dependabot`,
+      items: vulnerabilities,
+    },
+    codeql: { count: codeql.length, url: `${url}/code-scanning`, items: codeql },
   };
 }
 
@@ -469,11 +557,12 @@ function linkRelNext(linkHeader: string | null): string | null {
   return match?.[1] ?? null;
 }
 
-async function countOpenGithubAlerts(
+async function listOpenGithubPages(
   startUrl: string,
-  token: string,
+  get: (url: URL) => Promise<Response>,
   extra: Record<string, string> = {},
-): Promise<number | null> {
+  { emptyOn404 }: { emptyOn404: boolean },
+): Promise<unknown[] | null> {
   const first = new URL(startUrl);
   first.searchParams.set('state', 'open');
   first.searchParams.set('per_page', '100');
@@ -482,25 +571,25 @@ async function countOpenGithubAlerts(
   }
 
   let nextUrl: string | null = first.toString();
-  let total = 0;
+  const collected: unknown[] = [];
   let pages = 0;
   while (nextUrl && pages < 10) {
-    const resp = await fetch(nextUrl, { headers: githubHeaders(token) });
+    const resp = await get(new URL(nextUrl));
     if (resp.status === 404) {
-      return pages === 0 ? 0 : total;
+      return pages === 0 ? (emptyOn404 ? [] : null) : collected;
     }
     if (!resp.ok) {
-      return pages === 0 ? null : total;
+      return pages === 0 ? null : collected;
     }
     const payload = (await resp.json()) as unknown;
     if (!Array.isArray(payload)) {
-      return pages === 0 ? null : total;
+      return pages === 0 ? null : collected;
     }
-    total += payload.length;
+    collected.push(...payload);
     nextUrl = linkRelNext(resp.headers.get('Link'));
     pages += 1;
   }
-  return total;
+  return collected;
 }
 
 async function fetchGithubSecurity(
@@ -508,17 +597,25 @@ async function fetchGithubSecurity(
   token: string,
 ): Promise<SecurityFindings | null> {
   const base = `https://api.github.com/repos/${repo}`;
+  const get = (url: URL) => fetch(url, { headers: githubHeaders(token) });
   try {
     const [vulnerabilities, codeql] = await Promise.all([
-      countOpenGithubAlerts(`${base}/dependabot/alerts`, token),
-      countOpenGithubAlerts(`${base}/code-scanning/alerts`, token, {
-        tool_name: 'CodeQL',
-      }),
+      listOpenGithubPages(`${base}/dependabot/alerts`, get, {}, { emptyOn404: true }),
+      listOpenGithubPages(
+        `${base}/code-scanning/alerts`,
+        get,
+        { tool_name: 'CodeQL' },
+        { emptyOn404: true },
+      ),
     ]);
     if (vulnerabilities == null && codeql == null) {
       return null;
     }
-    return githubSecurityFindings(repo, vulnerabilities ?? 0, codeql ?? 0);
+    return githubSecurityFindings(
+      repo,
+      mapItems(vulnerabilities ?? [], mapDependabotAlert),
+      mapItems(codeql ?? [], mapCodeqlAlert),
+    );
   } catch {
     return null;
   }
@@ -607,6 +704,7 @@ async function fetchCircle(
       workflow: workflow.name,
       status: mapCircleStatus(workflow.status),
       url: vcsUrl,
+      pull_requests: null,
       security: null,
     }));
 }

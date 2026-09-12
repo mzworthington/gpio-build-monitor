@@ -15,7 +15,7 @@ class StubIntegration:
         integration_type,
         results=None,
         error=None,
-        prs=(None, None),
+        prs=None,
         pr_error=None,
         security=None,
         security_error=None,
@@ -149,8 +149,7 @@ async def test_contains_failed():
             "workflow": "CI",
             "status": "PASS",
             "url": "",
-            "pr_count": None,
-            "pr_url": None,
+            "pull_requests": None,
             "security": None,
         },
         {
@@ -158,8 +157,7 @@ async def test_contains_failed():
             "workflow": "CI",
             "status": "FAIL",
             "url": "https://example.com/fail",
-            "pr_count": None,
-            "pr_url": None,
+            "pull_requests": None,
             "security": None,
         },
     ]
@@ -289,8 +287,7 @@ def test_repo_summaries_groups_workflows_and_worst_status():
             "workflow_count": 2,
             "is_running": False,
             "url": "https://github.com/mzworthington/archlens",
-            "pr_count": None,
-            "pr_url": None,
+            "pull_requests": None,
             "security": None,
             "workflows": [
                 {
@@ -313,8 +310,7 @@ def test_repo_summaries_groups_workflows_and_worst_status():
             "workflow_count": 1,
             "is_running": False,
             "url": "https://github.com/mzworthington/edge-dns",
-            "pr_count": None,
-            "pr_url": None,
+            "pull_requests": None,
             "security": None,
             "workflows": [
                 {
@@ -329,7 +325,31 @@ def test_repo_summaries_groups_workflows_and_worst_status():
 
 
 @pytest.mark.asyncio
-async def test_github_pr_count_does_not_change_aggregate_status():
+async def test_github_pull_requests_do_not_change_aggregate_status():
+    pulls = {
+        "count": 3,
+        "url": "https://github.com/a/b/pulls",
+        "items": [
+            {
+                "number": 1,
+                "title": "One",
+                "url": "https://github.com/a/b/pull/1",
+                "draft": False,
+            },
+            {
+                "number": 2,
+                "title": "Two",
+                "url": "https://github.com/a/b/pull/2",
+                "draft": True,
+            },
+            {
+                "number": 3,
+                "title": "Three",
+                "url": "https://github.com/a/b/pull/3",
+                "draft": False,
+            },
+        ],
+    }
     integrations = [
         StubIntegration(
             'a',
@@ -345,14 +365,13 @@ async def test_github_pr_count_does_not_change_aggregate_status():
                     start='',
                 ),
             ],
-            prs=(3, 'https://github.com/a/b/pulls'),
+            prs=pulls,
         ),
     ]
     async with aiohttp.ClientSession() as session:
         result = await AggregatorService(integrations).run(session)
     assert result["status"] == Result.PASS
-    assert result["builds"][0]["pr_count"] == 3
-    assert result["builds"][0]["pr_url"] == "https://github.com/a/b/pulls"
+    assert result["builds"][0]["pull_requests"] == pulls
 
 
 @pytest.mark.asyncio
@@ -368,7 +387,15 @@ async def test_github_security_findings_do_not_change_aggregate_status():
         "codeql": {
             "count": 1,
             "url": "https://github.com/a/b/security/code-scanning",
-            "items": [],
+            "items": [
+                {
+                    "number": 9,
+                    "title": "SQL injection",
+                    "severity": "high",
+                    "url": "https://github.com/a/b/security/code-scanning/9",
+                    "state": "open",
+                }
+            ],
         },
     }
     integrations = [
@@ -444,30 +471,45 @@ async def test_failed_pr_fetch_leaves_workflows_intact():
     async with aiohttp.ClientSession() as session:
         result = await AggregatorService(integrations).run(session)
     assert result["status"] == Result.PASS
-    assert result["builds"][0]["pr_count"] is None
+    assert result["builds"][0]["pull_requests"] is None
 
 
-def test_repo_summaries_keeps_github_pr_count_over_circle_null():
+def test_repo_summaries_keeps_github_pull_requests_over_circle_null():
+    pulls = {
+        "count": 2,
+        "url": "https://github.com/acme/web/pulls",
+        "items": [
+            {
+                "number": 7,
+                "title": "Ready",
+                "url": "https://github.com/acme/web/pull/7",
+                "draft": False,
+            },
+            {
+                "number": 8,
+                "title": "Draft",
+                "url": "https://github.com/acme/web/pull/8",
+                "draft": True,
+            },
+        ],
+    }
     summaries = repo_summaries([
         {
             "repo": "acme/web",
             "workflow": "CI",
             "status": "PASS",
             "url": "https://github.com/acme/web/actions/1",
-            "pr_count": 2,
-            "pr_url": "https://github.com/acme/web/pulls",
+            "pull_requests": pulls,
         },
         {
             "repo": "acme/web",
             "workflow": "build",
             "status": "PASS",
             "url": "https://github.com/acme/web",
-            "pr_count": None,
-            "pr_url": None,
+            "pull_requests": None,
         },
     ])
-    assert summaries[0]["pr_count"] == 2
-    assert summaries[0]["pr_url"] == "https://github.com/acme/web/pulls"
+    assert summaries[0]["pull_requests"] == pulls
 
 
 def test_repo_summaries_keeps_github_security_over_circle_null():

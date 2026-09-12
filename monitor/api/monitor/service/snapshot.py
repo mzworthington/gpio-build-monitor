@@ -53,8 +53,11 @@ def open_pr_glances(builds: Sequence[Mapping[str, Any]] | None) -> list[dict[str
     seen: set[str] = set()
     for build in builds or []:
         repo = str(build.get("repo") or "")
-        count = build.get("pr_count")
-        if not repo or repo in seen or count is None:
+        pulls = build.get("pull_requests")
+        if not repo or repo in seen or not isinstance(pulls, Mapping):
+            continue
+        count = pulls.get("count")
+        if count is None:
             continue
         try:
             numeric = int(count)
@@ -65,8 +68,9 @@ def open_pr_glances(builds: Sequence[Mapping[str, Any]] | None) -> list[dict[str
         seen.add(repo)
         glances.append({
             "repo": repo,
-            "pr_count": numeric,
-            "pr_url": build.get("pr_url") or f"https://github.com/{repo}/pulls",
+            "count": numeric,
+            "url": pulls.get("url") or f"https://github.com/{repo}/pulls",
+            "items": list(pulls.get("items") or []),
         })
     return glances
 
@@ -91,8 +95,16 @@ def security_glances(builds: Sequence[Mapping[str, Any]] | None) -> list[dict[st
             "repo": repo,
             "count": numeric,
             "url": security.get("url") or f"https://github.com/{repo}/security",
-            "vulnerabilities": _source_count(security.get("vulnerabilities")),
-            "codeql": _source_count(security.get("codeql")),
+            "vulnerabilities": security.get("vulnerabilities") or {
+                "count": 0,
+                "url": f"https://github.com/{repo}/security/dependabot",
+                "items": [],
+            },
+            "codeql": security.get("codeql") or {
+                "count": 0,
+                "url": f"https://github.com/{repo}/security/code-scanning",
+                "items": [],
+            },
         })
     return glances
 
@@ -104,6 +116,10 @@ def _source_count(source: object) -> int:
         return int(source.get("count") or 0)
     except (TypeError, ValueError):
         return 0
+
+
+def _pull_count(summary: Mapping[str, Any]) -> int:
+    return _source_count(summary.get("pull_requests"))
 
 
 def snapshot_etag(
@@ -134,7 +150,7 @@ def eink_repo_row(summary: Mapping[str, Any], *, include_workflows: bool) -> dic
         "repo": summary["repo"],
         "status": summary["status"],
         "workflow_count": summary["workflow_count"],
-        "pr_count": int(summary["pr_count"] or 0),
+        "pr_count": _pull_count(summary),
         "security_count": _source_count(summary.get("security")),
         "is_running": bool(summary["is_running"]),
     }
@@ -159,12 +175,8 @@ def _details_from_payload_builds(raw: object) -> list[BuildDetail]:
             "status": str(item.get("status") or ""),
             "url": str(item.get("url") or ""),
         }
-        pr_count = item.get("pr_count")
-        if pr_count is not None:
-            row["pr_count"] = int(pr_count)
-        pr_url = item.get("pr_url")
-        if pr_url:
-            row["pr_url"] = str(pr_url)
+        if "pull_requests" in item:
+            row["pull_requests"] = item.get("pull_requests")
         if "security" in item:
             row["security"] = item.get("security")
         details.append(row)

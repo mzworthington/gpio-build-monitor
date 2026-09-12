@@ -6,12 +6,8 @@ from typing import TypedDict
 
 from aiohttp import ClientSession
 
-OpenPullRequests = tuple[int | None, str | None]
-
 
 class SecurityFinding(TypedDict):
-    """One alert. Counts ship first; ``items`` is reserved for later detail."""
-
     number: int
     title: str
     severity: str | None
@@ -32,6 +28,21 @@ class SecurityFindings(TypedDict):
     url: str
     vulnerabilities: SecuritySource
     codeql: SecuritySource
+
+
+class PullRequestItem(TypedDict):
+    number: int
+    title: str
+    url: str
+    draft: bool
+
+
+class PullRequests(TypedDict):
+    """Open GitHub pull requests. Non-GitHub providers return None."""
+
+    count: int
+    url: str
+    items: list[PullRequestItem]
 
 
 
@@ -82,11 +93,11 @@ class IntegrationAdapter(ABC):
     async def get_latest(self, session: ClientSession) -> list[BuildStatus]:
         logging.info(f'Initiating integration {self.get_type()}')
 
-    async def open_pull_requests(self, session: ClientSession) -> OpenPullRequests:
-        return None, None
+    async def open_pull_requests(self, session: ClientSession) -> PullRequests | None:
+        return None
 
     async def security_findings(self, session: ClientSession) -> SecurityFindings | None:
-        """Dependabot + CodeQL counts. GitHub only; GitLab/CircleCI stay None."""
+        """Open Dependabot + CodeQL findings. GitHub only; GitLab/CircleCI stay None."""
         return None
 
 

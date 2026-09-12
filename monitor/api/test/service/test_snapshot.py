@@ -159,24 +159,46 @@ def test_eink_payload_lists_every_checked_repo_with_action_and_pr_counts():
                     "workflow": "CI",
                     "status": "FAIL",
                     "url": "https://example.com/1",
-                    "pr_count": 0,
-                    "pr_url": "https://github.com/acme/web/pulls",
+                    "pull_requests": {
+                        "count": 0,
+                        "url": "https://github.com/acme/web/pulls",
+                        "items": [],
+                    },
                 },
                 {
                     "repo": "acme/web",
                     "workflow": "Deploy",
                     "status": "PASS",
                     "url": "https://example.com/2",
-                    "pr_count": 0,
-                    "pr_url": "https://github.com/acme/web/pulls",
+                    "pull_requests": {
+                        "count": 0,
+                        "url": "https://github.com/acme/web/pulls",
+                        "items": [],
+                    },
                 },
                 {
                     "repo": "acme/api",
                     "workflow": "CI",
                     "status": "PASS",
                     "url": "https://example.com/3",
-                    "pr_count": 2,
-                    "pr_url": "https://github.com/acme/api/pulls",
+                    "pull_requests": {
+                        "count": 2,
+                        "url": "https://github.com/acme/api/pulls",
+                        "items": [
+                            {
+                                "number": 1,
+                                "title": "One",
+                                "url": "https://github.com/acme/api/pull/1",
+                                "draft": False,
+                            },
+                            {
+                                "number": 2,
+                                "title": "Two",
+                                "url": "https://github.com/acme/api/pull/2",
+                                "draft": True,
+                            },
+                        ],
+                    },
                 },
             ],
             "poll_in_seconds": 30,
@@ -245,8 +267,18 @@ def test_eink_payload_keeps_pr_count_on_green_repos():
                     "workflow": "CI",
                     "status": "PASS",
                     "url": "https://example.com/1",
-                    "pr_count": 4,
-                    "pr_url": "https://github.com/acme/web/pulls",
+                    "pull_requests": {
+                        "count": 4,
+                        "url": "https://github.com/acme/web/pulls",
+                        "items": [
+                            {
+                                "number": 4,
+                                "title": "Four",
+                                "url": "https://github.com/acme/web/pull/4",
+                                "draft": False,
+                            }
+                        ] * 4,
+                    },
                 },
             ],
             "poll_in_seconds": 30,
@@ -275,15 +307,38 @@ def test_snapshot_etag_changes_when_only_pr_count_changes():
             "workflow": "CI",
             "status": "PASS",
             "url": "https://example.com/1",
-            "pr_count": 0,
-            "pr_url": "https://github.com/acme/web/pulls",
+            "pull_requests": {
+                "count": 0,
+                "url": "https://github.com/acme/web/pulls",
+                "items": [],
+            },
         }
     ]
     first = snapshot_etag("PASS", is_running=False, builds=builds)
     second = snapshot_etag(
         "PASS",
         is_running=False,
-        builds=[{**builds[0], "pr_count": 2}],
+        builds=[{
+            **builds[0],
+            "pull_requests": {
+                "count": 2,
+                "url": "https://github.com/acme/web/pulls",
+                "items": [
+                    {
+                        "number": 1,
+                        "title": "One",
+                        "url": "https://github.com/acme/web/pull/1",
+                        "draft": False,
+                    },
+                    {
+                        "number": 2,
+                        "title": "Two",
+                        "url": "https://github.com/acme/web/pull/2",
+                        "draft": True,
+                    },
+                ],
+            },
+        }],
     )
     assert first != second
 
@@ -315,7 +370,33 @@ def test_snapshot_etag_changes_when_only_security_count_changes():
     second = snapshot_etag(
         "PASS",
         is_running=False,
-        builds=[{**builds[0], "security": {**builds[0]["security"], "count": 2}}],
+        builds=[{
+            **builds[0],
+            "security": {
+                **builds[0]["security"],
+                "count": 2,
+                "vulnerabilities": {
+                    **builds[0]["security"]["vulnerabilities"],
+                    "count": 2,
+                    "items": [
+                        {
+                            "number": 1,
+                            "title": "XSS",
+                            "severity": "high",
+                            "url": "https://github.com/acme/web/security/dependabot/1",
+                            "state": "open",
+                        },
+                        {
+                            "number": 2,
+                            "title": "RCE",
+                            "severity": "critical",
+                            "url": "https://github.com/acme/web/security/dependabot/2",
+                            "state": "open",
+                        },
+                    ],
+                },
+            },
+        }],
     )
     assert first != second
 

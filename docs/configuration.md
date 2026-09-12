@@ -100,9 +100,9 @@ export CIRCLE_CI_WEBHOOK_SECRET=...
 
 `GITHUB_TOKEN` needs `security_events` (classic) or Dependabot alerts + code
 scanning read (fine-grained) to populate `security` on the status API. Without
-that scope GitHub returns `null`, same as CircleCI/GitLab. Counts are open
-Dependabot vulnerabilities plus CodeQL alerts; `items` stays empty until the
-API grows per-alert detail.
+that scope GitHub returns `null`, same as CircleCI/GitLab. GitHub `security`
+and `pull_requests` are `{ count, url, items }`; CircleCI/GitLab stay `null`.
+Compact eink snapshots still flatten to `security_count` / `pr_count`.
 
 Only set the variables for providers present in your config. `monitor check-config` fails fast if any are missing.
 

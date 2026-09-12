@@ -746,16 +746,26 @@ body[data-status="APPROVAL"] .status-dial-core {
   outline-offset: 2px;
 }
 
-.repo-workflows {
-  list-style: none;
-  margin: 0;
-  padding: 0 0.7rem 0.7rem 1.85rem;
-  display: grid;
-  gap: 0.3rem;
+.repo-details {
   border-top: 1px solid var(--line);
 }
 
-.workflow-row {
+.repo-workflows,
+.repo-items {
+  list-style: none;
+  margin: 0;
+  padding: 0.7rem 0.7rem 0.7rem 1.85rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.repo-workflows + .repo-items,
+.repo-items + .repo-items {
+  padding-top: 0;
+}
+
+.workflow-row,
+.item-row {
   --wf-accent: var(--green);
 }
 
@@ -781,8 +791,28 @@ body[data-status="APPROVAL"] .status-dial-core {
   --wf-accent: var(--muted);
 }
 
+.item-draft {
+  --wf-accent: var(--muted);
+}
+
+.item-critical,
+.item-high {
+  --wf-accent: var(--red);
+}
+
+.item-medium {
+  --wf-accent: var(--yellow);
+}
+
+.item-low,
+.item-open {
+  --wf-accent: var(--green);
+}
+
 .workflow-row a,
-.workflow-row:not(:has(a)) {
+.workflow-row:not(:has(a)),
+.item-row a,
+.item-row:not(:has(a)) {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 0.75rem;
@@ -795,11 +825,13 @@ body[data-status="APPROVAL"] .status-dial-core {
   transition: background 0.15s ease;
 }
 
-.workflow-row a:hover {
+.workflow-row a:hover,
+.item-row a:hover {
   background: color-mix(in srgb, var(--ink) 4%, transparent);
 }
 
-.workflow-row a:focus-visible {
+.workflow-row a:focus-visible,
+.item-row a:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--ring) 70%, white);
   outline-offset: 2px;
 }
@@ -987,7 +1019,8 @@ body[data-status="APPROVAL"] .status-dial-core {
     justify-self: start;
   }
 
-  .repo-workflows {
+  .repo-workflows,
+  .repo-items {
     padding-left: 1.35rem;
   }
 }

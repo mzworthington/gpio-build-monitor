@@ -55,6 +55,29 @@ describe('registerMonitor', () => {
     ).toEqual([expect.objectContaining({ repo: 'acme/web', status: 'FAIL' })]);
   });
 
+  it('labels pull requests from the nested count', () => {
+    const alpine = { data: vi.fn() };
+    registerMonitor(alpine);
+    const factory = alpine.data.mock.calls[0]?.[1] as () => {
+      prLabel: (entry: {
+        pull_requests: { count: number; url: string; items: unknown[] } | null;
+      }) => string;
+      prItems: (entry: {
+        pull_requests: { count: number; url: string; items: Array<{ number: number }> } | null;
+      }) => Array<{ number: number }>;
+    };
+    const page = factory();
+    const entry = {
+      pull_requests: {
+        count: 1,
+        url: 'https://github.com/acme/web/pulls',
+        items: [{ number: 12 }],
+      },
+    };
+    expect(page.prLabel(entry)).toBe('1 PR');
+    expect(page.prItems(entry)).toEqual([{ number: 12 }]);
+  });
+
   it('keeps watched repos collapsed until the operator opens one', () => {
     const alpine = { data: vi.fn() };
     registerMonitor(alpine);

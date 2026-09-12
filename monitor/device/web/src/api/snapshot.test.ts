@@ -66,8 +66,11 @@ describe('snapshotEtag', () => {
           workflow: 'CI',
           status: 'PASS',
           url: 'https://example.com/1',
-          pr_count: 0,
-          pr_url: 'https://github.com/acme/web/pulls',
+          pull_requests: {
+            count: 0,
+            url: 'https://github.com/acme/web/pulls',
+            items: [],
+          },
         },
       ],
     });
@@ -81,8 +84,18 @@ describe('snapshotEtag', () => {
           workflow: 'CI',
           status: 'PASS',
           url: 'https://example.com/1',
-          pr_count: 4,
-          pr_url: 'https://github.com/acme/web/pulls',
+          pull_requests: {
+            count: 4,
+            url: 'https://github.com/acme/web/pulls',
+            items: [
+              {
+                number: 4,
+                title: 'Four',
+                url: 'https://github.com/acme/web/pull/4',
+                draft: false,
+              },
+            ],
+          },
         },
       ],
     });
@@ -214,8 +227,18 @@ describe('einkPayload', () => {
           workflow: 'CI',
           status: 'PASS',
           url: 'https://example.com/1',
-          pr_count: 4,
-          pr_url: 'https://github.com/acme/web/pulls',
+          pull_requests: {
+            count: 4,
+            url: 'https://github.com/acme/web/pulls',
+            items: [
+              {
+                number: 4,
+                title: 'Four',
+                url: 'https://github.com/acme/web/pull/4',
+                draft: false,
+              },
+            ],
+          },
         },
       ],
       poll_in_seconds: 30,

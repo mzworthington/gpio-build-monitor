@@ -1,4 +1,4 @@
-import type { BuildDetail } from '../ci';
+import type { BuildDetail, PullRequestItem, SecurityFinding } from '../ci';
 import {
   presentChrome,
   splitRepo,
@@ -43,6 +43,10 @@ export type MonitorPage = {
   workflowMeta: (entry: RepoSummary) => string;
   prLabel: (entry: RepoSummary) => string;
   securityLabel: (entry: RepoSummary) => string;
+  prItems: (entry: RepoSummary) => PullRequestItem[];
+  securityItems: (entry: RepoSummary) => SecurityFinding[];
+  itemRowClass: (kind: 'pr' | 'security', item: PullRequestItem | SecurityFinding) => string;
+  itemStatus: (kind: 'pr' | 'security', item: PullRequestItem | SecurityFinding) => string;
   repoRowClass: (entry: RepoSummary) => string;
   workflowRowClass: (workflow: BuildDetail) => string;
   issueClass: (issue: BuildDetail) => string;
@@ -127,11 +131,34 @@ export function registerMonitor(alpine: AlpineHost): void {
       return text;
     },
     prLabel(entry: RepoSummary) {
-      return `${entry.pr_count} PR${entry.pr_count === 1 ? '' : 's'}`;
+      const count = entry.pull_requests?.count ?? 0;
+      return `${count} PR${count === 1 ? '' : 's'}`;
     },
     securityLabel(entry: RepoSummary) {
       const count = entry.security?.count ?? 0;
       return `${count} finding${count === 1 ? '' : 's'}`;
+    },
+    prItems(entry: RepoSummary) {
+      return entry.pull_requests?.items ?? [];
+    },
+    securityItems(entry: RepoSummary) {
+      if (!entry.security) {
+        return [];
+      }
+      return [...entry.security.vulnerabilities.items, ...entry.security.codeql.items];
+    },
+    itemRowClass(kind: 'pr' | 'security', item: PullRequestItem | SecurityFinding) {
+      if (kind === 'pr') {
+        return `item-row item-${(item as PullRequestItem).draft ? 'draft' : 'open'}`;
+      }
+      const severity = String((item as SecurityFinding).severity || 'open').toLowerCase();
+      return `item-row item-${severity}`;
+    },
+    itemStatus(kind: 'pr' | 'security', item: PullRequestItem | SecurityFinding) {
+      if (kind === 'pr') {
+        return (item as PullRequestItem).draft ? 'draft' : 'open';
+      }
+      return String((item as SecurityFinding).severity || (item as SecurityFinding).state || 'open');
     },
     repoRowClass(entry: RepoSummary) {
       return `repo-row repo-${String(entry.status || '').toLowerCase()}${entry.is_running ? ' is-running' : ''}`;
