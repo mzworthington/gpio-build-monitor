@@ -2,6 +2,34 @@
 
 <!-- version list -->
 
+## v0.23.0 (2026-09-12)
+
+### Documentation
+
+- Update to reflect refactor
+  ([`43361e5`](https://github.com/mzworthington/gpio-build-monitor/commit/43361e5e328357854f2dd1957d2b81fd5b12941e))
+
+### Features
+
+- **github**: Expose dependabot and codeql finding counts
+  ([#36](https://github.com/mzworthington/gpio-build-monitor/pull/36),
+  [`07d1bb4`](https://github.com/mzworthington/gpio-build-monitor/commit/07d1bb455ebbd46633bb0b9062ea834e33bbdbfc))
+
+### Refactoring
+
+- **pi**: Follow hosted API for GPIO lights
+  ([`d47e255`](https://github.com/mzworthington/gpio-build-monitor/commit/d47e255368c8cde3b1c87c72a0dc2685d87a044c))
+
+- **pi**: Follow hosted API for GPIO lights
+  ([`0a5c198`](https://github.com/mzworthington/gpio-build-monitor/commit/0a5c198b90bc17b02048f748efc071d77d2364dd))
+
+- **pi**: Follow hosted API for GPIO lights
+  ([`bdc8b29`](https://github.com/mzworthington/gpio-build-monitor/commit/bdc8b29ea60877b5a6bc53eca53d8d24f8e83866))
+
+- **pi**: Follow hosted API for GPIO lights
+  ([`f4afb18`](https://github.com/mzworthington/gpio-build-monitor/commit/f4afb185fbdbea5d80d48c05f03e8c752dc976b5))
+
+
 ## v0.22.2 (2026-09-12)
 
 ### Bug Fixes
