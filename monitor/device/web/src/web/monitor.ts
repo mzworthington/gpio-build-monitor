@@ -1,10 +1,22 @@
 import type { BuildDetail, PullRequestItem, SecurityFinding } from '../ci';
 import {
+  collectOpenFindings,
+  collectOpenPulls,
+  findingCardClass,
+  findingRowClass,
+  prChipClass,
   presentChrome,
+  pullCardClass,
+  pullRowClass,
+  securityChipClass,
   splitRepo,
   summarizeRepos,
+  taggedSecurityItems,
   type LightMode,
+  type OpenFindingGlance,
+  type OpenPullGlance,
   type RepoSummary,
+  type TaggedFinding,
 } from './presentPage';
 import { type ShownBuild } from './shownStatus';
 
@@ -33,6 +45,7 @@ export type MonitorPage = {
   lights: Record<'blue' | 'green' | 'yellow' | 'red' | 'purple', LightMode>;
   repos: RepoSummary[];
   issues: BuildDetail[];
+  openTab: 'prs' | 'findings';
   expanded: Record<string, boolean>;
   applySnapshot: (snapshot: MonitorSnapshot) => MonitorPage;
   setConnection: (state: string, label: string) => MonitorPage;
@@ -43,9 +56,18 @@ export type MonitorPage = {
   workflowMeta: (entry: RepoSummary) => string;
   prLabel: (entry: RepoSummary) => string;
   securityLabel: (entry: RepoSummary) => string;
+  prChipClass: (entry: RepoSummary) => string;
+  securityChipClass: (entry: RepoSummary) => string;
   prItems: (entry: RepoSummary) => PullRequestItem[];
-  securityItems: (entry: RepoSummary) => SecurityFinding[];
-  itemRowClass: (kind: 'pr' | 'security', item: PullRequestItem | SecurityFinding) => string;
+  securityItems: (entry: RepoSummary) => TaggedFinding[];
+  openPulls: () => OpenPullGlance[];
+  openFindings: () => OpenFindingGlance[];
+  openCount: () => number;
+  openLabel: () => string;
+  pullRowClass: (draft: boolean) => string;
+  findingRowClass: (severity: string | null) => string;
+  pullCardClass: (draft: boolean) => string;
+  findingCardClass: (severity: string | null) => string;
   itemStatus: (kind: 'pr' | 'security', item: PullRequestItem | SecurityFinding) => string;
   repoRowClass: (entry: RepoSummary) => string;
   workflowRowClass: (workflow: BuildDetail) => string;
@@ -72,6 +94,7 @@ export function registerMonitor(alpine: AlpineHost): void {
     lights: { ...IDLE_LIGHTS },
     repos: [],
     issues: [],
+    openTab: 'prs',
     expanded: {},
     applySnapshot(this: MonitorPage, snapshot: MonitorSnapshot) {
       const ticker = (globalThis as { BuildMonitorTicker?: {
@@ -98,6 +121,13 @@ export function registerMonitor(alpine: AlpineHost): void {
       this.lights = chrome.lights;
       this.issues = chrome.issues;
       this.repos = summarizeRepos(snapshot.builds as BuildDetail[]);
+      const pulls = collectOpenPulls(this.repos);
+      const findings = collectOpenFindings(this.repos);
+      if (this.openTab === 'prs' && pulls.length === 0 && findings.length > 0) {
+        this.openTab = 'findings';
+      } else if (this.openTab === 'findings' && findings.length === 0 && pulls.length > 0) {
+        this.openTab = 'prs';
+      }
       ticker?.applyTiming?.({
         ...snapshot,
         fetching: false,
@@ -138,22 +168,35 @@ export function registerMonitor(alpine: AlpineHost): void {
       const count = entry.security?.count ?? 0;
       return `${count} finding${count === 1 ? '' : 's'}`;
     },
+    prChipClass(entry: RepoSummary) {
+      return prChipClass(entry.pull_requests?.count ?? 0);
+    },
+    securityChipClass(entry: RepoSummary) {
+      return securityChipClass(entry.security);
+    },
     prItems(entry: RepoSummary) {
       return entry.pull_requests?.items ?? [];
     },
     securityItems(entry: RepoSummary) {
-      if (!entry.security) {
-        return [];
-      }
-      return [...entry.security.vulnerabilities.items, ...entry.security.codeql.items];
+      return taggedSecurityItems(entry.security);
     },
-    itemRowClass(kind: 'pr' | 'security', item: PullRequestItem | SecurityFinding) {
-      if (kind === 'pr') {
-        return `item-row item-${(item as PullRequestItem).draft ? 'draft' : 'open'}`;
-      }
-      const severity = String((item as SecurityFinding).severity || 'open').toLowerCase();
-      return `item-row item-${severity}`;
+    openPulls(this: MonitorPage) {
+      return collectOpenPulls(this.repos);
     },
+    openFindings(this: MonitorPage) {
+      return collectOpenFindings(this.repos);
+    },
+    openCount(this: MonitorPage) {
+      return this.openPulls().length + this.openFindings().length;
+    },
+    openLabel(this: MonitorPage) {
+      const count = this.openCount();
+      return `${count} to review`;
+    },
+    pullRowClass,
+    findingRowClass,
+    pullCardClass,
+    findingCardClass,
     itemStatus(kind: 'pr' | 'security', item: PullRequestItem | SecurityFinding) {
       if (kind === 'pr') {
         return (item as PullRequestItem).draft ? 'draft' : 'open';

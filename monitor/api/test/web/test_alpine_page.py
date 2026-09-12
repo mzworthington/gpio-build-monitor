@@ -30,9 +30,12 @@ def test_status_page_lets_alpine_render_status_without_vanilla_app_js():
 
 def test_status_page_lists_pull_request_and_security_items():
     html = (WEB_PUBLIC / "index.html").read_text(encoding="utf-8")
-    assert 'x-show="entry.pull_requests != null"' in html
-    assert "prItems(entry)" in html
-    assert "securityItems(entry)" in html
+    assert 'id="open"' in html
+    assert "openPulls()" in html
+    assert "openFindings()" in html
+    assert "repo-section-label" in html
+    assert "prChipClass(entry)" in html
+    assert "finding.source" in html
 
 
 def test_status_page_does_not_load_handwritten_countdown_script():
