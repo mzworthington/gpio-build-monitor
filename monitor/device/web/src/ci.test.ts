@@ -60,6 +60,55 @@ describe('keepLastValidPayload', () => {
     expect(keepLastValidPayload(previous, next).status).toBe('PASS');
   });
 
+  it('drops frozen pull requests when the next snapshot is only CONNECTION_ERROR', () => {
+    const previous = {
+      type: 'status' as const,
+      fetching: false,
+      status: 'PASS' as const,
+      is_running: false,
+      builds: [
+        {
+          repo: 'acme/web',
+          workflow: 'CI',
+          status: 'PASS' as const,
+          url: 'https://example.com/1',
+          pull_requests: {
+            count: 1,
+            url: 'https://github.com/acme/web/pulls',
+            items: [
+              {
+                number: 11,
+                title: 'chore(deps): bump left-pad',
+                url: 'https://github.com/acme/web/pull/11',
+                draft: false,
+              },
+            ],
+          },
+        },
+      ],
+      poll_in_seconds: 60,
+      last_checked_at: 1,
+      next_check_at: 61,
+    };
+    const next = {
+      ...previous,
+      status: 'CONNECTION_ERROR' as const,
+      last_checked_at: 2,
+      next_check_at: 62,
+      builds: [
+        {
+          repo: 'acme/web',
+          workflow: '(github workflows)',
+          status: 'CONNECTION_ERROR' as const,
+          url: 'https://github.com/acme/web',
+        },
+      ],
+    };
+    expect(keepLastValidPayload(previous, next).builds).toEqual([
+      { repo: 'acme/web', workflow: 'CI', status: 'PASS', url: 'https://example.com/1' },
+    ]);
+  });
+
   it('drops remembered CONNECTION_ERROR repos that the new snapshot does not include', () => {
     const previous = {
       type: 'status' as const,

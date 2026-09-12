@@ -1,6 +1,6 @@
 {
   "disabled": false,
   "lastTestOutcome": "pass",
-  "lastTestCommand": "test -x .venv/bin/python && .venv/bin/python -m pytest -q",
-  "lastTestAt": "2026-09-12T19:12:49.719Z"
+  "lastTestCommand": "pre-commit run pytest --all-files --hook-stage pre-push",
+  "lastTestAt": "2026-09-12T20:29:25.855Z"
 }

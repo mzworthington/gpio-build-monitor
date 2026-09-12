@@ -178,3 +178,5 @@ infra/cloudflare/Pulumi.*.yaml
 **/*.bak.*
 # Waykit session MCP profile name (names only)
 .wk-mcp-profile.stamp
+
+.waykit/
