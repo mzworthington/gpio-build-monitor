@@ -8,12 +8,16 @@ else:
 import asyncio
 import logging
 
-from .constants import Lights
+from .constants import Lights, configure_pins
 
 
 class Board:
+    def __init__(self, pin_overrides: dict[str, int] | None = None) -> None:
+        self._pin_overrides = None if pin_overrides is None else dict(pin_overrides)
+
     def __enter__(self):
         logging.info("Setting up GPIO")
+        configure_pins(self._pin_overrides)
         self.GPIO = GPIO
 
         self.GPIO.setmode(GPIO.BCM)
