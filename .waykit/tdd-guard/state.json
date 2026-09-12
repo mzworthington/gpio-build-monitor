@@ -1,6 +1,6 @@
 {
   "disabled": false,
   "lastTestOutcome": "pass",
-  "lastTestCommand": "pre-commit run pytest --all-files --hook-stage pre-push",
-  "lastTestAt": "2026-09-12T20:29:25.855Z"
+  "lastTestCommand": "pre-commit run --all-files && pre-commit run pytest --all-files --hook-stage pre-push",
+  "lastTestAt": "2026-09-12T20:34:42.821Z"
 }

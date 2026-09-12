@@ -142,7 +142,12 @@ export function keepLastValidPayload(
     const incoming = nextByRepo.get(repo);
     const remembered = previousByRepo.get(repo);
     if (incoming && fetchErrorOnly(incoming) && remembered && !fetchErrorOnly(remembered)) {
-      builds.push(...remembered);
+      builds.push(
+        ...remembered.map((build) => {
+          const { pull_requests: _pulls, ...rest } = build;
+          return rest;
+        }),
+      );
     } else if (incoming) {
       builds.push(...incoming);
     }
