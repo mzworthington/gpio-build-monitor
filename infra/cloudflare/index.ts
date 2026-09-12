@@ -4,69 +4,55 @@ import * as pulumi from '@pulumi/pulumi';
 const config = new pulumi.Config();
 const accountId = config.require('accountId');
 const zoneId = config.require('zoneId');
-
-/**
- * Worker script name. Prefers `workerName`; falls back to `pagesProjectName` so
- * edge-dns `setup-cloudflare-hosting.sh` / CI vars keep working unchanged.
- */
-function resolveWorkerName(): string {
-  const name = config.get('workerName') ?? config.get('pagesProjectName');
-  if (!name) {
-    throw new Error('Set workerName (or pagesProjectName) to the Worker script name');
-  }
-  return name;
+const pagesProjectName = config.get('pagesProjectName') ?? config.get('workerName');
+if (!pagesProjectName) {
+  throw new Error('Set pagesProjectName (or workerName) to the Pages project name');
 }
 
-/** Public hostnames for the hosted status UI (Worker custom domains). */
+/** Public hostnames for the status UI (Pages custom domains). */
 function resolveHostnames(): string[] {
   const listed =
-    config.getObject<string[]>('workerHostnames') ??
-    config.getObject<string[]>('pagesHostnames');
+    config.getObject<string[]>('pagesHostnames') ??
+    config.getObject<string[]>('workerHostnames');
   if (listed && listed.length > 0) return listed;
   throw new Error(
-    'Set workerHostnames (or pagesHostnames) to a JSON array, e.g. ["monitor.mzworthington.co.uk"]',
+    'Set pagesHostnames (or workerHostnames) to a JSON array, e.g. ["monitor.mzworthington.co.uk"]',
   );
 }
 
-const workerName = resolveWorkerName();
-const hostnames = resolveHostnames();
+const pagesHostnames = resolveHostnames();
 
-const zone = cloudflare.getZoneOutput({ zoneId });
-
-/**
- * Hosted deployment: Cloudflare Worker serves the status UI + live WebSocket.
- * The Pi is a separate headless GPIO deployment (no tunnel / no custom domain).
- *
- * Script content is deployed with wrangler (`worker/`). Custom domains require
- * at least one Worker deployment before attach - run `pnpm deploy` in worker/
- * before the first `pulumi up` that creates WorkersCustomDomain.
- */
-const worker = new cloudflare.Worker('monitor', {
+const pagesProject = new cloudflare.PagesProject('site', {
   accountId,
-  name: workerName,
-  subdomain: {
-    enabled: true,
-    previewsEnabled: true,
-  },
-  observability: {
-    enabled: true,
-    logs: {
-      enabled: true,
-      invocationLogs: false,
-    },
-  },
+  name: pagesProjectName,
+  productionBranch: 'main',
 });
 
-for (const hostname of hostnames) {
+for (const hostname of pagesHostnames) {
   const safe = hostname.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const dns = new cloudflare.DnsRecord(
+    `pages-dns-${safe}`,
+    {
+      zoneId,
+      name: hostname,
+      type: 'CNAME',
+      content: pagesProject.subdomain,
+      proxied: true,
+      ttl: 1,
+      comment: 'Cloudflare Pages',
+    },
+    { deleteBeforeReplace: true },
+  );
 
-  new cloudflare.WorkersCustomDomain(`worker-domain-${safe}`, {
-    accountId,
-    zoneId,
-    zoneName: zone.name,
-    hostname,
-    service: worker.name,
-  });
+  new cloudflare.PagesDomain(
+    `pages-domain-${safe}`,
+    {
+      accountId,
+      projectName: pagesProject.name,
+      name: hostname,
+    },
+    { dependsOn: [dns] },
+  );
 
   new cloudflare.ObservatoryScheduledTest(`observatory-${safe}`, {
     zoneId,
@@ -74,7 +60,9 @@ for (const hostname of hostnames) {
   });
 }
 
-export const workerNameOut = worker.name;
-export const workerId = worker.id;
-export const hostnamesOut = hostnames;
+const zone = cloudflare.getZoneOutput({ zoneId });
+
+export const pagesProjectNameOut = pagesProject.name;
+export const pagesSubdomain = pagesProject.subdomain;
+export const pagesHostnamesOut = pagesHostnames;
 export const zoneName = zone.name;

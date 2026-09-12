@@ -12,7 +12,6 @@ authors = [{ name = "Matthew Z Worthington", email = "worthingtown@gmail.com" }]
 requires-python = ">=3.10"
 dependencies = [
     "aiohttp>=3.14.3,<3.15",
-    "jinja2>=3.1.6,<4",
     "pyyaml>=6.0.3,<7",
     "typer>=0.27.2",
 ]
@@ -37,20 +36,27 @@ Homepage = "https://github.com/mzworthington/gpio-build-monitor"
 Repository = "https://github.com/mzworthington/gpio-build-monitor"
 
 [tool.setuptools.packages.find]
+where = ["monitor/api"]
 include = ["monitor", "monitor.*"]
 exclude = ["test", "test.*"]
 
 [tool.setuptools.package-data]
-monitor = ["integrations.example.yaml", "web/*", "web/templates/*"]
+monitor = ["integrations.example.yaml"]
 
 [tool.pytest.ini_options]
-testpaths = ["test"]
+testpaths = ["test", "monitor/api/test", "monitor/device/menu-bar/test", "monitor/device/eink/test"]
+pythonpath = ["monitor/api", "monitor/device/menu-bar"]
+addopts = "--import-mode=importlib"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
 source = ["monitor"]
-omit = ["monitor/__main__.py"]
+omit = [
+    "monitor/api/monitor/__main__.py",
+    "monitor/api/test/*",
+    "monitor/device/*",
+]
 
 [tool.coverage.report]
 fail_under = 84
@@ -64,9 +70,9 @@ select = ["E", "F", "I", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
 # PlatformIO extra_scripts: SCons injects Import() and env at runtime.
-"device/eink/apps/monitor/apply_crosspoint_patch.py" = ["F821"]
-"device/eink/apps/monitor/restore_crosspoint_overlay.py" = ["F821"]
-"device/eink/apps/monitor/scons_cxx_link.py" = ["F821"]
+"monitor/device/eink/apps/monitor/apply_crosspoint_patch.py" = ["F821"]
+"monitor/device/eink/apps/monitor/restore_crosspoint_overlay.py" = ["F821"]
+"monitor/device/eink/apps/monitor/scons_cxx_link.py" = ["F821"]
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]

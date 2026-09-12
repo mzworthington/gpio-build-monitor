@@ -76,6 +76,6 @@ if [[ "$DRY_RUN" == "1" ]]; then
 fi
 
 echo "→ Uploading to Worker ${WORKER_NAME}"
-printf '%s' "$TOKEN" | (cd worker && pnpm exec wrangler secret put GITHUB_TOKEN --name "$WORKER_NAME")
+printf '%s' "$TOKEN" | (cd monitor/device/web && pnpm exec wrangler secret put GITHUB_TOKEN --name "$WORKER_NAME")
 echo "✓ GITHUB_TOKEN set on Worker ${WORKER_NAME}"
 echo "Reload https://monitor.mzworthington.co.uk"

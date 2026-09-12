@@ -17,11 +17,11 @@ GPIO LEDs stay on the Pi. Nothing in `monitor/` drives the e-ink panel.
 
 ## Firmware
 
-Overlay: [`device/eink/apps/monitor/`](../device/eink/apps/monitor/). Shared
+Overlay: [`monitor/device/eink/apps/monitor/`](../monitor/device/eink/apps/monitor/). Shared
 parser tests: `make test-eink`. Flash:
 
 ```shell
-device/eink/apps/monitor/flash.sh
+monitor/device/eink/apps/monitor/flash.sh
 ```
 
 Do not use `pio run -t upload`. PlatformIO's port hunt drops native USB CDC
@@ -29,7 +29,7 @@ on this chip. The script builds first, then calls esptool as soon as
 `/dev/cu.usbmodem*` appears. For serial logs:
 
 ```shell
-device/eink/apps/monitor/debug.sh
+monitor/device/eink/apps/monitor/debug.sh
 ```
 
 Wi-Fi is CrossPoint **Settings → System → Wi-Fi Networks** (up to 8 saved

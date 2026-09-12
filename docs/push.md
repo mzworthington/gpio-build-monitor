@@ -21,7 +21,7 @@ namespace, no extra Cloudflare product).
 Generate a VAPID key pair once:
 
 ```bash
-cd worker
+cd monitor/device/web
 pnpm exec wrangler deploy   # ensure the Worker exists
 npx --yes web-push generate-vapid-keys
 ```
@@ -29,7 +29,7 @@ npx --yes web-push generate-vapid-keys
 Upload secrets (private key never goes in git):
 
 ```bash
-cd worker
+cd monitor/device/web
 echo -n 'mailto:you@example.com' | pnpm exec wrangler secret put VAPID_SUBJECT --name gpio-build-monitor
 # paste the public key:
 pnpm exec wrangler secret put VAPID_PUBLIC_KEY --name gpio-build-monitor

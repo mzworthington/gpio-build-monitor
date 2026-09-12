@@ -10,7 +10,9 @@ __pycache__/
 .Python
 .vscode/
 monitor/integrations.yaml
+monitor/api/monitor/integrations.yaml
 monitor/logs/
+monitor/api/monitor/logs/
 .idea/
 build/
 develop-eggs/
@@ -146,12 +148,17 @@ app.log
 
 # Cloudflare / Wrangler
 .wrangler/
-worker/node_modules/
-worker/.wrangler/
+monitor/device/web/node_modules/
+monitor/device/web/.wrangler/
+monitor/device/web/.dev.vars
+monitor/device/web/public/monitor.js
+monitor/device/web/public/monitor.js.map
 
 # Xteink firmware local secrets leftover, PlatformIO, and host tests
 device/eink/host_test/duty_cycle_test
 device/eink/host_test/duty_cycle_test.dSYM/
+monitor/device/eink/host_test/duty_cycle_test
+monitor/device/eink/host_test/duty_cycle_test.dSYM/
 
 # Pulumi (infra/cloudflare)
 infra/cloudflare/node_modules/

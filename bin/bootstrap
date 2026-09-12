@@ -16,9 +16,9 @@ if [[ ! -x "$PYTHON" ]]; then
   exit 1
 fi
 
-if [[ ! -f monitor/integrations.yaml ]]; then
-  cp monitor/integrations.example.yaml monitor/integrations.yaml
-  echo "Created monitor/integrations.yaml from integrations.example.yaml"
+if [[ ! -f monitor/api/monitor/integrations.yaml ]]; then
+  cp monitor/api/monitor/integrations.example.yaml monitor/api/monitor/integrations.yaml
+  echo "Created monitor/api/monitor/integrations.yaml from integrations.example.yaml"
 fi
 
 "$PYTHON" -m venv .venv

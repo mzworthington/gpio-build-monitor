@@ -22,14 +22,14 @@ For bugs and failed jobs, use `agent-debug`. Do not open the full feature lifecy
 
 ## Project notes
 
-- Raspberry Pi owns headless GPIO + CI polling (`monitor/` Python package).
-- Hosted status UI is a Cloudflare Worker (`worker/`) on `monitor.mzworthington.co.uk` (`infra/cloudflare` Pulumi).
-- Xteink X3 runs CrossPoint plus a Build monitor overlay (`device/eink/`). Do not run the Pi poller on the ESP32.
+- Raspberry Pi owns headless GPIO + CI polling (`monitor/api/` Python package).
+- Hosted status UI is Cloudflare Pages (`monitor/device/web/`) on `monitor.mzworthington.co.uk` (`infra/cloudflare` Pulumi).
+- Xteink X3 runs CrossPoint plus a Build monitor overlay (`monitor/device/eink/`). Do not run the Pi poller on the ESP32.
 - Conventional commit-msg: `.githooks/commit-msg` (`git config core.hooksPath .githooks` once per clone).
 
 ## Toolchain
 
-Declared in `mise.toml` (Python). Cloudflare infra uses Node/pnpm under `infra/cloudflare` and `worker/`.
+Declared in `mise.toml` (Python). Cloudflare infra uses Node/pnpm under `infra/cloudflare` and `monitor/device/web/`.
 
 MCP: kit `default` in `.cursor/mcp.json`. Do not stack Cloudflare onto that file. For live CF work, `wk mcp cloudflare-ops --project`, then restore `wk mcp default --project`.
 

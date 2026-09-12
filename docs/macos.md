@@ -16,9 +16,9 @@ not need GitHub tokens.
 ```shell
 PLUGINS="$HOME/Documents/swiftbar"
 mkdir -p "$PLUGINS"
-ln -sf "$(pwd)/macos/gpio-build-monitor.30s.py" "$PLUGINS/"
-ln -sf "$(pwd)/macos/menu_bar.py" "$PLUGINS/"
-chmod +x macos/gpio-build-monitor.30s.py
+ln -sf "$(pwd)/monitor/device/menu-bar/gpio-build-monitor.30s.py" "$PLUGINS/"
+ln -sf "$(pwd)/monitor/device/menu-bar/menu_bar.py" "$PLUGINS/"
+chmod +x monitor/device/menu-bar/gpio-build-monitor.30s.py
 ```
 
 Use the plugins folder SwiftBar is actually configured to watch (SwiftBar → Preferences). The `.30s` suffix tells SwiftBar to refresh every 30 seconds.
@@ -36,6 +36,10 @@ GPIO_MONITOR_DASHBOARD_URL=http://127.0.0.1:8080
 ## How the title maps
 
 The extra is an SF Symbol (not `RUN`/`PASS` text). Hover for the short label; colours match the desk LEDs.
+
+The plugin stores the last snapshot that included builds at
+`~/Library/Caches/gpio-build-monitor/status.json`. Empty or failed fetches keep
+that list instead of flashing **No builds yet**.
 
 | Symbol | Hover | Meaning |
 |--------|-------|---------|

@@ -14,85 +14,84 @@ Same aggregation logic; pick the outputs you want.
 
 | | **On the web** | **On a Pi** | **On a Mac** | **On an X3** |
 |---|---|---|---|---|
-| **What you get** | Public status UI + live WebSocket | Desk LEDs (optional local UI) | Menu bar extra | Pocket e-ink (CrossPoint) |
-| **Where it runs** | Cloudflare Worker | Raspberry Pi GPIO | [SwiftBar](docs/macos.md) plugin | ESP32-C3 firmware |
-| **See it** | [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) | Hardware on your desk | Top toolbar (polls `/status`) | E-ink panel (samples `/status?view=eink`) |
-| **Setup** | [worker/README.md](worker/README.md) · [infra/cloudflare](infra/cloudflare/README.md) · [Webhooks](docs/webhooks.md) | [Pi setup](docs/pi-setup.md) · [Hardware](docs/hardware.md) | [Mac menu bar](docs/macos.md) | [Xteink e-ink](docs/xteink-x3.md) |
+| **What you get** | Public status UI | Desk LEDs | Menu bar extra | Pocket e-ink (CrossPoint) |
+| **Where it runs** | Cloudflare Pages | Raspberry Pi GPIO | [SwiftBar](docs/macos.md) plugin | ESP32-C3 firmware |
+| **See it** | [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) | Hardware on your desk | Top toolbar (polls `/api/status`) | E-ink panel (`/api/status?view=eink`) |
+| **Setup** | [Web UI](monitor/device/web/README.md) · [infra/cloudflare](infra/cloudflare/README.md) | [Pi setup](docs/pi-setup.md) · [Hardware](docs/hardware.md) | [Mac menu bar](docs/macos.md) | [Xteink e-ink](docs/xteink-x3.md) |
 
-You can use any path alone, or combine them with the same `integrations.yaml` shape. The hosted site does not depend on the Pi (no tunnel required). The Mac extra and the Xteink X3 read the hosted (or local) snapshot. They do not poll GitHub themselves. The e-ink client is CrossPoint plus a Build monitor overlay; it is not a second always-on poller.
-
-Pick a surface first. Menu bar and e-ink do **not** poll GitHub. By default they call the same Worker as the public site (`GET /status`, with `?view=eink` on the X3). Desk lights are a separate Pi poller. You can point Mac or the e-ink firmware at the Pi LAN or `bin/serve` instead; that is bring-up or a desk-only setup, not the default.
+The Pages UI and every device call the same Python API (`GET /api/status`, `/api/ws`) on `https://monitor.mzworthington.co.uk/api`. The Cloudflare Worker declares that `/api*` route and forwards it to the Python process. Desk lights subscribe to `/api/ws`; they do not poll GitHub.
 
 ```mermaid
 flowchart TB
   subgraph see [What you see]
     WebUI[Status page]
-    Push[Phone or browser push]
     Mac[Menu bar]
     X3[Pocket e-ink X3]
     LEDs[Desk lights]
   end
 
   subgraph hubs [Backed by]
-    Worker[Cloudflare Worker]
-    Pi[Raspberry Pi]
+    Pages[Cloudflare Pages]
+    API[Python API via Worker /api]
   end
 
-  subgraph ci [CI behind the hubs]
+  subgraph ci [CI behind the API]
     GH[GitHub Actions]
     CCI[CircleCI]
   end
 
-  WebUI --> Worker
-  Push --> Worker
-  Mac --> Worker
-  X3 --> Worker
-  LEDs --> Pi
-  hubs --> ci
+  WebUI --> Pages
+  Pages --> API
+  Mac --> API
+  X3 --> API
+  LEDs --> API
+  API --> GH
+  API --> CCI
 ```
 
-Production snapshots come from `monitor.mzworthington.co.uk`. Optional: set the Mac extra or e-ink `STATUS_HOST` to a Pi (or `bin/serve`) that has `outputs.websocket` on.
+Production snapshots come from the Python API. The Pages UI loads from `monitor.mzworthington.co.uk` and opens `/ws` on `MONITOR_API_ORIGIN`. Point the Mac extra and e-ink at that API.
 
 ```mermaid
 sequenceDiagram
   actor You
   participant Browser as Status page
+  participant Pages as Cloudflare Pages
   participant Mac as Menu bar
   participant X3 as Pocket e-ink
-  participant Worker as Cloudflare Worker
-  participant Pi as Raspberry Pi
+  participant API as Python API
   participant GH as GitHub / CircleCI
 
   alt Open the status page
     You->>Browser: load the site
-    Browser->>Worker: UI and WebSocket
+    Browser->>Pages: static UI
+    Browser->>API: WebSocket /status
     opt Webhook already arrived
-      GH->>Worker: workflow / job event
+      GH->>API: workflow / job event
     end
-    Worker->>GH: poll when due
-    Worker-->>Browser: live status
+    API->>GH: poll when due
+    API-->>Browser: live status
   else Glance at the desk
-    You->>Pi: see the LEDs
-    Pi->>GH: poll when due
-    Pi-->>You: green / red / yellow / purple
+    You->>API: GPIO on the Pi
+    API->>GH: poll when due
+    API-->>You: green / red / yellow / purple
   else Check the menu bar
     You->>Mac: look at the toolbar
-    Mac->>Worker: GET /status
-    Worker-->>Mac: snapshot JSON
+    Mac->>API: GET /status
+    API-->>Mac: snapshot JSON
   else Glance at the X3
     You->>X3: open Build monitor
-    X3->>Worker: GET /status?view=eink
-    Worker-->>X3: compact JSON
+    X3->>API: GET /status?view=eink
+    API-->>X3: compact JSON
     X3-->>You: list jobs and PRs
   end
 ```
-### Web (hosted)
+### Web (Pages + Python API)
 
-Cloudflare Worker polls GitHub Actions / CircleCI, serves the UI, and pushes updates over WebSocket. Optional provider webhooks wake an immediate refresh.
+Cloudflare Pages serves the UI. Python polls GitHub Actions / CircleCI, serves `/status` and `/ws`, and drives GPIO. Optional provider webhooks wake an immediate refresh.
 
 ```shell
-cd worker && pnpm install && pnpm deploy
-# secrets + domain: see worker/README.md and infra/cloudflare/README.md
+cd monitor/device/web && pnpm install && MONITOR_API_ORIGIN=https://api.example pnpm deploy
+# domain: infra/cloudflare/README.md — Python API must be reachable at MONITOR_API_ORIGIN
 ```
 
 ### Pi (headless)
@@ -140,9 +139,10 @@ git clone https://github.com/mzworthington/gpio-build-monitor.git
 cd gpio-build-monitor
 bin/bootstrap
 cp monitor/integrations.example.yaml monitor/integrations.yaml
-# edit integrations.yaml, export GITHUB_TOKEN / CIRCLE_CI_TOKEN
+# edit integrations.yaml, export GITHUB_TOKEN / CIRCLE_CI_TOKEN (or put them in .env)
 monitor check-config
 bin/serve
+# Worker UI: http://127.0.0.1:8787/
 ```
 
 See [Getting started](docs/getting-started.md) for mise, Make, and CLI details.
@@ -161,8 +161,8 @@ See [Getting started](docs/getting-started.md) for mise, Make, and CLI details.
 | [Raspberry Pi](docs/raspberry-pi.md) | GPIO reference, systemd, auto-updates |
 | [Hardware](docs/hardware.md) | Pin map, shopping list, build photos |
 | [Development](docs/development.md) | Tests, releases, CI, security scanning |
-| [Hosted Worker](worker/README.md) | Deploy the public UI |
-| [Cloudflare infra](infra/cloudflare/README.md) | Worker custom domain (Pulumi) |
+| [Hosted web UI](monitor/device/web/README.md) | Deploy the public UI |
+| [Cloudflare infra](infra/cloudflare/README.md) | Pages custom domain (Pulumi) |
 
 ## Install from GitHub
 

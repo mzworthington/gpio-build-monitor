@@ -65,7 +65,7 @@ jobs:
           fi
 
           last_tag="$(git describe --tags --match 'v*' --abbrev=0)"
-          if git diff --quiet "${last_tag}" HEAD -- monitor/ pyproject.toml; then
+          if git diff --quiet "${last_tag}" HEAD -- monitor/api/ pyproject.toml; then
             echo "release=false" >> "$GITHUB_OUTPUT"
             echo "No application changes since ${last_tag}."
           else
@@ -108,8 +108,8 @@ jobs:
           # the wheel/sdist assets that bin/update installs on the Pi.
           .venv/bin/semantic-release publish
 
-  deploy-worker:
-    needs: test
+  deploy-pages:
+    needs: [test, web]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -123,33 +123,33 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: worker/pnpm-lock.yaml
+          cache-dependency-path: monitor/device/web/pnpm-lock.yaml
 
       - name: Install
-        working-directory: worker
+        working-directory: monitor/device/web
         run: pnpm install --frozen-lockfile
 
       - name: Test
-        working-directory: worker
+        working-directory: monitor/device/web
         run: pnpm test
 
       - name: Typecheck
-        working-directory: worker
+        working-directory: monitor/device/web
         run: pnpm typecheck
 
-      - name: Deploy
-        working-directory: worker
+      - name: Deploy Pages
+        working-directory: monitor/device/web
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          MONITOR_API_ORIGIN: ${{ vars.MONITOR_API_ORIGIN }}
           POSTHOG_TOKEN: ${{ secrets.POSTHOG_TOKEN }}
-        run: |
-          if [ -n "${POSTHOG_TOKEN:-}" ]; then
-            printf '%s' "$POSTHOG_TOKEN" | pnpm exec wrangler secret put POSTHOG_TOKEN --name gpio-build-monitor
-          fi
-          pnpm deploy
+          POSTHOG_HOST: https://a.mzworthington.co.uk
+        run: pnpm deploy
 
-  worker:
+  deploy-api:
+    needs: [test, web]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -162,23 +162,56 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: worker/pnpm-lock.yaml
+          cache-dependency-path: monitor/device/web/pnpm-lock.yaml
 
       - name: Install
-        working-directory: worker
+        working-directory: monitor/device/web
         run: pnpm install --frozen-lockfile
 
-      - name: Test
-        working-directory: worker
-        run: pnpm test
+      - name: Deploy API Worker
+        working-directory: monitor/device/web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PYTHON_API_ORIGIN: ${{ vars.PYTHON_API_ORIGIN }}
+        run: pnpm exec wrangler deploy --var PYTHON_API_ORIGIN:${PYTHON_API_ORIGIN}
 
-      - name: Typecheck
-        working-directory: worker
-        run: pnpm typecheck
-
-  x4:
+  web:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.20.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: monitor/device/web/pnpm-lock.yaml
+
+      - name: Install
+        working-directory: monitor/device/web
+        run: pnpm install --frozen-lockfile
+
+      - name: Test
+        working-directory: monitor/device/web
+        run: pnpm test
+
+      - name: Typecheck
+        working-directory: monitor/device/web
+        run: pnpm typecheck
+
+      - name: Build Alpine UI
+        working-directory: monitor/device/web
+        run: pnpm build:web
+
+  eink:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
       - name: Native duty-cycle tests
         run: make test-eink

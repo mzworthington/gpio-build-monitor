@@ -31,19 +31,19 @@ Public hostname and systemd install steps: [pi-setup.md](pi-setup.md).
 
 ## systemd service
 
-For a persistent service, use the unit file in `deploy/` (also covered in [pi-setup.md](pi-setup.md)):
+For a persistent service, use the unit file in `monitor/device/pi/` (also covered in [pi-setup.md](pi-setup.md)):
 
 ```shell
 sudo mkdir -p /etc/gpio-build-monitor
-sudo cp deploy/env.example /etc/gpio-build-monitor/env
+sudo cp monitor/device/pi/env.example /etc/gpio-build-monitor/env
 sudo cp monitor/integrations.yaml /etc/gpio-build-monitor/integrations.yaml
 # edit /etc/gpio-build-monitor/env with your tokens
-sudo cp deploy/gpio-build-monitor.service /etc/systemd/system/
+sudo cp monitor/device/pi/gpio-build-monitor.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now gpio-build-monitor
 ```
 
-The unit file assumes the repo lives at `/home/pi/gpio-build-monitor`. Adjust `WorkingDirectory`, `ExecStart`, and `User` in `deploy/gpio-build-monitor.service` if your paths differ.
+The unit file assumes the repo lives at `/home/pi/gpio-build-monitor`. Adjust `WorkingDirectory`, `ExecStart`, and `User` in `monitor/device/pi/gpio-build-monitor.service` if your paths differ.
 
 ## Optional webhooks
 
@@ -70,17 +70,17 @@ Keep a git clone on the Pi so `bin/update` and the systemd unit files are presen
 
 ```shell
 # allow the pi user to stop/start the service without a password
-sudo cp deploy/sudoers-gpio-build-monitor /etc/sudoers.d/gpio-build-monitor
+sudo cp monitor/device/pi/sudoers-gpio-build-monitor /etc/sudoers.d/gpio-build-monitor
 sudo chmod 0440 /etc/sudoers.d/gpio-build-monitor
 
-# install the daily update timer (runs at 03:15, see deploy/gpio-build-monitor-update.timer)
-sudo cp deploy/gpio-build-monitor-update.service /etc/systemd/system/
-sudo cp deploy/gpio-build-monitor-update.timer /etc/systemd/system/
+# install the daily update timer (runs at 03:15, see monitor/device/pi/gpio-build-monitor-update.timer)
+sudo cp monitor/device/pi/gpio-build-monitor-update.service /etc/systemd/system/
+sudo cp monitor/device/pi/gpio-build-monitor-update.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now gpio-build-monitor-update.timer
 ```
 
-Ensure `/etc/gpio-build-monitor/env` includes the auto-update variables from `deploy/env.example` (`MONITOR_HOME`, `MONITOR_VENV`, etc.).
+Ensure `/etc/gpio-build-monitor/env` includes the auto-update variables from `monitor/device/pi/env.example` (`MONITOR_HOME`, `MONITOR_VENV`, etc.).
 
 ### Manual update check
 
@@ -99,4 +99,4 @@ Requirements:
 - A `monitor-*.whl` asset attached to that release
 - Outbound HTTPS access to `api.github.com` and `github.com`
 
-To change the schedule, edit `OnCalendar` in `deploy/gpio-build-monitor-update.timer` and run `sudo systemctl daemon-reload`.
+To change the schedule, edit `OnCalendar` in `monitor/device/pi/gpio-build-monitor-update.timer` and run `sudo systemctl daemon-reload`.

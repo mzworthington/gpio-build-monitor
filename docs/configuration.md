@@ -1,9 +1,9 @@
 # Configuration
 
-`monitor/integrations.yaml` is local to your machine and gitignored. Start from the example:
+`monitor/api/monitor/integrations.yaml` is local to your machine and gitignored. Start from the example:
 
 ```shell
-cp monitor/integrations.example.yaml monitor/integrations.yaml
+cp monitor/api/monitor/integrations.example.yaml monitor/api/monitor/integrations.yaml
 ```
 
 ## Example
@@ -79,14 +79,7 @@ credentials so public repos still light the board.
 
 GitHub Dependabot names each version check uniquely (`npm_and_yarn in /infra/cloudflare for js-yaml - Update #123`). Those runs are omitted from the board by default (Pi and hosted Worker). They are not product CI, and a failed updater job should not turn the desk light red. Use `excluded_workflows` / `excluded_workflow_patterns` for other noise. Dependabot *PRs* still count in the open-PR glance when they exist.
 
-With WebSocket enabled, open `http://<host>:8080/` for the live JS status page, or run the Python HTML client:
-
-```shell
-monitor client --server http://127.0.0.1:8080
-# then open http://127.0.0.1:8090/
-```
-
-The client renders Jinja2 HTML for the first paint, then updates live over WebSocket (no full-page reload). You can run GPIO only, WebSocket only, or both.
+With WebSocket enabled, open `http://<host>:8080/` for the Alpine status page (GPIO, WebSocket, or both).
 
 ## Webhooks
 
@@ -123,10 +116,9 @@ Only set the variables for providers present in your config. `monitor check-conf
 | `CIRCLE_CI_WEBHOOK_SECRET` | Shared secret for CircleCI webhook signature verification |
 | `MONITOR_LOG_DIR` | Default log directory when `log_dir` is not set in config |
 | `LOG_LEVEL` | Log level for `bin/serve` (default: `debug`) |
-| `CONF_FILE` | Config path for `bin/serve` (default: `monitor/integrations.yaml`) |
-| `UI_HOST` / `UI_PORT` | Bind address/port for the HTML client started by `bin/serve` (defaults: `127.0.0.1` / `8090`) |
-| `SERVE_CLIENT` | Set to `0` to skip the HTML client (`bin/serve` still starts the WebSocket UI when enabled) |
-| - | `bin/serve` also loads a gitignored `.env` from the repo root when present |
+| `CONF_FILE` | Config path for `bin/serve` (default: `monitor/api/monitor/integrations.yaml`) |
+| - | `bin/serve` loads a gitignored `.env` from the repo root when present, then `pnpm install` / `pnpm build:web` as needed |
+| `MONITOR_API_ORIGIN` | Public Python API origin stamped into the Pages HTML on deploy |
 | `MONITOR_HOME` | Pi install directory (default: `/home/pi/gpio-build-monitor`) |
 | `MONITOR_VENV` | Virtualenv used on the Pi (default: `$MONITOR_HOME/.venv`) |
 | `MONITOR_SERVICE` | systemd unit name (default: `gpio-build-monitor`) |

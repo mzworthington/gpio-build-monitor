@@ -15,24 +15,26 @@ monitor check-config
 bin/serve
 ```
 
-`bin/bootstrap` installs Python via mise (if available), creates `.venv`, installs the package in editable mode with dev dependencies, and copies `monitor/integrations.example.yaml` to `monitor/integrations.yaml` when that file does not exist.
+`bin/bootstrap` installs Python via mise (if available), creates `.venv`, installs the package in editable mode with dev dependencies, and copies `monitor/api/monitor/integrations.example.yaml` to `monitor/api/monitor/integrations.yaml` when that file does not exist.
 
-`bin/serve` runs `monitor run` with:
+`bin/serve` is a full local setup. It loads `.env` if present, then:
 
-- `--conf monitor/integrations.yaml` (override with `CONF_FILE`)
-- `--log-level debug` (override with `LOG_LEVEL`)
+1. Installs frontend deps (`pnpm install`) when `monitor/device/web/node_modules` is missing
+2. Builds the TypeScript UI (`pnpm build:web`)
+3. Starts `monitor run` — Python API (`/api/status`, `/api/ws`) plus the Alpine UI on `/`
 
-When `outputs.websocket` is enabled it also starts the HTML client frontend:
+Open:
 
-- WebSocket UI: `http://127.0.0.1:8080/` (or your configured host/port)
-- HTML client: `http://127.0.0.1:8090/` (override with `UI_HOST` / `UI_PORT`)
+- Python API + Alpine UI: `http://127.0.0.1:8080/` (from `outputs.websocket`)
+- Snapshot: `http://127.0.0.1:8080/api/status`
 
-Set `SERVE_CLIENT=0` to skip the HTML client and use only the WebSocket UI.
+Hosted UI is Cloudflare Pages at `/`; `/api*` proxies to the Python aggregator.
+
 ## Make and mise
 
 ```shell
 make bootstrap
-make serve          # same as bin/serve
+make serve          # Python API + Alpine UI on the websocket port
 make test           # ruff + pytest
 make publish        # lint, test, then build sdist/wheel
 ```
@@ -58,22 +60,14 @@ monitor check-config --conf monitor/integrations.yaml
 - `monitor run` - start the refresh loop (timed poll, optional webhook wake-ups)
 - `monitor check-config` - validate config and required environment variables without starting outputs
 
-With WebSocket output enabled in config, `bin/serve` brings up both UIs:
+With WebSocket output enabled in config, `bin/serve` brings up the Python API and Alpine UI on the same origin:
 
-- `http://localhost:8080/` — live JS status page (served by the monitor)
-- `http://localhost:8090/` — Python HTML client (Jinja2 first paint, live updates)
+- `http://localhost:8080/` — Alpine status page
+- `http://localhost:8080/api/status` — JSON snapshot
+- `ws://localhost:8080/api/ws` — live status
 
 ```shell
 bin/serve
-# SERVE_CLIENT=0 bin/serve   # WebSocket UI only
-# UI_PORT=8091 bin/serve     # change HTML client port
-```
-
-Or run the HTML client yourself against an already-running monitor:
-
-```shell
-monitor client --server http://127.0.0.1:8080
-# open http://127.0.0.1:8090/
 ```
 
 Module form:

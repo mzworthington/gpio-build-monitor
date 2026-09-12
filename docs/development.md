@@ -5,7 +5,7 @@
 ```shell
 make lint           # ruff
 make test           # ruff + pytest
-make test-eink      # native C++ tests for the e-ink snapshot parser (`device/eink`)
+make test-eink      # native C++ tests for the e-ink snapshot parser (`monitor/device/eink`)
 ```
 
 Python dependencies are in `pyproject.toml`. Git hooks use [pre-commit](https://pre-commit.com/):
@@ -26,16 +26,16 @@ pre-commit install --hook-type commit-msg
 
 ## Cloudflare
 
-Hosted UI: Worker under `worker/`, custom domain via `infra/cloudflare`. Headless Pi: [pi-setup.md](pi-setup.md).
+Hosted UI: Cloudflare Pages from `monitor/device/web/public/`. Python API runs on the Pi (or any host). Custom domain via `infra/cloudflare`.
 
 ```shell
 bin/setup-cloudflare-hosting.sh
-cd worker && pnpm install && pnpm deploy   # deploy script before first custom-domain attach
-# On main, the CI/CD workflow also runs wrangler deploy after tests
-# (deploy-worker job). Pulumi only manages the Worker identity + custom
-# domain, not the script/assets.
-cd ../infra/cloudflare && pnpm install && pulumi up
+cd monitor/device/web && pnpm install && pnpm test && pnpm typecheck && MONITOR_API_ORIGIN=https://api.example pnpm deploy
+cd ../../../infra/cloudflare && pnpm install && pulumi up
 ```
+
+The status page is TypeScript Alpine (`monitor/device/web/src/web/`) bundled into `monitor/device/web/public/monitor.js`. CI `web` and `deploy-pages` jobs run that build. Set Actions variable `MONITOR_API_ORIGIN` to the public Python API.
+
 
 [`.github/workflows/pulumi-cloudflare.yml`](../.github/workflows/pulumi-cloudflare.yml) previews/applies the Pulumi stack via the shared edge-dns reusable workflow.
 
@@ -45,13 +45,13 @@ cd ../infra/cloudflare && pnpm install && pulumi up
 
 - Bootstrap, lint, and pytest
 - JUnit report upload
-- On `main` only: `deploy-worker` (`wrangler deploy` for `monitor.mzworthington.co.uk`)
-- `POSTHOG_TOKEN` GitHub Actions secret is baked onto the Worker on deploy. Privacy notice: `/privacy`. Enable **Cookieless server hash mode** in PostHog or cookieless events are dropped. An agent cannot create the GitHub secret.
+- On `main` only: `deploy-pages` (`wrangler pages deploy` for `monitor.mzworthington.co.uk`)
+- Set Actions variable `MONITOR_API_ORIGIN` to the public Python API. Privacy notice: `/privacy`.
 - On `main` only: `release` when application code changed since the last tag
 
 ### Releases
 
-Merging to `main` triggers an automatic release when `monitor/` or `pyproject.toml` changed since the last tag. No manual tagging or version bumps are required.
+Merging to `main` triggers an automatic release when `monitor/api/` or `pyproject.toml` changed since the last tag. No manual tagging or version bumps are required.
 
 The release job:
 

@@ -1,6 +1,7 @@
-# Webhooks (hosted Worker)
+# Webhooks (Python API)
 
-Provider webhooks wake an immediate CI refresh on the Cloudflare Worker.
+Provider webhooks wake an immediate CI refresh on the Python API.
+The Cloudflare Worker exposes them at `https://monitor.mzworthington.co.uk/api/webhooks/…`.
 Polling remains the reconcile fallback (and is still required for “running”
 status on CircleCI, which only sends terminal events).
 
@@ -8,9 +9,9 @@ status on CircleCI, which only sends terminal events).
 
 | Provider | URL | Events |
 |----------|-----|--------|
-| GitHub | `https://monitor.mzworthington.co.uk/webhooks/github` | `workflow_run`, `pull_request` (`ping` ACK only) |
-| CircleCI | `https://monitor.mzworthington.co.uk/webhooks/circleci` | `workflow-completed`, `job-completed` |
-| Health | `https://monitor.mzworthington.co.uk/health` | - |
+| GitHub | `https://monitor.mzworthington.co.uk/api/webhooks/github` | `workflow_run`, `pull_request` (`ping` ACK only) |
+| CircleCI | `https://monitor.mzworthington.co.uk/api/webhooks/circleci` | `workflow-completed`, `job-completed` |
+| Health | `https://monitor.mzworthington.co.uk/api/health` | - |
 
 ## 1. (Optional) Shared secrets
 
@@ -28,7 +29,7 @@ openssl rand -hex 32   # → CIRCLE_CI_WEBHOOK_SECRET
 Upload to the Worker:
 
 ```bash
-cd worker
+cd monitor/device/web
 pnpm exec wrangler secret put GITHUB_WEBHOOK_SECRET --name gpio-build-monitor
 # paste secret, Enter
 

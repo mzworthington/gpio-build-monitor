@@ -1,9 +1,8 @@
 # Pi setup (headless)
 
-Headless deployment: Raspberry Pi drives **GPIO LEDs** from the same CI config.
-The public website is a **separate** Cloudflare Worker deployment - see
-[worker/README.md](../worker/README.md) and [infra/cloudflare/README.md](../infra/cloudflare/README.md).
-You do **not** need Cloudflare Tunnel for the hosted UI.
+Headless deployment: Raspberry Pi drives **GPIO LEDs** by following the hosted
+Python API (`https://monitor.mzworthington.co.uk/api`). The public website is
+Cloudflare Pages. You do **not** need Cloudflare Tunnel on the Pi.
 
 Assumes the repo lives at `/home/pi/gpio-build-monitor`. Adjust paths and the
 `User=` lines in the systemd units if yours differ.
@@ -25,13 +24,13 @@ bin/bootstrap
 ## 3. Config and secrets
 
 ```shell
-cp monitor/integrations.example.yaml monitor/integrations.yaml
-# edit integrations (repos, pins). For headless Pi you can disable websocket:
-#   outputs.websocket.enabled: false
+cp monitor/api/monitor/integrations.example.yaml monitor/api/monitor/integrations.yaml
+# edit integrations. For desk lights only, disable websocket, set outputs.api.origin
+# to https://monitor.mzworthington.co.uk, and use an empty integrations list.
 
 sudo mkdir -p /etc/gpio-build-monitor /var/log/gpio-build-monitor
-sudo cp monitor/integrations.yaml /etc/gpio-build-monitor/integrations.yaml
-sudo cp deploy/env.example /etc/gpio-build-monitor/env
+sudo cp monitor/api/monitor/integrations.yaml /etc/gpio-build-monitor/integrations.yaml
+sudo cp monitor/device/pi/env.example /etc/gpio-build-monitor/env
 sudo chmod 600 /etc/gpio-build-monitor/env
 # edit /etc/gpio-build-monitor/env - at least GITHUB_TOKEN / CIRCLE_CI_TOKEN
 ```
@@ -47,7 +46,7 @@ See [configuration.md](configuration.md).
 ## 4. Monitor systemd service
 
 ```shell
-sudo cp deploy/gpio-build-monitor.service /etc/systemd/system/
+sudo cp monitor/device/pi/gpio-build-monitor.service /etc/systemd/system/
 # edit WorkingDirectory / ExecStart / User if needed
 sudo systemctl daemon-reload
 sudo systemctl enable --now gpio-build-monitor
@@ -65,15 +64,15 @@ LAN IP (e.g. `http://192.168.x.x:8080`). That is independent of
 ## 6. Optional: auto-updates
 
 ```shell
-sudo cp deploy/sudoers-gpio-build-monitor /etc/sudoers.d/gpio-build-monitor
+sudo cp monitor/device/pi/sudoers-gpio-build-monitor /etc/sudoers.d/gpio-build-monitor
 sudo chmod 0440 /etc/sudoers.d/gpio-build-monitor
-sudo cp deploy/gpio-build-monitor-update.service /etc/systemd/system/
-sudo cp deploy/gpio-build-monitor-update.timer /etc/systemd/system/
+sudo cp monitor/device/pi/gpio-build-monitor-update.service /etc/systemd/system/
+sudo cp monitor/device/pi/gpio-build-monitor-update.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now gpio-build-monitor-update.timer
 ```
 
-Ensure auto-update vars in `/etc/gpio-build-monitor/env` match [deploy/env.example](../deploy/env.example). More detail: [raspberry-pi.md](raspberry-pi.md#auto-updates).
+Ensure auto-update vars in `/etc/gpio-build-monitor/env` match [monitor/device/pi/env.example](../monitor/device/pi/env.example). More detail: [raspberry-pi.md](raspberry-pi.md#auto-updates).
 
 ## Troubleshooting
 
@@ -87,7 +86,7 @@ Ensure auto-update vars in `/etc/gpio-build-monitor/env` match [deploy/env.examp
 
 | Path | Role |
 |------|------|
-| [deploy/gpio-build-monitor.service](../deploy/gpio-build-monitor.service) | Monitor process |
-| [deploy/env.example](../deploy/env.example) | CI tokens + updater env |
-| [worker/](../worker/) | Hosted website (separate deploy) |
+| [monitor/device/pi/gpio-build-monitor.service](../monitor/device/pi/gpio-build-monitor.service) | Monitor process |
+| [monitor/device/pi/env.example](../monitor/device/pi/env.example) | CI tokens + updater env |
+| [monitor/device/web/](../monitor/device/web/) | Hosted website (separate deploy) |
 | [infra/cloudflare](../infra/cloudflare) | Worker custom domain (laptop) |
