@@ -5,23 +5,21 @@ Glanceable CI on a pocket e-reader. The device of record is the **X3**
 firmware is CrossPoint plus a Build monitor overlay in this repo. Do not run
 the Pi poller on the ESP32.
 
-```
-GitHub / CircleCI ──► StatusHub (Worker, always on)
-                           │  GET /status?view=eink
-                           ▼
-                     CrossPoint on X3
-                     home → Build monitor
+```mermaid
+flowchart TB
+  CI[GitHub / CircleCI] --> Worker[StatusHub Worker]
+  Worker -->|GET /status?view=eink| X3[CrossPoint on X3]
 ```
 
 GPIO LEDs stay on the Pi. Nothing in `monitor/` drives the e-ink panel.
 
 ## Firmware
 
-Overlay: [`device/eink/apps/monitor/`](../device/eink/apps/monitor/). Shared
+Overlay: [`monitor/device/eink/apps/monitor/`](../monitor/device/eink/apps/monitor/). Shared
 parser tests: `make test-eink`. Flash:
 
 ```shell
-device/eink/apps/monitor/flash.sh
+monitor/device/eink/apps/monitor/flash.sh
 ```
 
 Do not use `pio run -t upload`. PlatformIO's port hunt drops native USB CDC
@@ -29,12 +27,12 @@ on this chip. The script builds first, then calls esptool as soon as
 `/dev/cu.usbmodem*` appears. For serial logs:
 
 ```shell
-device/eink/apps/monitor/debug.sh
+monitor/device/eink/apps/monitor/debug.sh
 ```
 
 Wi-Fi is CrossPoint **Settings → System → Wi-Fi Networks** (up to 8 saved
 SSIDs on the SD card). Send a User-Agent on `GET /status`; Cloudflare 403s
-empty UA strings.
+empty UA strings. `/api/status?view=eink` is the same snapshot.
 
 Idle sleep is CrossPoint **Settings → System → Time to sleep**. Wake is a
 full reset; the activity stack does not survive. Set **Never** while flashing.

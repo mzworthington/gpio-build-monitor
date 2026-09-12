@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Rasterize design-pack SVGs into monitor/web (requires librsvg: brew install librsvg).
+# Rasterize design-pack SVGs into the Pages public dir (requires librsvg: brew install librsvg).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DP="$ROOT/design-pack"
-WEB="$ROOT/monitor/web"
+DP="$ROOT/monitor/device/web/design-pack"
+WEB="$ROOT/monitor/device/web/public"
 
 command -v rsvg-convert >/dev/null || {
   echo "✗ rsvg-convert not found. Install with: brew install librsvg" >&2
@@ -42,4 +42,4 @@ rsvg-convert -w 512 -h 512 "$DP/mark.svg" -o "$DP/mark.png"
 rsvg-convert -w 512 -h 512 "$DP/mark-square.svg" -o "$DP/mark-square.png"
 rsvg-convert -w 1200 -h 630 "$DP/social-share.svg" -o "$DP/social-share.png"
 
-echo "✓ Synced design-pack → monitor/web"
+echo "✓ Synced design-pack → monitor/device/web/public"

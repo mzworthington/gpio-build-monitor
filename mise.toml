@@ -10,7 +10,7 @@ description = "Install Python and project dependencies"
 run = "bin/bootstrap"
 
 [tasks.serve]
-description = "Run the build monitor locally"
+description = "Run Python API and built frontend locally"
 run = "bin/serve"
 
 [tasks.test]

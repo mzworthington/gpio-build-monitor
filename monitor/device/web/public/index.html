@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="monitor-api-origin" content="">
+  <title>Build monitor</title>
+  <meta
+    name="description"
+    content="CI you notice without looking for it - on the web or glowing on your desk."
+  >
+  <link rel="canonical" href="https://monitor.mzworthington.co.uk/">
+  <meta name="theme-color" content="#000000">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://monitor.mzworthington.co.uk/">
+  <meta property="og:title" content="Build monitor">
+  <meta
+    property="og:description"
+    content="CI you notice without looking for it - on the web or glowing on your desk."
+  >
+  <meta
+    property="og:image"
+    content="https://monitor.mzworthington.co.uk/social-share.png"
+  >
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Build monitor">
+  <meta
+    name="twitter:description"
+    content="CI you notice without looking for it - on the web or glowing on your desk."
+  >
+  <meta
+    name="twitter:image"
+    content="https://monitor.mzworthington.co.uk/social-share.png"
+  >
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body data-status="NONE" x-data="monitor" :data-status="shown">
+  <div class="atmosphere" aria-hidden="true"></div>
+  <main>
+    <header class="masthead">
+      <h1>build monitor</h1>
+      <p class="tagline">CI you notice without looking for it - on the web or glowing on your desk.</p>
+      <a
+        class="repo-link"
+        href="https://github.com/mzworthington/gpio-build-monitor"
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        <svg class="repo-icon" viewBox="0 0 16 16" aria-hidden="true" width="16" height="16">
+          <path
+            fill="currentColor"
+            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.65 7.65 0 0 1 8 4.77c.68.003 1.36.092 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"
+          />
+        </svg>
+        Open source on GitHub
+      </a>
+      <p id="connection" class="connection" :data-state="connection" x-text="connectionLabel">Connecting…</p>
+      <p
+        id="last-checked"
+        class="last-checked"
+        data-last-checked-at=""
+      >Not checked yet</p>
+      <div id="push-controls" class="push-controls" hidden>
+        <button type="button" id="push-toggle" class="push-toggle" data-state="off">
+          Notify on failure
+        </button>
+        <p id="push-hint" class="push-hint"></p>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div
+        class="status-dial"
+        id="status-dial"
+        data-status="NONE"
+        data-poll-seconds="30"
+        data-next-check-at=""
+        data-fetching="false"
+      >
+        <svg class="status-dial-ring" viewBox="0 0 100 100" aria-hidden="true">
+          <circle class="status-dial-track" cx="50" cy="50" r="46"></circle>
+          <circle
+            class="status-dial-progress"
+            id="ticker-progress"
+            cx="50"
+            cy="50"
+            r="46"
+            pathLength="1"
+          ></circle>
+        </svg>
+        <div class="status-dial-core">
+          <p id="status-word" class="status-word" x-text="statusWord">Idle</p>
+          <p id="summary" class="summary" x-text="summary">Waiting for status…</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="lights" aria-label="Signal lights" aria-live="polite">
+      <div class="light" data-light="blue" title="Fetching" :class="lightClass('blue')">
+        <span class="bulb"></span>
+        <span class="label">Fetch</span>
+      </div>
+      <div class="light" data-light="green" title="Pass" :class="lightClass('green')">
+        <span class="bulb"></span>
+        <span class="label">Pass</span>
+      </div>
+      <div class="light" data-light="yellow" title="Running" :class="lightClass('yellow')">
+        <span class="bulb"></span>
+        <span class="label">Run</span>
+      </div>
+      <div class="light" data-light="red" title="Fail" :class="lightClass('red')">
+        <span class="bulb"></span>
+        <span class="label">Fail</span>
+      </div>
+      <div class="light" data-light="purple" title="Connection error" :class="lightClass('purple')">
+        <span class="bulb"></span>
+        <span class="label">Error</span>
+      </div>
+    </div>
+
+
+    <section id="issues" class="issues" aria-label="Attention" x-cloak x-show="issues.length">
+      <div class="issues-head">
+        <h2>Needs attention</h2>
+        <p id="issue-count" class="issue-count" x-text="issues.length + ' open'"></p>
+      </div>
+      <ul id="issue-list">
+        <template x-for="(issue, index) in issues" :key="issue.repo + issue.workflow + issue.status">
+          <li class="issue" :class="issueClass(issue)" :style="'--delay:' + (index * 40) + 'ms'">
+            <a
+              x-show="issue.url"
+              :href="issue.url"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span class="issue-repo">
+                <span class="issue-org" x-show="repoOrg(issue.repo)" x-text="repoOrg(issue.repo)"></span>
+                <span class="issue-name" x-text="repoName(issue.repo)"></span>
+              </span>
+              <span class="issue-workflow" x-text="issue.workflow"></span>
+              <span class="issue-status" x-text="issue.status"></span>
+            </a>
+            <template x-if="!issue.url">
+              <span>
+                <span class="issue-repo">
+                  <span class="issue-org" x-show="repoOrg(issue.repo)" x-text="repoOrg(issue.repo)"></span>
+                  <span class="issue-name" x-text="repoName(issue.repo)"></span>
+                </span>
+                <span class="issue-workflow" x-text="issue.workflow"></span>
+                <span class="issue-status" x-text="issue.status"></span>
+              </span>
+            </template>
+          </li>
+        </template>
+      </ul>
+    </section>
+
+    <section
+      id="open"
+      class="open-board"
+      aria-label="Open pull requests and findings"
+      x-cloak
+      x-show="openCount() > 0"
+    >
+      <div class="issues-head">
+        <h2>Open</h2>
+        <p class="issue-count" x-text="openLabel()"></p>
+      </div>
+      <div
+        class="open-tabs"
+        role="tablist"
+        aria-label="Open items"
+        x-show="openPulls().length && openFindings().length"
+      >
+        <label>
+          <input type="radio" name="open-tab" value="prs" x-model="openTab">
+          <span x-text="openPulls().length + ' PR' + (openPulls().length === 1 ? '' : 's')"></span>
+        </label>
+        <label>
+          <input type="radio" name="open-tab" value="findings" x-model="openTab">
+          <span x-text="openFindings().length + ' finding' + (openFindings().length === 1 ? '' : 's')"></span>
+        </label>
+      </div>
+      <ul
+        class="open-panel"
+        x-cloak
+        x-show="openPulls().length && (openTab === 'prs' || !openFindings().length)"
+      >
+        <template x-for="pull in openPulls()" :key="openPullKey(pull)">
+          <li :class="pullCardClass(pull.draft)">
+            <a
+              x-show="pull.url"
+              :href="pull.url"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span class="issue-repo">
+                <span class="issue-org" x-show="pull.org" x-text="pull.org"></span>
+                <span class="issue-name" x-text="pull.name"></span>
+              </span>
+              <span class="glance-title" x-text="pull.title"></span>
+              <span class="chip" x-text="pull.draft ? 'draft' : 'open'"></span>
+            </a>
+            <template x-if="!pull.url">
+              <span>
+                <span class="issue-repo">
+                  <span class="issue-org" x-show="pull.org" x-text="pull.org"></span>
+                  <span class="issue-name" x-text="pull.name"></span>
+                </span>
+                <span class="glance-title" x-text="pull.title"></span>
+                <span class="chip" x-text="pull.draft ? 'draft' : 'open'"></span>
+              </span>
+            </template>
+          </li>
+        </template>
+      </ul>
+      <ul
+        class="open-panel"
+        x-cloak
+        x-show="openFindings().length && (openTab === 'findings' || !openPulls().length)"
+      >
+        <template x-for="finding in openFindings()" :key="openFindingKey(finding)">
+          <li :class="findingCardClass(finding.severity)">
+            <a
+              x-show="finding.url"
+              :href="finding.url"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span class="issue-repo">
+                <span class="issue-org" x-show="finding.org" x-text="finding.org"></span>
+                <span class="issue-name" x-text="finding.name"></span>
+                <span class="issue-org" x-text="' · ' + finding.source"></span>
+              </span>
+              <span class="glance-title" x-text="finding.title"></span>
+              <span class="chip" x-text="itemStatus('security', finding)"></span>
+            </a>
+            <template x-if="!finding.url">
+              <span>
+                <span class="issue-repo">
+                  <span class="issue-org" x-show="finding.org" x-text="finding.org"></span>
+                  <span class="issue-name" x-text="finding.name"></span>
+                  <span class="issue-org" x-text="' · ' + finding.source"></span>
+                </span>
+                <span class="glance-title" x-text="finding.title"></span>
+                <span class="chip" x-text="itemStatus('security', finding)"></span>
+              </span>
+            </template>
+          </li>
+        </template>
+      </ul>
+    </section>
+    
+    <section id="repos" class="repos" aria-label="Watched repositories" x-cloak x-show="repos.length">
+      <div class="repos-head">
+        <h2>Repos</h2>
+        <p id="repo-count" class="repo-count" x-text="repos.length + ' watched'"></p>
+      </div>
+      <ul id="repo-list">
+        <template x-for="(entry, index) in repos" :key="entry.repo">
+          <li class="repo-item" :style="'--delay:' + (index * 40) + 'ms'">
+            <details
+              class="repo-row"
+              :class="repoRowClass(entry)"
+              :open="repoIsOpen(entry.repo)"
+              @toggle="rememberRepo(entry.repo, $el.open)"
+            >
+              <summary class="repo-summary">
+                <span class="repo-chevron" aria-hidden="true"></span>
+                <span class="repo-name">
+                  <span class="issue-org" x-show="entry.org" x-text="entry.org"></span>
+                  <span class="issue-name" x-text="entry.name"></span>
+                </span>
+                <span class="repo-meta" x-text="workflowMeta(entry)"></span>
+                <span class="repo-glances">
+                  <a
+                    class="chip"
+                    :class="prChipClass(entry)"
+                    x-show="entry.pull_requests != null"
+                    :href="entry.pull_requests && entry.pull_requests.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    :title="'Open pull requests for ' + entry.repo"
+                    :aria-label="(entry.pull_requests ? entry.pull_requests.count : 0) + ' open pull requests for ' + entry.repo"
+                    x-text="prLabel(entry)"
+                    @click.stop
+                  ></a>
+                  <a
+                    class="chip"
+                    :class="securityChipClass(entry)"
+                    x-show="entry.security != null"
+                    :href="entry.security && entry.security.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    :title="'Open security findings for ' + entry.repo"
+                    :aria-label="(entry.security ? entry.security.count : 0) + ' security findings for ' + entry.repo"
+                    x-text="securityLabel(entry)"
+                    @click.stop
+                  ></a>
+                </span>
+                <span class="repo-status" x-text="entry.status"></span>
+                <a
+                  class="repo-external"
+                  x-show="entry.url"
+                  :href="entry.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  :title="'Open ' + entry.repo + ' on GitHub'"
+                  :aria-label="'Open ' + entry.repo + ' on GitHub'"
+                  @click.stop
+                >↗</a>
+              </summary>
+              <div class="repo-details">
+              <div class="repo-section">
+                <p class="repo-section-label">Workflows</p>
+                <ul class="repo-workflows">
+                <template x-for="workflow in entry.workflows" :key="workflow.workflow + workflow.status">
+                  <li :class="workflowRowClass(workflow)">
+                    <a
+                      x-show="workflow.url"
+                      :href="workflow.url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <span class="workflow-name" x-text="workflow.workflow || '(unnamed)'"></span>
+                      <span class="workflow-status" x-text="workflow.status"></span>
+                    </a>
+                    <template x-if="!workflow.url">
+                      <span>
+                        <span class="workflow-name" x-text="workflow.workflow || '(unnamed)'"></span>
+                        <span class="workflow-status" x-text="workflow.status"></span>
+                      </span>
+                    </template>
+                  </li>
+                </template>
+                </ul>
+              </div>
+              <div class="repo-section" x-show="prItems(entry).length">
+                <p class="repo-section-label">Pull requests</p>
+                <ul class="glance-list">
+                <template x-for="pull in prItems(entry)" :key="'pr-' + pull.number">
+                  <li :class="pullRowClass(pull.draft)">
+                    <a
+                      x-show="pull.url"
+                      :href="pull.url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <span class="glance-kicker" x-text="'#' + pull.number"></span>
+                      <span class="glance-title" x-text="pull.title"></span>
+                      <span class="chip" x-text="itemStatus('pr', pull)"></span>
+                    </a>
+                    <template x-if="!pull.url">
+                      <span>
+                        <span class="glance-kicker" x-text="'#' + pull.number"></span>
+                        <span class="glance-title" x-text="pull.title"></span>
+                        <span class="chip" x-text="itemStatus('pr', pull)"></span>
+                      </span>
+                    </template>
+                  </li>
+                </template>
+                </ul>
+              </div>
+              <div class="repo-section" x-show="securityItems(entry).length">
+                <p class="repo-section-label">Findings</p>
+                <ul class="glance-list">
+                <template x-for="finding in securityItems(entry)" :key="repoFindingKey(finding)">
+                  <li :class="findingRowClass(finding.severity)">
+                    <a
+                      x-show="finding.url"
+                      :href="finding.url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <span class="glance-kicker" x-text="finding.source"></span>
+                      <span class="glance-title" x-text="finding.title"></span>
+                      <span class="chip" x-text="itemStatus('security', finding)"></span>
+                    </a>
+                    <template x-if="!finding.url">
+                      <span>
+                        <span class="glance-kicker" x-text="finding.source"></span>
+                        <span class="glance-title" x-text="finding.title"></span>
+                        <span class="chip" x-text="itemStatus('security', finding)"></span>
+                      </span>
+                    </template>
+                  </li>
+                </template>
+                </ul>
+              </div>
+              </div>
+            </details>
+          </li>
+        </template>
+      </ul>
+    </section>
+  </main>
+  <footer class="site-credit">
+    <p>
+      Made by
+      <a href="https://mzworthington.co.uk" rel="noopener noreferrer">Matthew Z Worthington</a>
+      ·
+      <a href="/privacy">Privacy</a>
+    </p>
+  </footer>
+  <script src="/monitor.js"></script>
+</body>
+</html>

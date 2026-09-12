@@ -93,5 +93,5 @@ if [[ "$(echo "$OUT" | "$PYTHON" -c 'import json,sys; print(len(json.load(sys.st
   echo "No integrations to upload (empty list is OK - Worker will show Idle)." >&2
 fi
 
-printf '%s' "$OUT" | (cd worker && pnpm exec wrangler secret put MONITOR_CONFIG --name gpio-build-monitor)
+printf '%s' "$OUT" | (cd monitor/device/web && pnpm exec wrangler secret put MONITOR_CONFIG --name gpio-build-monitor)
 echo "✓ MONITOR_CONFIG updated on Worker gpio-build-monitor"

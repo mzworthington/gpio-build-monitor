@@ -5,10 +5,6 @@ const config = new pulumi.Config();
 const accountId = config.require('accountId');
 const zoneId = config.require('zoneId');
 
-/**
- * Worker script name. Prefers `workerName`; falls back to `pagesProjectName` so
- * edge-dns `setup-cloudflare-hosting.sh` / CI vars keep working unchanged.
- */
 function resolveWorkerName(): string {
   const name = config.get('workerName') ?? config.get('pagesProjectName');
   if (!name) {
@@ -17,7 +13,6 @@ function resolveWorkerName(): string {
   return name;
 }
 
-/** Public hostnames for the hosted status UI (Worker custom domains). */
 function resolveHostnames(): string[] {
   const listed =
     config.getObject<string[]>('workerHostnames') ??
@@ -30,32 +25,22 @@ function resolveHostnames(): string[] {
 
 const workerName = resolveWorkerName();
 const hostnames = resolveHostnames();
-
 const zone = cloudflare.getZoneOutput({ zoneId });
 
-/**
- * Hosted deployment: Cloudflare Worker serves the status UI + live WebSocket.
- * The Pi is a separate headless GPIO deployment (no tunnel / no custom domain).
- *
- * Script content is deployed with wrangler (`worker/`). Custom domains require
- * at least one Worker deployment before attach - run `pnpm deploy` in worker/
- * before the first `pulumi up` that creates WorkersCustomDomain.
- */
-const worker = new cloudflare.Worker('monitor', {
+const pagesProject = new cloudflare.PagesProject('site', {
   accountId,
   name: workerName,
-  subdomain: {
-    enabled: true,
-    previewsEnabled: true,
-  },
-  observability: {
-    enabled: true,
-    logs: {
-      enabled: true,
-      invocationLogs: false,
-    },
-  },
+  productionBranch: 'main',
 });
+
+const worker = new cloudflare.Worker(
+  'monitor',
+  {
+    accountId,
+    name: workerName,
+  },
+  { ignoreChanges: ['subdomain', 'observability'] },
+);
 
 for (const hostname of hostnames) {
   const safe = hostname.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -77,4 +62,5 @@ for (const hostname of hostnames) {
 export const workerNameOut = worker.name;
 export const workerId = worker.id;
 export const hostnamesOut = hostnames;
+export const pagesProjectNameOut = pagesProject.name;
 export const zoneName = zone.name;

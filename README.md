@@ -10,94 +10,95 @@ Inspired by office information radiators. [Read the story →](https://mzworthin
 
 ## Ways to run it
 
-Same aggregation logic; pick the outputs you want.
+Same aggregation; pick the outputs you want.
 
 | | **On the web** | **On a Pi** | **On a Mac** | **On an X3** |
 |---|---|---|---|---|
-| **What you get** | Public status UI + live WebSocket | Desk LEDs (optional local UI) | Menu bar extra | Pocket e-ink (CrossPoint) |
+| **What you get** | Public status UI | Desk LEDs | Menu bar extra | Pocket e-ink (CrossPoint) |
 | **Where it runs** | Cloudflare Worker | Raspberry Pi GPIO | [SwiftBar](docs/macos.md) plugin | ESP32-C3 firmware |
-| **See it** | [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) | Hardware on your desk | Top toolbar (polls `/status`) | E-ink panel (samples `/status?view=eink`) |
-| **Setup** | [worker/README.md](worker/README.md) · [infra/cloudflare](infra/cloudflare/README.md) · [Webhooks](docs/webhooks.md) | [Pi setup](docs/pi-setup.md) · [Hardware](docs/hardware.md) | [Mac menu bar](docs/macos.md) | [Xteink e-ink](docs/xteink-x3.md) |
+| **See it** | [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) | Hardware on your desk | Top toolbar (polls `/api/status`) | E-ink panel (`/api/status?view=eink`) |
+| **Setup** | [Web UI](monitor/device/web/README.md) · [infra/cloudflare](infra/cloudflare/README.md) | [Pi setup](docs/pi-setup.md) · [Hardware](docs/hardware.md) | [Mac menu bar](docs/macos.md) | [Xteink e-ink](docs/xteink-x3.md) |
 
-You can use any path alone, or combine them with the same `integrations.yaml` shape. The hosted site does not depend on the Pi (no tunnel required). The Mac extra and the Xteink X3 read the hosted (or local) snapshot. They do not poll GitHub themselves. The e-ink client is CrossPoint plus a Build monitor overlay; it is not a second always-on poller.
-
-Pick a surface first. Menu bar and e-ink do **not** poll GitHub. By default they call the same Worker as the public site (`GET /status`, with `?view=eink` on the X3). Desk lights are a separate Pi poller. You can point Mac or the e-ink firmware at the Pi LAN or `bin/serve` instead; that is bring-up or a desk-only setup, not the default.
+Every client reads the hosted Worker: `GET /api/status` and `/api/ws` on `https://monitor.mzworthington.co.uk`. StatusHub polls GitHub Actions and CircleCI. Desk lights subscribe to `/api/ws`; they do not poll GitHub.
 
 ```mermaid
 flowchart TB
   subgraph see [What you see]
     WebUI[Status page]
-    Push[Phone or browser push]
     Mac[Menu bar]
     X3[Pocket e-ink X3]
     LEDs[Desk lights]
   end
 
-  subgraph hubs [Backed by]
-    Worker[Cloudflare Worker]
-    Pi[Raspberry Pi]
+  subgraph hosted [Hosted]
+    Worker[Cloudflare Worker StatusHub]
   end
 
-  subgraph ci [CI behind the hubs]
+  subgraph ci [CI]
     GH[GitHub Actions]
     CCI[CircleCI]
   end
 
   WebUI --> Worker
-  Push --> Worker
   Mac --> Worker
   X3 --> Worker
-  LEDs --> Pi
-  hubs --> ci
+  LEDs --> Worker
+  Worker --> GH
+  Worker --> CCI
 ```
 
-Production snapshots come from `monitor.mzworthington.co.uk`. Optional: set the Mac extra or e-ink `STATUS_HOST` to a Pi (or `bin/serve`) that has `outputs.websocket` on.
+The public hostname is a Worker custom domain. Alpine loads from that origin and opens `wss://monitor.mzworthington.co.uk/api/ws`. Point the Mac extra and e-ink at the same `/api`. Optional `PYTHON_API_ORIGIN` on the Worker can proxy `/api*` to a Python process; production leaves that empty so StatusHub is the hub.
 
 ```mermaid
 sequenceDiagram
   actor You
   participant Browser as Status page
+  participant Worker as Worker StatusHub
   participant Mac as Menu bar
   participant X3 as Pocket e-ink
-  participant Worker as Cloudflare Worker
-  participant Pi as Raspberry Pi
+  participant Pi as Pi GPIO follower
   participant GH as GitHub / CircleCI
 
   alt Open the status page
     You->>Browser: load the site
-    Browser->>Worker: UI and WebSocket
+    Browser->>Worker: Alpine UI
+    Browser->>Worker: WebSocket /api/ws
     opt Webhook already arrived
       GH->>Worker: workflow / job event
     end
     Worker->>GH: poll when due
     Worker-->>Browser: live status
   else Glance at the desk
-    You->>Pi: see the LEDs
-    Pi->>GH: poll when due
+    You->>Pi: look at the lights
+    Pi->>Worker: WebSocket /api/ws
+    Worker-->>Pi: live status
     Pi-->>You: green / red / yellow / purple
   else Check the menu bar
     You->>Mac: look at the toolbar
-    Mac->>Worker: GET /status
+    Mac->>Worker: GET /api/status
     Worker-->>Mac: snapshot JSON
   else Glance at the X3
     You->>X3: open Build monitor
-    X3->>Worker: GET /status?view=eink
+    X3->>Worker: GET /api/status?view=eink
     Worker-->>X3: compact JSON
     X3-->>You: list jobs and PRs
   end
 ```
-### Web (hosted)
 
-Cloudflare Worker polls GitHub Actions / CircleCI, serves the UI, and pushes updates over WebSocket. Optional provider webhooks wake an immediate refresh.
+### Web (Worker)
+
+The Worker serves the Alpine UI and StatusHub. `pnpm deploy:api` builds `public/monitor.js` then deploys. CI does the same on `main`. Put `MONITOR_CONFIG` and `GITHUB_TOKEN` on the Worker (`bin/sync-worker-monitor-config.sh`, `bin/sync-worker-github-token.sh`).
 
 ```shell
-cd worker && pnpm install && pnpm deploy
-# secrets + domain: see worker/README.md and infra/cloudflare/README.md
+cd monitor/device/web && pnpm install && pnpm deploy:api
+# hostname: infra/cloudflare/README.md
 ```
+
+`pnpm deploy` still publishes a Pages project on `*.pages.dev`. That is not the public hostname.
 
 ### Pi (headless)
 
-A Raspberry Pi drives LEDs from the same CI config - green / red / yellow / blue / purple at a glance, even when your laptop is closed.
+A Raspberry Pi drives LEDs by following the hosted `/api/ws` - green / red / yellow / blue / purple at a glance, even when your laptop is closed.
 
 ```shell
 git clone https://github.com/mzworthington/gpio-build-monitor.git
@@ -109,7 +110,7 @@ bin/bootstrap
 ## Why
 
 - **Glanceable** - lights and a dial instead of inbox noise or another tab.
-- **Always on** - hosted site stays up; Pi stays lit when your machine is shut.
+- **Always on** - hosted Worker stays up; Pi stays lit when your machine is shut.
 - **Multi-provider** - GitHub Actions and CircleCI, aggregated across repos.
 - **Low cost** - Pi Zero and a handful of LEDs; the [full build came in around £20](docs/hardware.md#shopping-list).
 
@@ -131,7 +132,7 @@ flowchart LR
   agg --> poll[CI poll and webhooks]
 ```
 
-On a dev machine, GPIO is mocked automatically. On the Pi, run with `python -O` to use real hardware.
+On a dev machine, GPIO is mocked automatically. On the Pi, the follower uses real hardware.
 
 ## Local development
 
@@ -139,10 +140,12 @@ On a dev machine, GPIO is mocked automatically. On the Pi, run with `python -O` 
 git clone https://github.com/mzworthington/gpio-build-monitor.git
 cd gpio-build-monitor
 bin/bootstrap
-cp monitor/integrations.example.yaml monitor/integrations.yaml
-# edit integrations.yaml, export GITHUB_TOKEN / CIRCLE_CI_TOKEN
+cp monitor/api/monitor/integrations.example.yaml monitor/api/monitor/integrations.yaml
+# edit integrations.yaml, export GITHUB_TOKEN / CIRCLE_CI_TOKEN (or put them in .env)
 monitor check-config
 bin/serve
+# Python hub + Alpine: http://127.0.0.1:8080/
+# Worker locally: cd monitor/device/web && pnpm dev:worker
 ```
 
 See [Getting started](docs/getting-started.md) for mise, Make, and CLI details.
@@ -155,13 +158,13 @@ See [Getting started](docs/getting-started.md) for mise, Make, and CLI details.
 | [Pi setup](docs/pi-setup.md) | Headless Raspberry Pi + systemd |
 | [Webhooks](docs/webhooks.md) | GitHub/CircleCI webhooks on the hosted Worker |
 | [Push notifications](docs/push.md) | Chrome/Android fail + recovery alerts (hosted Worker) |
-| [Mac menu bar](docs/macos.md) | SwiftBar extra from `GET /status` |
-| [Xteink e-ink](docs/xteink-x3.md) | X3 CrossPoint overlay: Build monitor from `/status?view=eink` |
+| [Mac menu bar](docs/macos.md) | SwiftBar extra from `GET /api/status` |
+| [Xteink e-ink](docs/xteink-x3.md) | X3 CrossPoint overlay: Build monitor from `/api/status?view=eink` |
 | [Configuration](docs/configuration.md) | `integrations.yaml`, tokens, pins, logging |
-| [Raspberry Pi](docs/raspberry-pi.md) | GPIO reference, systemd, auto-updates |
+| [Raspberry Pi](docs/raspberry-pi.md) | GPIO follower, systemd, auto-updates |
 | [Hardware](docs/hardware.md) | Pin map, shopping list, build photos |
 | [Development](docs/development.md) | Tests, releases, CI, security scanning |
-| [Hosted Worker](worker/README.md) | Deploy the public UI |
+| [Hosted web UI](monitor/device/web/README.md) | Deploy the public UI |
 | [Cloudflare infra](infra/cloudflare/README.md) | Worker custom domain (Pulumi) |
 
 ## Install from GitHub

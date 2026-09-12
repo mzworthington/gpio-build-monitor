@@ -1,9 +1,9 @@
 # Configuration
 
-`monitor/integrations.yaml` is local to your machine and gitignored. Start from the example:
+`monitor/api/monitor/integrations.yaml` is local to your machine and gitignored. Start from the example:
 
 ```shell
-cp monitor/integrations.example.yaml monitor/integrations.yaml
+cp monitor/api/monitor/integrations.example.yaml monitor/api/monitor/integrations.yaml
 ```
 
 ## Example
@@ -12,7 +12,6 @@ cp monitor/integrations.example.yaml monitor/integrations.yaml
 poll_in_seconds: 60
 log_dir: logs
 outputs:
-  gpio: true
   websocket:
     enabled: true
     host: "0.0.0.0"
@@ -21,12 +20,6 @@ webhooks:
   enabled: true
   host: "0.0.0.0"
   port: 8081
-pins:
-  GREEN: 17
-  YELLOW: 18
-  BLUE: 22
-  RED: 27
-  PURPLE: 23
 integrations:
   - type: GITHUB
     username: your-github-org
@@ -45,13 +38,12 @@ integrations:
 |-------|-------------|
 | `poll_in_seconds` | Seconds between reconcile polls (default: 30). With webhooks enabled this is the fallback cadence; events wake an immediate refresh. |
 | `log_dir` | Directory for `monitor.log` (default: `logs/`) |
-| `outputs` | Optional status adapters (default: GPIO only) |
-| `outputs.gpio` | Drive Raspberry Pi LEDs (default: `true`) |
-| `outputs.websocket` | Optional browser UI over WebSockets |
-| `outputs.websocket.enabled` | Serve the status page (default: `true` when the object is present) |
+| `outputs` | Optional status adapters (default: WebSocket on `0.0.0.0:8080`) |
+| `outputs.websocket` | Browser UI over WebSockets (Python hub / local serve) |
+| `outputs.websocket.enabled` | Serve the status page (default: `true`) |
 | `outputs.websocket.host` | Bind address (default: `0.0.0.0`) |
 | `outputs.websocket.port` | HTTP/WebSocket port (default: `8080`) |
-| `pins` | Optional BCM pin overrides per light name. Validated on load; applied when the GPIO board starts, not as a side effect of parse. |
+| `pins` | BCM pin overrides live on the Pi GPIO follower, not in the hub YAML |
 | `webhooks` | Optional webhook ingress settings |
 | `webhooks.enabled` | Listen for provider webhooks that wake an immediate refresh (default: `false`) |
 | `webhooks.host` | Bind address (default: `0.0.0.0`) |
@@ -77,16 +69,9 @@ credentials so public repos still light the board.
 
 ### Dependabot Update runs
 
-GitHub Dependabot names each version check uniquely (`npm_and_yarn in /. - Update #123`). The monitor collapses those into one bucket per ecosystem and directory (stripping the Update ID and optional package list), then keeps the newest by `created_at`. A fixed Dependabot config shows green once a newer Update succeeds; a broken config still fails the radiator. Prefer that over excluding `* - Update #*` unless you truly do not want Dependabot on the desk light.
+GitHub Dependabot names each version check uniquely (`npm_and_yarn in /infra/cloudflare for js-yaml - Update #123`). Those runs are omitted from the board by default (Pi and hosted Worker). They are not product CI, and a failed updater job should not turn the desk light red. Use `excluded_workflows` / `excluded_workflow_patterns` for other noise. Dependabot *PRs* still count in the open-PR glance when they exist.
 
-With WebSocket enabled, open `http://<host>:8080/` for the live JS status page, or run the Python HTML client:
-
-```shell
-monitor client --server http://127.0.0.1:8080
-# then open http://127.0.0.1:8090/
-```
-
-The client renders Jinja2 HTML for the first paint, then updates live over WebSocket (no full-page reload). You can run GPIO only, WebSocket only, or both.
+With WebSocket enabled, open `http://<host>:8080/` for the Alpine status page.
 
 ## Webhooks
 
@@ -94,12 +79,12 @@ When `webhooks.enabled` is `true`, the monitor listens for:
 
 | Provider | Path | Events that refresh |
 |----------|------|---------------------|
-| GitHub | `POST /webhooks/github` | `workflow_run`, `pull_request` (`ping` is acknowledged only) |
+| GitHub | `POST /webhooks/github` | `workflow_run`, `pull_request`, `dependabot_alert`, `code_scanning_alert` (`ping` is acknowledged only) |
 | CircleCI | `POST /webhooks/circleci` | `workflow-completed`, `job-completed` |
 
 A valid event breaks out of the wait and calls the same CI APIs as a timed poll. Status is still loaded via `get_latest()` so adapters remain the source of truth. CircleCI outbound webhooks are terminal-only, so the reconcile poll is still needed for the yellow “running” LED.
 
-The Pi (or tunnel in front of it) must be reachable from GitHub/CircleCI. Expose `/webhooks/*` over HTTPS with a tunnel or reverse proxy; `/health` is available for connectivity checks.
+This block is for a local Python hub (`bin/serve`). Production webhooks go to the Worker: [webhooks.md](webhooks.md).
 
 ## Environment variables
 
@@ -113,6 +98,12 @@ export GITHUB_WEBHOOK_SECRET=...
 export CIRCLE_CI_WEBHOOK_SECRET=...
 ```
 
+`GITHUB_TOKEN` needs `security_events` (classic) or Dependabot alerts + code
+scanning read (fine-grained) to populate `security` on the status API. Without
+that scope GitHub returns `null`, same as CircleCI/GitLab. GitHub `security`
+and `pull_requests` are `{ count, url, items }`; CircleCI/GitLab stay `null`.
+Compact eink snapshots still flatten to `security_count` / `pr_count`.
+
 Only set the variables for providers present in your config. `monitor check-config` fails fast if any are missing.
 
 ### Optional
@@ -123,10 +114,9 @@ Only set the variables for providers present in your config. `monitor check-conf
 | `CIRCLE_CI_WEBHOOK_SECRET` | Shared secret for CircleCI webhook signature verification |
 | `MONITOR_LOG_DIR` | Default log directory when `log_dir` is not set in config |
 | `LOG_LEVEL` | Log level for `bin/serve` (default: `debug`) |
-| `CONF_FILE` | Config path for `bin/serve` (default: `monitor/integrations.yaml`) |
-| `UI_HOST` / `UI_PORT` | Bind address/port for the HTML client started by `bin/serve` (defaults: `127.0.0.1` / `8090`) |
-| `SERVE_CLIENT` | Set to `0` to skip the HTML client (`bin/serve` still starts the WebSocket UI when enabled) |
-| - | `bin/serve` also loads a gitignored `.env` from the repo root when present |
+| `CONF_FILE` | Config path for `bin/serve` (default: `monitor/api/monitor/integrations.yaml`) |
+| - | `bin/serve` loads a gitignored `.env` from the repo root when present, then `pnpm install` / `pnpm build:web` as needed |
+| `MONITOR_API_ORIGIN` | Origin the Pi GPIO follower (and optional local clients) use. Default `https://monitor.mzworthington.co.uk` |
 | `MONITOR_HOME` | Pi install directory (default: `/home/pi/gpio-build-monitor`) |
 | `MONITOR_VENV` | Virtualenv used on the Pi (default: `$MONITOR_HOME/.venv`) |
 | `MONITOR_SERVICE` | systemd unit name (default: `gpio-build-monitor`) |

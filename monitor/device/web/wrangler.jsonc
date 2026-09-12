@@ -1,0 +1,43 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "gpio-build-monitor",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-08",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": false
+    }
+  },
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "vars": {
+    "POSTHOG_HOST": "https://a.mzworthington.co.uk",
+    "PYTHON_API_ORIGIN": ""
+  },
+  "routes": [
+    {
+      "pattern": "monitor.mzworthington.co.uk/api*",
+      "zone_name": "mzworthington.co.uk"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "STATUS",
+        "class_name": "StatusHub"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["StatusHub"]
+    }
+  ]
+}

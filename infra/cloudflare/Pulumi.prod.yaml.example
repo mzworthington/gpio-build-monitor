@@ -2,8 +2,6 @@ config:
   # Fill via bin/setup-cloudflare-hosting.sh (writes gitignored Pulumi.<stack>.yaml).
   gpio-build-monitor:accountId: YOUR_CLOUDFLARE_ACCOUNT_ID
   gpio-build-monitor:zoneId: YOUR_CLOUDFLARE_ZONE_ID
-  # Worker name (also accepted as pagesProjectName for edge-dns bootstrap compatibility)
-  gpio-build-monitor:workerName: gpio-build-monitor
-  # Hosted status UI hostnames on an existing active zone:
-  gpio-build-monitor:workerHostnames:
+  gpio-build-monitor:pagesProjectName: gpio-build-monitor
+  gpio-build-monitor:pagesHostnames:
     - monitor.mzworthington.co.uk

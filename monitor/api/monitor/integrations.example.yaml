@@ -1,0 +1,22 @@
+poll_in_seconds: 60
+log_dir: logs
+outputs:
+  websocket:
+    enabled: true
+    host: "0.0.0.0"
+    port: 8080
+    cors_origins:
+      - "https://monitor.mzworthington.co.uk"
+webhooks:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8080
+integrations:
+  - type: GITHUB
+    username: your-github-org
+    repo: your-repo
+    branch: main
+  - type: CIRCLECI
+    username: your-circle-org
+    repo: your-repo
+    excluded_workflows: []

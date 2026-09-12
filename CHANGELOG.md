@@ -2,6 +2,122 @@
 
 <!-- version list -->
 
+## v0.25.1 (2026-09-12)
+
+### Bug Fixes
+
+- **web**: Keep dependabot finding rows from colliding
+  ([#40](https://github.com/mzworthington/gpio-build-monitor/pull/40),
+  [`5261a89`](https://github.com/mzworthington/gpio-build-monitor/commit/5261a89241a35ada5412aa9b1b5b1394af261b70))
+
+
+## v0.25.0 (2026-09-12)
+
+### Features
+
+- **web**: Surface pull requests and security findings
+  ([#38](https://github.com/mzworthington/gpio-build-monitor/pull/38),
+  [`29c0fd6`](https://github.com/mzworthington/gpio-build-monitor/commit/29c0fd69ada07a94b6f7f378dea86b2a95f704bb))
+
+
+## v0.24.0 (2026-09-12)
+
+### Features
+
+- **github**: Populate security and pull request items
+  ([#37](https://github.com/mzworthington/gpio-build-monitor/pull/37),
+  [`fb98f84`](https://github.com/mzworthington/gpio-build-monitor/commit/fb98f84314bc1920296d757ac2f7668538503c06))
+
+
+## v0.23.0 (2026-09-12)
+
+### Documentation
+
+- Update to reflect refactor
+  ([`43361e5`](https://github.com/mzworthington/gpio-build-monitor/commit/43361e5e328357854f2dd1957d2b81fd5b12941e))
+
+### Features
+
+- **github**: Expose dependabot and codeql finding counts
+  ([#36](https://github.com/mzworthington/gpio-build-monitor/pull/36),
+  [`07d1bb4`](https://github.com/mzworthington/gpio-build-monitor/commit/07d1bb455ebbd46633bb0b9062ea834e33bbdbfc))
+
+### Refactoring
+
+- **pi**: Follow hosted API for GPIO lights
+  ([`d47e255`](https://github.com/mzworthington/gpio-build-monitor/commit/d47e255368c8cde3b1c87c72a0dc2685d87a044c))
+
+- **pi**: Follow hosted API for GPIO lights
+  ([`0a5c198`](https://github.com/mzworthington/gpio-build-monitor/commit/0a5c198b90bc17b02048f748efc071d77d2364dd))
+
+- **pi**: Follow hosted API for GPIO lights
+  ([`bdc8b29`](https://github.com/mzworthington/gpio-build-monitor/commit/bdc8b29ea60877b5a6bc53eca53d8d24f8e83866))
+
+- **pi**: Follow hosted API for GPIO lights
+  ([`f4afb18`](https://github.com/mzworthington/gpio-build-monitor/commit/f4afb185fbdbea5d80d48c05f03e8c752dc976b5))
+
+
+## v0.22.2 (2026-09-12)
+
+### Bug Fixes
+
+- **web**: Serve Alpine /api on the status Worker
+  ([`75b9350`](https://github.com/mzworthington/gpio-build-monitor/commit/75b935032ce5f9d866bb738b3b66ce131bcef286))
+
+### Refactoring
+
+- Directory cleanup
+  ([`10664e1`](https://github.com/mzworthington/gpio-build-monitor/commit/10664e1c6757a2860fd10b97b0ada8ebc8e2a552))
+
+
+## v0.22.1 (2026-09-12)
+
+### Bug Fixes
+
+- **deps**: Patch sharp and js-yaml security advisories
+  ([#32](https://github.com/mzworthington/gpio-build-monitor/pull/32),
+  [`9e85c52`](https://github.com/mzworthington/gpio-build-monitor/commit/9e85c525c9c53adea12b0a41f8fcaf745b641aed))
+
+### Continuous Integration
+
+- Bump @vitest/mocker ([#28](https://github.com/mzworthington/gpio-build-monitor/pull/28),
+  [`db19e84`](https://github.com/mzworthington/gpio-build-monitor/commit/db19e84a5aedab97d5f17b59f384c2e522f14f01))
+
+
+## v0.22.0 (2026-09-11)
+
+### Bug Fixes
+
+- **ci**: Omit Dependabot version-update runs from board status
+  ([`b7572ac`](https://github.com/mzworthington/gpio-build-monitor/commit/b7572ac582364027ad1ab0995e68852bec998747))
+
+### Features
+
+- **github**: Implement GitHub polling delay and reset functionality
+  ([`6f623f4`](https://github.com/mzworthington/gpio-build-monitor/commit/6f623f4af718e63d2f7935c425f6363f446d7f23))
+
+
+## v0.21.1 (2026-09-11)
+
+### Bug Fixes
+
+- **monitor**: Apply GPIO pin map when the board starts (MZW-100)
+  ([`f9931cf`](https://github.com/mzworthington/gpio-build-monitor/commit/f9931cfb8fbaea9a4b7ed2039cc8be1c06daf0c2))
+
+
+## v0.21.0 (2026-09-11)
+
+### Features
+
+- **monitor**: Enhance Build Monitor with workflow support
+  ([`2e5aead`](https://github.com/mzworthington/gpio-build-monitor/commit/2e5aead733f06b4fd766065fbd74b8600b4d1840))
+
+### Refactoring
+
+- Styling improvements
+  ([`434dfe6`](https://github.com/mzworthington/gpio-build-monitor/commit/434dfe6c4188ef110b8812ec7506b9c783ffa304))
+
+
 ## v0.20.0 (2026-09-10)
 
 ### Features

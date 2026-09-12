@@ -4,48 +4,41 @@ Two deployments share this product:
 
 | Deployment | Where | Role |
 |------------|--------|------|
-| **Hosted** | Cloudflare Worker + custom domain | Public status UI + live WebSocket at `monitor.mzworthington.co.uk` |
-| **Headless** | Raspberry Pi | GPIO LEDs only (see [docs/pi-setup.md](../../docs/pi-setup.md)) - no tunnel required for the website |
+| **Hosted hub** | Cloudflare Worker custom domain | Alpine UI + StatusHub at `monitor.mzworthington.co.uk` |
+| **Pages (optional)** | Cloudflare Pages | Same static files on `*.pages.dev` only |
+| **Local hub** | Python (`monitor/api`) | `bin/serve` on a laptop (`:8080`) |
+| **Headless** | Raspberry Pi | GPIO follower of the hosted `/api` |
 
-This stack owns the **hosted** path only. Zone lifecycle stays in
-[edge-dns](https://github.com/mzworthington/edge-dns).
+This stack owns the **Worker custom domain**. Zone lifecycle stays in
+[edge-dns](https://github.com/mzworthington/edge-dns). Do not bind Pages to
+`monitor.mzworthington.co.uk`.
 
 | Resource | Purpose |
 |----------|---------|
-| `Worker` | Account Worker identity (script via Wrangler) |
-| `WorkersCustomDomain` | Hostname → Worker (Cloudflare creates DNS + cert) |
+| `Worker` + `WorkersCustomDomain` | Hostname → StatusHub Worker |
+| `PagesProject` | Direct-upload Pages project (`*.pages.dev`) |
 | `ObservatoryScheduledTest` | Synthetic Speed test per hostname |
 
-Script + static UI assets are **not** updated by Pulumi. They ship via
-`wrangler deploy` from [`worker/`](../../worker/) — locally or through the
-`deploy-worker` job in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
-on every push to `main`. That job injects the shared `mzworthington.co.uk` RUM
-beacon into `monitor/web/index.html` before deploy.
+The public UI ships with `wrangler deploy` from [`monitor/device/web/`](../../monitor/device/web/) (`pnpm deploy:api`, or the `deploy-api` job in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) on `main`). Put `MONITOR_CONFIG` and `GITHUB_TOKEN` on the Worker. Leave `PYTHON_API_ORIGIN` empty in production so StatusHub is the hub.
 
-Config accepts either `workerName` / `workerHostnames` or the Pages-shaped
-aliases (`pagesProjectName` / `pagesHostnames`) so the shared edge-dns bootstrap
-and CI action work without changes.
+Config accepts `workerName` / `workerHostnames` or the older
+`pagesProjectName` / `pagesHostnames` keys (same values).
 
 ## Quick setup
 
 ```bash
-# From repo root - see .env.example
+# From repo root
 bin/setup-cloudflare-hosting.sh
 
-# Custom domains require an existing Worker deployment first:
-cd worker && pnpm install && pnpm deploy
+cd monitor/device/web && pnpm install && pnpm deploy:api
 
-cd ../infra/cloudflare && pulumi up
+cd ../../../infra/cloudflare && pulumi up
 ```
-
-If you previously pointed the hostname at a Tunnel CNAME, destroy that DNS
-record (or `pulumi up` after this program removes it) **before** attaching the
-Worker custom domain, or Cloudflare will reject the domain attach.
 
 ## Related
 
 | Path | Purpose |
 |------|---------|
-| [`worker/`](../../worker/) | Hosted Worker (UI + CI poll + `/ws`) |
+| [`monitor/device/web/`](../../monitor/device/web/) | Alpine UI + Worker (StatusHub) |
+| [`monitor/api/`](../../monitor/api/) | Python hub for local `bin/serve` |
 | [`docs/pi-setup.md`](../../docs/pi-setup.md) | Headless Pi / GPIO |
-| [`.github/workflows/pulumi-cloudflare.yml`](../../.github/workflows/pulumi-cloudflare.yml) | Thin caller of edge-dns reusable workflow |

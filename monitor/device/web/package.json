@@ -1,0 +1,26 @@
+{
+  "name": "gpio-build-monitor",
+  "private": true,
+  "packageManager": "pnpm@11.20.0",
+  "type": "module",
+  "scripts": {
+    "deploy": "pnpm build:web && wrangler pages deploy ./public --project-name gpio-build-monitor",
+    "deploy:api": "pnpm build:web && wrangler deploy",
+    "dev": "esbuild src/web/start.ts --bundle --outfile=./public/monitor.js --format=iife --sourcemap --watch --servedir=./public",
+    "dev:worker": "wrangler dev",
+    "build:web": "esbuild src/web/start.ts --bundle --outfile=./public/monitor.js --format=iife",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260908.1",
+    "esbuild": "^0.28.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.0",
+    "wrangler": "4.130.0"
+  },
+  "dependencies": {
+    "@block65/webcrypto-web-push": "2.0.0",
+    "alpinejs": "^3.17.2"
+  }
+}

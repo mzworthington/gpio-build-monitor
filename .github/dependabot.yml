@@ -31,3 +31,41 @@ updates:
           - "*"
     commit-message:
       prefix: ci
+
+  - package-ecosystem: npm
+    directory: /monitor/device/web
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - javascript
+    groups:
+      web-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: npm
+
+  - package-ecosystem: npm
+    directory: /infra/cloudflare
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - javascript
+    groups:
+      pulumi-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: npm
