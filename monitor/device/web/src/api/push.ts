@@ -131,8 +131,8 @@ export function vapidFromEnv(env: {
 }): VapidKeys | null {
   const publicKey = env.VAPID_PUBLIC_KEY?.trim();
   const privateKey = env.VAPID_PRIVATE_KEY?.trim();
-  if (!publicKey || !privateKey) return null;
-  const subject = env.VAPID_SUBJECT?.trim() || 'mailto:monitor@mzworthington.co.uk';
+  const subject = env.VAPID_SUBJECT?.trim();
+  if (!publicKey || !privateKey || !subject) return null;
   return { subject, publicKey, privateKey };
 }
 
