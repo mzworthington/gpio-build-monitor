@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v0.22.1 (2026-09-12)
+
+### Bug Fixes
+
+- **deps**: Patch sharp and js-yaml security advisories
+  ([#32](https://github.com/mzworthington/gpio-build-monitor/pull/32),
+  [`9e85c52`](https://github.com/mzworthington/gpio-build-monitor/commit/9e85c525c9c53adea12b0a41f8fcaf745b641aed))
+
+### Continuous Integration
+
+- Bump @vitest/mocker ([#28](https://github.com/mzworthington/gpio-build-monitor/pull/28),
+  [`db19e84`](https://github.com/mzworthington/gpio-build-monitor/commit/db19e84a5aedab97d5f17b59f384c2e522f14f01))
+
+
 ## v0.22.0 (2026-09-11)
 
 ### Bug Fixes
