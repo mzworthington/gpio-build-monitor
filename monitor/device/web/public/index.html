@@ -175,7 +175,7 @@
             <details
               class="repo-row"
               :class="repoRowClass(entry)"
-              :open="expanded[entry.repo]"
+              :open="repoIsOpen(entry.repo)"
               @toggle="rememberRepo(entry.repo, $el.open)"
             >
               <summary class="repo-summary">

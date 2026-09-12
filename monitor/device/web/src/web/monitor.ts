@@ -37,6 +37,7 @@ export type MonitorPage = {
   applySnapshot: (snapshot: MonitorSnapshot) => MonitorPage;
   setConnection: (state: string, label: string) => MonitorPage;
   rememberRepo: (repo: string, open: boolean) => void;
+  repoIsOpen: (repo: string) => boolean;
   repoOrg: (repo: string) => string;
   repoName: (repo: string) => string;
   workflowMeta: (entry: RepoSummary) => string;
@@ -106,6 +107,9 @@ export function registerMonitor(alpine: AlpineHost): void {
     },
     rememberRepo(this: MonitorPage, repo: string, open: boolean) {
       this.expanded = { ...this.expanded, [repo]: open };
+    },
+    repoIsOpen(this: MonitorPage, repo: string) {
+      return this.expanded[repo] === true;
     },
     repoOrg(repo: string) {
       return splitRepo(repo).org;
