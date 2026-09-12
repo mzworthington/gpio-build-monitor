@@ -715,9 +715,16 @@ body[data-status="APPROVAL"] .status-dial-core {
   outline-offset: 2px;
 }
 
-.repo-prs {
+.repo-glances {
   grid-area: prs;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.45rem;
   justify-self: start;
+}
+
+.repo-prs,
+.repo-security {
   font-family: var(--mono);
   font-size: 0.68rem;
   font-weight: 700;
@@ -728,11 +735,13 @@ body[data-status="APPROVAL"] .status-dial-core {
   padding: 0.1rem 0.35rem;
 }
 
-.repo-prs:hover {
+.repo-prs:hover,
+.repo-security:hover {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
-.repo-prs:focus-visible {
+.repo-prs:focus-visible,
+.repo-security:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--ring) 70%, white);
   outline-offset: 2px;
 }

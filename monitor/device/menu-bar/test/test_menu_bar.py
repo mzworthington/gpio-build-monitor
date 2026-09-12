@@ -157,6 +157,51 @@ def test_plugin_output_shows_open_prs_only_when_positive():
     assert "-- 0 open" not in text
 
 
+def test_plugin_output_shows_security_findings_only_when_positive():
+    text = plugin_output(
+        {
+            "status": "PASS",
+            "is_running": False,
+            "fetching": False,
+            "builds": [
+                {
+                    "repo": "acme/web",
+                    "workflow": "CI",
+                    "status": "PASS",
+                    "url": "https://github.com/acme/web/actions/1",
+                    "security": {
+                        "count": 3,
+                        "url": "https://github.com/acme/web/security",
+                        "vulnerabilities": {
+                            "count": 2,
+                            "url": "https://github.com/acme/web/security/dependabot",
+                            "items": [],
+                        },
+                        "codeql": {
+                            "count": 1,
+                            "url": "https://github.com/acme/web/security/code-scanning",
+                            "items": [],
+                        },
+                    },
+                },
+                {
+                    "repo": "acme/ops",
+                    "workflow": "CI",
+                    "status": "PASS",
+                    "url": "https://github.com/acme/ops/actions/1",
+                    "security": None,
+                },
+            ],
+        },
+    )
+    assert any(
+        "-- 3 security findings" in line
+        and "href=https://github.com/acme/web/security" in line
+        for line in text.splitlines()
+    )
+    assert "-- 0 security" not in text
+
+
 def test_plugin_output_empty_builds():
     text = plugin_output(
         {"status": "NONE", "is_running": False, "fetching": False, "builds": []},

@@ -8,7 +8,7 @@ import pytest
 from aioresponses import aioresponses
 from monitor.ci_gateway.constants import CiResult as Result
 from monitor.ci_gateway.constants import IntegrationType
-from monitor.ci_gateway.github import APIError, GitHubAction
+from monitor.ci_gateway.github import APIError, GitHubAction, github_security_payload, link_rel_next
 
 os.environ['GITHUB_TOKEN'] = 'secret'
 
@@ -20,6 +20,12 @@ _WORKFLOWS_URL = re.compile(
 )
 _PULLS_URL = re.compile(
     r'https://api\.github\.com/repos/super-man/awesome/pulls(\?.*)?'
+)
+_DEPENDABOT_URL = re.compile(
+    r'https://api\.github\.com/repos/super-man/awesome/dependabot/alerts(\?.*)?'
+)
+_CODEQL_URL = re.compile(
+    r'https://api\.github\.com/repos/super-man/awesome/code-scanning/alerts(\?.*)?'
 )
 
 
@@ -480,6 +486,95 @@ class TestGithub:
                 count, url = await action.open_pull_requests(session)
         assert count is None
         assert url is None
+
+    @pytest.mark.asyncio
+    async def test_security_findings_counts_dependabot_and_codeql(self):
+        import aiohttp
+        with aioresponses() as m:
+            m.get(
+                _DEPENDABOT_URL,
+                payload=[{'number': 1}, {'number': 2}],
+                status=200,
+            )
+            m.get(
+                _CODEQL_URL,
+                payload=[{'number': 9}],
+                status=200,
+            )
+            action = GitHubAction(username='super-man', repo='awesome')
+            async with aiohttp.ClientSession() as session:
+                findings = await action.security_findings(session)
+        assert findings == github_security_payload(
+            'super-man',
+            'awesome',
+            vulnerabilities=2,
+            codeql=1,
+        )
+        assert findings['count'] == 3
+        assert findings['vulnerabilities']['items'] == []
+        assert findings['codeql']['items'] == []
+
+    @pytest.mark.asyncio
+    async def test_security_findings_treats_missing_codeql_as_zero(self):
+        import aiohttp
+        with aioresponses() as m:
+            m.get(_DEPENDABOT_URL, payload=[{'number': 4}], status=200)
+            m.get(_CODEQL_URL, payload={'message': 'no analysis found'}, status=404)
+            action = GitHubAction(username='super-man', repo='awesome')
+            async with aiohttp.ClientSession() as session:
+                findings = await action.security_findings(session)
+        assert findings['count'] == 1
+        assert findings['vulnerabilities']['count'] == 1
+        assert findings['codeql']['count'] == 0
+
+    @pytest.mark.asyncio
+    async def test_security_findings_absent_when_both_forbidden(self):
+        import aiohttp
+        with aioresponses() as m:
+            m.get(_DEPENDABOT_URL, payload={'message': 'Forbidden'}, status=403)
+            m.get(_CODEQL_URL, payload={'message': 'Forbidden'}, status=403)
+            action = GitHubAction(username='super-man', repo='awesome')
+            async with aiohttp.ClientSession() as session:
+                findings = await action.security_findings(session)
+        assert findings is None
+
+    @pytest.mark.asyncio
+    async def test_security_findings_follows_next_link(self):
+        import aiohttp
+        next_url = (
+            'https://api.github.com/repos/super-man/awesome/dependabot/alerts'
+            '?state=open&per_page=100&page=2'
+        )
+        with aioresponses() as m:
+            m.get(
+                _DEPENDABOT_URL,
+                payload=[{'number': 1}],
+                status=200,
+                headers={'Link': f'<{next_url}>; rel="next"'},
+            )
+            m.get(next_url, payload=[{'number': 2}, {'number': 3}], status=200)
+            m.get(_CODEQL_URL, payload=[], status=200)
+            action = GitHubAction(username='super-man', repo='awesome')
+            async with aiohttp.ClientSession() as session:
+                findings = await action.security_findings(session)
+        assert findings['vulnerabilities']['count'] == 3
+        assert findings['count'] == 3
+
+    @pytest.mark.asyncio
+    async def test_security_findings_absent_without_token(self, monkeypatch):
+        monkeypatch.delenv('GITHUB_TOKEN', raising=False)
+        import aiohttp
+        action = GitHubAction(username='super-man', repo='awesome', token=None)
+        async with aiohttp.ClientSession() as session:
+            assert await action.security_findings(session) is None
+
+    def test_link_rel_next_reads_github_header(self):
+        header = (
+            '<https://api.github.com/repos/a/b/dependabot/alerts?page=2>; rel="next", '
+            '<https://api.github.com/repos/a/b/dependabot/alerts?page=4>; rel="last"'
+        )
+        assert link_rel_next(header).endswith('page=2')
+        assert link_rel_next(None) is None
 
     def test_github_action_init_has_no_kwargs_bag(self):
         import inspect

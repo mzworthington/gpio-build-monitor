@@ -12,7 +12,7 @@ Local `bin/serve` can listen on the Python webhook port as well
 
 | Provider | URL | Events |
 |----------|-----|--------|
-| GitHub | `https://monitor.mzworthington.co.uk/webhooks/github` | `workflow_run`, `pull_request` (`ping` ACK only) |
+| GitHub | `https://monitor.mzworthington.co.uk/webhooks/github` | `workflow_run`, `pull_request`, `dependabot_alert`, `code_scanning_alert` (`ping` ACK only) |
 | CircleCI | `https://monitor.mzworthington.co.uk/webhooks/circleci` | `workflow-completed`, `job-completed` |
 | Health | `https://monitor.mzworthington.co.uk/health` | - |
 | Snapshot | `https://monitor.mzworthington.co.uk/status` | also `/api/status` |
@@ -55,12 +55,14 @@ For each repo (or once on the org):
 2. Payload URL: `https://monitor.mzworthington.co.uk/webhooks/github`
 3. Content type: `application/json`
 4. Secret: optional, only if you set `GITHUB_WEBHOOK_SECRET` on the Worker
-5. Events: **Let me select…** → enable **Workflow runs** and **Pull requests**
+5. Events: **Let me select…** → enable **Workflow runs**, **Pull requests**, **Dependabot alerts**, and **Code scanning alerts**
 6. Active: checked → Add webhook
 
-GitHub sends a `ping`; the Worker returns ACK. A `workflow_run` or `pull_request`
-triggers refresh. Pull-request deliveries do not change CI lights; they refresh
-the open-PR count on the snapshot.
+GitHub sends a `ping`; the Worker returns ACK. A `workflow_run`, `pull_request`,
+`dependabot_alert`, or `code_scanning_alert` triggers refresh. Pull-request
+deliveries do not change CI lights; they refresh the open-PR count on the
+snapshot. Security-alert deliveries refresh Dependabot and CodeQL finding
+counts (GitHub only; CircleCI/GitLab stay `null`).
 
 ## 3. Register CircleCI (optional)
 
@@ -85,6 +87,6 @@ curl -sS https://monitor.mzworthington.co.uk/status | head
 # {"type":"status","fetching":false,"status":"...
 ```
 
-In GitHub → webhook → Recent Deliveries, `ping` / `workflow_run` / `pull_request` should be `200`.
+In GitHub → webhook → Recent Deliveries, `ping` / `workflow_run` / `pull_request` / `dependabot_alert` / `code_scanning_alert` should be `200`.
 On the site, status should update shortly after a workflow finishes (without
 waiting for the full poll interval).

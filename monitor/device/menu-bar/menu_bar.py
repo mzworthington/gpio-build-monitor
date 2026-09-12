@@ -243,6 +243,27 @@ def plugin_output(
                         href=pr_url,
                     )
                 )
+            security = next(
+                (build.get("security") for build in workflows if build.get("security") is not None),
+                None,
+            )
+            if isinstance(security, dict):
+                try:
+                    finding_count = int(security.get("count") or 0)
+                except (TypeError, ValueError):
+                    finding_count = 0
+                if finding_count > 0:
+                    security_url = str(security.get("url") or "")
+                    if not security_url and "/" in repo:
+                        security_url = f"https://github.com/{repo}/security"
+                    noun = "security finding" if finding_count == 1 else "security findings"
+                    lines.append(
+                        _line(
+                            f"-- {finding_count} {noun}",
+                            sfimage="shield",
+                            href=security_url,
+                        )
+                    )
             if "/" in repo:
                 lines.append(_line("-- Open on GitHub", href=f"https://github.com/{repo}"))
         lines.append("---")

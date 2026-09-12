@@ -9,6 +9,31 @@ from aiohttp import ClientSession
 OpenPullRequests = tuple[int | None, str | None]
 
 
+class SecurityFinding(TypedDict):
+    """One alert. Counts ship first; ``items`` is reserved for later detail."""
+
+    number: int
+    title: str
+    severity: str | None
+    url: str
+    state: str
+
+
+class SecuritySource(TypedDict):
+    count: int
+    url: str
+    items: list[SecurityFinding]
+
+
+class SecurityFindings(TypedDict):
+    """Open GitHub security alerts. Non-GitHub providers return None."""
+
+    count: int
+    url: str
+    vulnerabilities: SecuritySource
+    codeql: SecuritySource
+
+
 
 class CiResult(Enum):
     PASS = "PASS"
@@ -59,6 +84,10 @@ class IntegrationAdapter(ABC):
 
     async def open_pull_requests(self, session: ClientSession) -> OpenPullRequests:
         return None, None
+
+    async def security_findings(self, session: ClientSession) -> SecurityFindings | None:
+        """Dependabot + CodeQL counts. GitHub only; GitLab/CircleCI stay None."""
+        return None
 
 
 class APIError(Exception):

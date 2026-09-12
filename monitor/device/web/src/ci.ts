@@ -20,6 +20,27 @@ export type AggregateStatus =
 
 const IN_PROGRESS = new Set<string>(['RUNNING', 'WAITING']);
 
+export interface SecurityFinding {
+  number: number;
+  title: string;
+  severity: string | null;
+  url: string;
+  state: string;
+}
+
+export interface SecuritySource {
+  count: number;
+  url: string;
+  items: SecurityFinding[];
+}
+
+export interface SecurityFindings {
+  count: number;
+  url: string;
+  vulnerabilities: SecuritySource;
+  codeql: SecuritySource;
+}
+
 export interface BuildDetail {
   repo: string;
   workflow: string;
@@ -27,6 +48,7 @@ export interface BuildDetail {
   url: string;
   pr_count?: number | null;
   pr_url?: string | null;
+  security?: SecurityFindings | null;
 }
 
 export interface StatusPayload {
@@ -335,9 +357,10 @@ async function fetchGithub(
     url.searchParams.set('branch', branch);
   }
 
-  const [resp, pullGlance] = await Promise.all([
+  const [resp, pullGlance, security] = await Promise.all([
     githubGet(url, token),
     fetchGithubOpenPulls(repo, token),
+    fetchGithubSecurity(repo, token),
   ]);
   if (!resp.ok) {
     return [
@@ -346,6 +369,9 @@ async function fetchGithub(
         workflow: `(github ${resp.status})`,
         status: 'CONNECTION_ERROR',
         url: `https://github.com/${repo}`,
+        pr_count: pullGlance.count,
+        pr_url: pullGlance.url,
+        security,
       },
     ];
   }
@@ -397,6 +423,7 @@ async function fetchGithub(
     url: run.html_url,
     pr_count: pullGlance.count,
     pr_url: pullGlance.url,
+    security,
   }));
 }
 
@@ -419,6 +446,81 @@ async function fetchGithubOpenPulls(
     return { count: payload.length, url: `https://github.com/${repo}/pulls` };
   } catch {
     return { count: null, url: null };
+  }
+}
+
+export function githubSecurityFindings(
+  repo: string,
+  vulnerabilities: number,
+  codeql: number,
+): SecurityFindings {
+  const url = `https://github.com/${repo}/security`;
+  return {
+    count: vulnerabilities + codeql,
+    url,
+    vulnerabilities: { count: vulnerabilities, url: `${url}/dependabot`, items: [] },
+    codeql: { count: codeql, url: `${url}/code-scanning`, items: [] },
+  };
+}
+
+function linkRelNext(linkHeader: string | null): string | null {
+  if (!linkHeader) return null;
+  const match = /<([^>]+)>\s*;\s*rel="next"/i.exec(linkHeader);
+  return match?.[1] ?? null;
+}
+
+async function countOpenGithubAlerts(
+  startUrl: string,
+  token: string,
+  extra: Record<string, string> = {},
+): Promise<number | null> {
+  const first = new URL(startUrl);
+  first.searchParams.set('state', 'open');
+  first.searchParams.set('per_page', '100');
+  for (const [key, value] of Object.entries(extra)) {
+    first.searchParams.set(key, value);
+  }
+
+  let nextUrl: string | null = first.toString();
+  let total = 0;
+  let pages = 0;
+  while (nextUrl && pages < 10) {
+    const resp = await fetch(nextUrl, { headers: githubHeaders(token) });
+    if (resp.status === 404) {
+      return pages === 0 ? 0 : total;
+    }
+    if (!resp.ok) {
+      return pages === 0 ? null : total;
+    }
+    const payload = (await resp.json()) as unknown;
+    if (!Array.isArray(payload)) {
+      return pages === 0 ? null : total;
+    }
+    total += payload.length;
+    nextUrl = linkRelNext(resp.headers.get('Link'));
+    pages += 1;
+  }
+  return total;
+}
+
+async function fetchGithubSecurity(
+  repo: string,
+  token: string,
+): Promise<SecurityFindings | null> {
+  const base = `https://api.github.com/repos/${repo}`;
+  try {
+    const [vulnerabilities, codeql] = await Promise.all([
+      countOpenGithubAlerts(`${base}/dependabot/alerts`, token),
+      countOpenGithubAlerts(`${base}/code-scanning/alerts`, token, {
+        tool_name: 'CodeQL',
+      }),
+    ]);
+    if (vulnerabilities == null && codeql == null) {
+      return null;
+    }
+    return githubSecurityFindings(repo, vulnerabilities ?? 0, codeql ?? 0);
+  } catch {
+    return null;
   }
 }
 
@@ -505,6 +607,7 @@ async function fetchCircle(
       workflow: workflow.name,
       status: mapCircleStatus(workflow.status),
       url: vcsUrl,
+      security: null,
     }));
 }
 

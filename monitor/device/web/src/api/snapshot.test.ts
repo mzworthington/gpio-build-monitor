@@ -88,6 +88,64 @@ describe('snapshotEtag', () => {
     });
     expect(zero).not.toBe(four);
   });
+
+  it('changes when only security count changes', () => {
+    const zero = snapshotEtag({
+      ...failPayload,
+      status: 'PASS',
+      is_running: false,
+      builds: [
+        {
+          repo: 'acme/web',
+          workflow: 'CI',
+          status: 'PASS',
+          url: 'https://example.com/1',
+          security: {
+            count: 0,
+            url: 'https://github.com/acme/web/security',
+            vulnerabilities: {
+              count: 0,
+              url: 'https://github.com/acme/web/security/dependabot',
+              items: [],
+            },
+            codeql: {
+              count: 0,
+              url: 'https://github.com/acme/web/security/code-scanning',
+              items: [],
+            },
+          },
+        },
+      ],
+    });
+    const two = snapshotEtag({
+      ...failPayload,
+      status: 'PASS',
+      is_running: false,
+      builds: [
+        {
+          repo: 'acme/web',
+          workflow: 'CI',
+          status: 'PASS',
+          url: 'https://example.com/1',
+          security: {
+            count: 2,
+            url: 'https://github.com/acme/web/security',
+            vulnerabilities: {
+              count: 2,
+              url: 'https://github.com/acme/web/security/dependabot',
+              items: [],
+            },
+            codeql: {
+              count: 0,
+              url: 'https://github.com/acme/web/security/code-scanning',
+              items: [],
+            },
+          },
+        },
+      ],
+    });
+    expect(zero).not.toBe(two);
+  });
 });
 
 describe('einkPayload', () => {
@@ -99,6 +157,7 @@ describe('einkPayload', () => {
         status: 'RUNNING',
         workflow_count: 1,
         pr_count: 0,
+        security_count: 0,
         is_running: true,
       },
       {
@@ -106,6 +165,7 @@ describe('einkPayload', () => {
         status: 'FAIL',
         workflow_count: 2,
         pr_count: 0,
+        security_count: 0,
         is_running: false,
       },
     ]);
@@ -168,6 +228,7 @@ describe('einkPayload', () => {
         status: 'PASS',
         workflow_count: 1,
         pr_count: 4,
+        security_count: 0,
         is_running: false,
       },
     ]);

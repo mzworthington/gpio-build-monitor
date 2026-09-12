@@ -1,4 +1,4 @@
-import type { BuildDetail } from '../ci';
+import type { BuildDetail, SecurityFindings } from '../ci';
 import { shownStatus } from './shownStatus';
 
 const IN_PROGRESS = new Set(['RUNNING', 'WAITING']);
@@ -13,6 +13,7 @@ export type RepoSummary = {
   url: string;
   pr_count: number | null;
   pr_url: string;
+  security: SecurityFindings | null;
   workflows: BuildDetail[];
 };
 
@@ -77,6 +78,7 @@ export function summarizeRepos(builds: BuildDetail[] | undefined): RepoSummary[]
         pr_url:
           repoBuilds.find((build) => build.pr_url)?.pr_url ||
           (repo.includes('/') ? `https://github.com/${repo}/pulls` : ''),
+        security: repoBuilds.find((build) => build.security != null)?.security ?? null,
         workflows,
       };
     })

@@ -5,6 +5,8 @@ describe('decideGitHub', () => {
   it('refreshes on pull_request as well as workflow_run', () => {
     expect(decideGitHub('workflow_run')).toBe('refresh');
     expect(decideGitHub('pull_request')).toBe('refresh');
+    expect(decideGitHub('dependabot_alert')).toBe('refresh');
+    expect(decideGitHub('code_scanning_alert')).toBe('refresh');
     expect(decideGitHub('ping')).toBe('ack');
     expect(decideGitHub('issues')).toBe('ignore');
   });
