@@ -217,7 +217,7 @@ export function securityChipClass(security: SecurityFindings | null | undefined)
   if (worst === 'critical' || worst === 'high' || items.length === 0) {
     return 'chip chip-find-hot';
   }
-  if (worst === 'medium') {
+  if (worst === 'medium' || worst === 'open' || worst == null) {
     return 'chip chip-find-warm';
   }
   return 'chip chip-find-ok';
@@ -256,6 +256,22 @@ export function collectOpenPulls(repos: RepoSummary[]): OpenPullGlance[] {
     }
     return b.number - a.number;
   });
+}
+
+export function openPullKey(pull: { repo: string; number: number }): string {
+  return `open-pr:${pull.repo}:${pull.number}`;
+}
+
+export function openFindingKey(finding: {
+  repo: string;
+  source: string;
+  number: number;
+}): string {
+  return `open-sec:${finding.repo}:${finding.source}:${finding.number}`;
+}
+
+export function repoFindingKey(finding: { source: string; number: number }): string {
+  return `sec:${finding.source}:${finding.number}`;
 }
 
 export function collectOpenFindings(repos: RepoSummary[]): OpenFindingGlance[] {
