@@ -48,6 +48,15 @@ def test_typed_bundle_starts_failure_push_controls():
     assert "startPushControls" in script
 
 
+def test_status_page_keeps_notify_button_disabled_until_push_is_ready():
+    html = (WEB_PUBLIC / "index.html").read_text(encoding="utf-8")
+    css = (WEB_PUBLIC / "styles.css").read_text(encoding="utf-8")
+    assert 'id="push-toggle"' in html
+    assert "disabled" in html.split('id="push-toggle"', 1)[1].split(">", 1)[0]
+    assert ".push-controls[hidden]" in css
+    assert "[hidden]" in css
+
+
 def test_typed_bundle_boots_posthog():
     script = (WEB / "src" / "web" / "start.ts").read_text(encoding="utf-8")
     assert "bootPosthog" in script

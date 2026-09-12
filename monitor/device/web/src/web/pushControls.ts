@@ -3,7 +3,7 @@ export type PushElement = {
   textContent: string | null;
   disabled?: boolean;
   dataset: Record<string, string | undefined>;
-  addEventListener: (type: string, listener: () => void) => void;
+    addEventListener: (type: string, listener: () => void | Promise<void>) => void;
 };
 
 type PushJson = {
@@ -68,11 +68,11 @@ function browserPushHost(): PushHost {
   };
 }
 
-export function startPushControls(host: PushHost = browserPushHost()): void {
+export function startPushControls(host: PushHost = browserPushHost()): Promise<void> {
   const rootEl = host.getElementById('push-controls');
   const buttonEl = host.getElementById('push-toggle');
   const hint = host.getElementById('push-hint');
-  if (!rootEl || !buttonEl) return;
+  if (!rootEl || !buttonEl) return Promise.resolve();
   const root = rootEl;
   const button = buttonEl;
 
@@ -89,6 +89,13 @@ export function startPushControls(host: PushHost = browserPushHost()): void {
     if (button.disabled !== undefined) button.disabled = !enabled;
   }
 
+  function markUnavailable(detail = 'Push is not configured on the server yet.'): void {
+    setButton('Alerts unavailable', false);
+    setHint(detail);
+    button.dataset.state = 'off';
+    root.hidden = true;
+  }
+
   async function fetchPublicKey(): Promise<string | null> {
     const res = await host.fetch('/api/push/vapid-public-key');
     if (!res.ok) throw new Error('vapid key unavailable');
@@ -100,7 +107,8 @@ export function startPushControls(host: PushHost = browserPushHost()): void {
     ) {
       return null;
     }
-    return (data as { publicKey: string }).publicKey;
+    const key = (data as { publicKey: string }).publicKey.trim();
+    return key || null;
   }
 
   async function refreshUi(reg: PushRegistration): Promise<void> {
@@ -121,8 +129,14 @@ export function startPushControls(host: PushHost = browserPushHost()): void {
     button.dataset.state = 'off';
   }
 
-  async function enable(reg: PushRegistration): Promise<void> {
-    const permission = (await host.requestNotificationPermission?.()) ?? 'denied';
+  async function enable(
+    reg: PushRegistration,
+    permissionRequest?: Promise<NotificationPermissionState>,
+  ): Promise<void> {
+    const permission =
+      (await permissionRequest) ??
+      (await host.requestNotificationPermission?.()) ??
+      'denied';
     host.notificationPermission = permission;
     if (permission !== 'granted') {
       setHint('Permission not granted.');
@@ -131,8 +145,7 @@ export function startPushControls(host: PushHost = browserPushHost()): void {
     }
     const publicKey = await fetchPublicKey();
     if (!publicKey) {
-      setButton('Alerts unavailable', false);
-      setHint('Push is not configured on the server yet.');
+      markUnavailable();
       return;
     }
     const sub = await reg.pushManager.subscribe({
@@ -169,7 +182,7 @@ export function startPushControls(host: PushHost = browserPushHost()): void {
 
   async function init(): Promise<void> {
     if (!supported || !host.serviceWorker) {
-      root.hidden = true;
+      markUnavailable('Chrome desktop or Android is required for failure alerts.');
       return;
     }
 
@@ -177,11 +190,11 @@ export function startPushControls(host: PushHost = browserPushHost()): void {
     try {
       publicKey = await fetchPublicKey();
     } catch {
-      root.hidden = true;
+      markUnavailable();
       return;
     }
     if (!publicKey) {
-      root.hidden = true;
+      markUnavailable();
       return;
     }
 
@@ -191,13 +204,18 @@ export function startPushControls(host: PushHost = browserPushHost()): void {
     await refreshUi(reg);
 
     button.addEventListener('click', () => {
-      void (async () => {
-        if (button.disabled !== undefined) button.disabled = true;
+      if (button.disabled !== undefined) button.disabled = true;
+      // Start the permission prompt in the click turn so the browser keeps
+      // the user-gesture token. Awaiting first would skip the prompt and
+      // leave the button on "Notify on failure".
+      const permissionRequest =
+        button.dataset.state === 'on' ? undefined : host.requestNotificationPermission?.();
+      return (async () => {
         try {
           if (button.dataset.state === 'on') {
             await disable(reg);
           } else {
-            await enable(reg);
+            await enable(reg, permissionRequest);
           }
         } catch {
           setHint('Could not update notification subscription.');
@@ -207,7 +225,7 @@ export function startPushControls(host: PushHost = browserPushHost()): void {
     });
   }
 
-  void init().catch(() => {
-    root.hidden = true;
+  return init().catch(() => {
+    markUnavailable();
   });
 }

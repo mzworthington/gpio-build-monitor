@@ -23,6 +23,7 @@
   box-sizing: border-box;
 }
 
+[hidden],
 [x-cloak] {
   display: none !important;
 }
@@ -218,6 +219,10 @@ h1 {
   gap: 0.35rem;
   justify-items: center;
   margin-top: 0.15rem;
+}
+
+.push-controls[hidden] {
+  display: none !important;
 }
 
 .push-toggle {
