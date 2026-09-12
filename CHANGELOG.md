@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v0.24.0 (2026-09-12)
+
+### Features
+
+- **github**: Populate security and pull request items
+  ([#37](https://github.com/mzworthington/gpio-build-monitor/pull/37),
+  [`fb98f84`](https://github.com/mzworthington/gpio-build-monitor/commit/fb98f84314bc1920296d757ac2f7668538503c06))
+
+
 ## v0.23.0 (2026-09-12)
 
 ### Documentation
