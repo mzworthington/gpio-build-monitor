@@ -7,8 +7,23 @@
 namespace eink {
 namespace {
 
+void copy_cstr(char* dest, std::size_t cap, const char* src) {
+  if (dest == nullptr || cap == 0) {
+    return;
+  }
+  if (src == nullptr) {
+    dest[0] = '\0';
+    return;
+  }
+  std::size_t i = 0;
+  for (; i + 1 < cap && src[i] != '\0'; ++i) {
+    dest[i] = src[i];
+  }
+  dest[i] = '\0';
+}
+
 void set_default_snapshot(Snapshot* out) {
-  std::strcpy(out->status, "UNKNOWN");
+  copy_cstr(out->status, sizeof(out->status), "UNKNOWN");
   out->is_running = false;
   out->sleep_seconds = 0;
   out->has_sleep_seconds = false;
@@ -206,9 +221,9 @@ bool parse_build_object(const char** pp, BuildRow* row) {
   }
   ++p;
   *pp = p;
-  std::strcpy(row->status, "?");
-  std::strcpy(row->workflow, "?");
-  std::strcpy(row->repo, "?");
+  copy_cstr(row->status, sizeof(row->status), "?");
+  copy_cstr(row->workflow, sizeof(row->workflow), "?");
+  copy_cstr(row->repo, sizeof(row->repo), "?");
   p = skip_ws(*pp);
   if (*p == '}') {
     *pp = p + 1;
@@ -297,7 +312,7 @@ bool parse_open_pr_object(const char** pp, OpenPrRow* row) {
   }
   ++p;
   *pp = p;
-  std::strcpy(row->repo, "?");
+  copy_cstr(row->repo, sizeof(row->repo), "?");
   row->pr_count = 0;
   p = skip_ws(*pp);
   if (*p == '}') {
@@ -394,8 +409,10 @@ bool parse_repo_workflows(const char** pp, RepoRow* row) {
       if (!parse_build_object(pp, &parsed)) {
         return false;
       }
-      std::strcpy(row->workflows[row->workflow_n].status, parsed.status);
-      std::strcpy(row->workflows[row->workflow_n].workflow, parsed.workflow);
+      copy_cstr(row->workflows[row->workflow_n].status,
+                sizeof(row->workflows[row->workflow_n].status), parsed.status);
+      copy_cstr(row->workflows[row->workflow_n].workflow,
+                sizeof(row->workflows[row->workflow_n].workflow), parsed.workflow);
       ++row->workflow_n;
     } else if (!skip_value(pp)) {
       return false;
@@ -422,8 +439,8 @@ bool parse_repo_object(const char** pp, RepoRow* row) {
   }
   ++p;
   *pp = p;
-  std::strcpy(row->repo, "?");
-  std::strcpy(row->status, "?");
+  copy_cstr(row->repo, sizeof(row->repo), "?");
+  copy_cstr(row->status, sizeof(row->status), "?");
   row->workflow_count = 0;
   row->pr_count = 0;
   row->is_running = false;

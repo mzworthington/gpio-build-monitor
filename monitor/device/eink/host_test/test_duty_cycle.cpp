@@ -1,6 +1,7 @@
 #include "duty_cycle.hpp"
 #include "status_view.hpp"
 
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 
@@ -43,6 +44,13 @@ void check(bool cond, const char* expr, const char* file, int line) {
     } \
   } while (0)
 
+void set_cstr(char* dest, std::size_t cap, const char* src) {
+  if (dest == nullptr || cap == 0) {
+    return;
+  }
+  std::snprintf(dest, cap, "%s", src);
+}
+
 void test_parse_snapshot_repos_include_zero_pr_counts() {
   const char* json =
       "{"
@@ -64,16 +72,16 @@ void test_parse_snapshot_repos_include_zero_pr_counts() {
 
 void test_monitor_lines_list_every_repo_with_action_and_pr_counts() {
   eink::Snapshot snap = {};
-  std::strcpy(snap.status, "FAIL");
+  set_cstr(snap.status, sizeof(snap.status), "FAIL");
   snap.has_sleep_seconds = true;
   snap.sleep_seconds = 180;
   snap.repo_count = 2;
-  std::strcpy(snap.repos[0].repo, "acme/api");
-  std::strcpy(snap.repos[0].status, "PASS");
+  set_cstr(snap.repos[0].repo, sizeof(snap.repos[0].repo), "acme/api");
+  set_cstr(snap.repos[0].status, sizeof(snap.repos[0].status), "PASS");
   snap.repos[0].workflow_count = 1;
   snap.repos[0].pr_count = 2;
-  std::strcpy(snap.repos[1].repo, "acme/web");
-  std::strcpy(snap.repos[1].status, "FAIL");
+  set_cstr(snap.repos[1].repo, sizeof(snap.repos[1].repo), "acme/web");
+  set_cstr(snap.repos[1].status, sizeof(snap.repos[1].status), "FAIL");
   snap.repos[1].workflow_count = 2;
   snap.repos[1].pr_count = 0;
 
@@ -122,15 +130,15 @@ void test_parse_snapshot_list_omits_workflows() {
 void test_merge_repo_workflows_from_detail_snapshot() {
   eink::Snapshot list = {};
   list.repo_count = 1;
-  std::strcpy(list.repos[0].repo, "acme/web");
+  set_cstr(list.repos[0].repo, sizeof(list.repos[0].repo), "acme/web");
   list.repos[0].workflow_count = 24;
   eink::Snapshot detail = {};
   detail.repo_count = 1;
-  std::strcpy(detail.repos[0].repo, "acme/web");
+  set_cstr(detail.repos[0].repo, sizeof(detail.repos[0].repo), "acme/web");
   detail.repos[0].workflow_count = 24;
   detail.repos[0].workflow_n = 2;
-  std::strcpy(detail.repos[0].workflows[0].workflow, "CI");
-  std::strcpy(detail.repos[0].workflows[0].status, "FAIL");
+  set_cstr(detail.repos[0].workflows[0].workflow, sizeof(detail.repos[0].workflows[0].workflow), "CI");
+  set_cstr(detail.repos[0].workflows[0].status, sizeof(detail.repos[0].workflows[0].status), "FAIL");
   CHECK(eink::merge_repo_workflows(detail, &list.repos[0]));
   CHECK_EQ(list.repos[0].workflow_n, 2);
   CHECK_STREQ(list.repos[0].workflows[0].workflow, "CI");
@@ -139,15 +147,15 @@ void test_merge_repo_workflows_from_detail_snapshot() {
 void test_monitor_lines_open_repo_lists_every_action() {
   eink::Snapshot snap = {};
   snap.repo_count = 1;
-  std::strcpy(snap.repos[0].repo, "acme/web");
-  std::strcpy(snap.repos[0].status, "FAIL");
+  set_cstr(snap.repos[0].repo, sizeof(snap.repos[0].repo), "acme/web");
+  set_cstr(snap.repos[0].status, sizeof(snap.repos[0].status), "FAIL");
   snap.repos[0].workflow_count = 2;
   snap.repos[0].pr_count = 0;
   snap.repos[0].workflow_n = 2;
-  std::strcpy(snap.repos[0].workflows[0].workflow, "CI");
-  std::strcpy(snap.repos[0].workflows[0].status, "FAIL");
-  std::strcpy(snap.repos[0].workflows[1].workflow, "Deploy");
-  std::strcpy(snap.repos[0].workflows[1].status, "PASS");
+  set_cstr(snap.repos[0].workflows[0].workflow, sizeof(snap.repos[0].workflows[0].workflow), "CI");
+  set_cstr(snap.repos[0].workflows[0].status, sizeof(snap.repos[0].workflows[0].status), "FAIL");
+  set_cstr(snap.repos[0].workflows[1].workflow, sizeof(snap.repos[0].workflows[1].workflow), "Deploy");
+  set_cstr(snap.repos[0].workflows[1].status, sizeof(snap.repos[0].workflows[1].status), "PASS");
 
   CHECK_EQ(eink::repo_from_monitor_index(0, 1), -1);
   CHECK_EQ(eink::repo_from_monitor_index(1, 1), 0);
@@ -244,8 +252,8 @@ void test_status_view_labels_and_job_title() {
   CHECK(eink::attention_status("FAIL"));
   CHECK(!eink::attention_status("PASS"));
   eink::BuildRow row = {};
-  std::strcpy(row.repo, "acme/web");
-  std::strcpy(row.workflow, "CI");
+  set_cstr(row.repo, sizeof(row.repo), "acme/web");
+  set_cstr(row.workflow, sizeof(row.workflow), "CI");
   CHECK_STREQ(eink::job_title(row), "web");
   CHECK(eink::job_shows_workflow(row));
   CHECK_STREQ(eink::empty_body(false), "All clear");
@@ -256,15 +264,15 @@ void test_status_view_labels_and_job_title() {
 
 void test_monitor_lines_from_failing_jobs_and_open_prs() {
   eink::Snapshot snap = {};
-  std::strcpy(snap.status, "FAIL");
+  set_cstr(snap.status, sizeof(snap.status), "FAIL");
   snap.has_sleep_seconds = true;
   snap.sleep_seconds = 120;
   snap.build_count = 1;
-  std::strcpy(snap.builds[0].repo, "acme/web");
-  std::strcpy(snap.builds[0].workflow, "CI");
-  std::strcpy(snap.builds[0].status, "FAIL");
+  set_cstr(snap.builds[0].repo, sizeof(snap.builds[0].repo), "acme/web");
+  set_cstr(snap.builds[0].workflow, sizeof(snap.builds[0].workflow), "CI");
+  set_cstr(snap.builds[0].status, sizeof(snap.builds[0].status), "FAIL");
   snap.open_pr_count = 1;
-  std::strcpy(snap.open_prs[0].repo, "acme/web");
+  set_cstr(snap.open_prs[0].repo, sizeof(snap.open_prs[0].repo), "acme/web");
   snap.open_prs[0].pr_count = 4;
 
   eink::MonitorLine lines[eink::kMaxMonitorLines] = {};
@@ -279,7 +287,7 @@ void test_monitor_lines_from_failing_jobs_and_open_prs() {
 
 void test_monitor_lines_idle_when_snapshot_is_empty() {
   eink::Snapshot snap = {};
-  std::strcpy(snap.status, "NONE");
+  set_cstr(snap.status, sizeof(snap.status), "NONE");
   eink::MonitorLine lines[2] = {};
   CHECK_EQ(eink::fill_monitor_lines(snap, lines, 2), 1);
   CHECK_STREQ(lines[0].title, "Idle");

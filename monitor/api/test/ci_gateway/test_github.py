@@ -3,6 +3,7 @@
 import json
 import os
 import re
+from pathlib import Path
 
 import pytest
 from aioresponses import aioresponses
@@ -453,6 +454,11 @@ class TestGithub:
             == 'npm_and_yarn in /app'
         )
 
+    def test_workflow_identity_key_parses_dependabot_names_without_regex(self):
+        source = Path(__file__).resolve().parents[2] / 'monitor' / 'ci_gateway' / 'github.py'
+        text = source.read_text(encoding='utf-8')
+        assert '_DEPENDABOT_UPDATE_KEY' not in text
+
     def test_all_branches_skips_head_filter(self):
         action = GitHubAction(
             username='super-man', repo='awesome', branch='*')
@@ -668,6 +674,12 @@ class TestGithub:
         )
         assert link_rel_next(header).endswith('page=2')
         assert link_rel_next(None) is None
+
+    def test_link_rel_next_parses_without_regex(self):
+        source = Path(__file__).resolve().parents[2] / 'monitor' / 'ci_gateway' / 'github.py'
+        text = source.read_text(encoding='utf-8')
+        assert '_LINK_NEXT' not in text
+        assert 're.compile' not in text
 
     def test_github_action_init_has_no_kwargs_bag(self):
         import inspect

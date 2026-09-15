@@ -138,7 +138,7 @@ export function keepLastValidPayload(
   const nextByRepo = buildsByRepo(next.builds);
   const builds: BuildDetail[] = [];
   const repos = new Set([...previousByRepo.keys(), ...nextByRepo.keys()]);
-  for (const repo of [...repos].sort()) {
+  for (const repo of [...repos].sort((a, b) => a.localeCompare(b))) {
     const incoming = nextByRepo.get(repo);
     const remembered = previousByRepo.get(repo);
     if (incoming && fetchErrorOnly(incoming) && remembered && !fetchErrorOnly(remembered)) {
@@ -558,8 +558,19 @@ export function githubSecurityFindings(
 
 function linkRelNext(linkHeader: string | null): string | null {
   if (!linkHeader) return null;
-  const match = /<([^>]+)>\s*;\s*rel="next"/i.exec(linkHeader);
-  return match?.[1] ?? null;
+  for (const part of linkHeader.split(',')) {
+    const trimmed = part.trim();
+    if (!trimmed.toLowerCase().includes('rel="next"')) {
+      continue;
+    }
+    const start = trimmed.indexOf('<');
+    const end = trimmed.indexOf('>', start + 1);
+    if (start === -1 || end === -1) {
+      continue;
+    }
+    return trimmed.slice(start + 1, end);
+  }
+  return null;
 }
 
 async function listOpenGithubPages(

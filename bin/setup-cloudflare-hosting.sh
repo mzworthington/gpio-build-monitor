@@ -18,5 +18,5 @@ cd "$PRODUCT_ROOT"
 
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
-curl -fsSL "$SCRIPT_URL" -o "${tmpdir}/setup-cloudflare-hosting.sh"
+curl --proto '=https' --tlsv1.2 -fsSL "$SCRIPT_URL" -o "${tmpdir}/setup-cloudflare-hosting.sh"
 bash "${tmpdir}/setup-cloudflare-hosting.sh" "$@"

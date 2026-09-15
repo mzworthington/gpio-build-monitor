@@ -462,4 +462,76 @@ describe('fetchAllBuilds GitHub', () => {
     expect(builds[0]?.status).toBe('PASS');
     expect(builds[0]?.security).toBeNull();
   });
+
+  it('follows GitHub Link next pages for Dependabot alerts', async () => {
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes('/actions/workflows')) {
+        return Response.json({
+          workflows: [{ id: 1001, state: 'active' }],
+        });
+      }
+      if (url.includes('/actions/runs')) {
+        return Response.json({
+          workflow_runs: [
+            {
+              id: 1,
+              workflow_id: 1001,
+              name: 'CI',
+              html_url: 'https://example.com/ci',
+              created_at: '2020-01-02T00:00:00Z',
+              status: 'completed',
+              conclusion: 'success',
+              head_branch: 'main',
+            },
+          ],
+        });
+      }
+      if (url.includes('/dependabot/alerts') && url.includes('page=2')) {
+        return Response.json([
+          {
+            number: 2,
+            state: 'open',
+            html_url: 'https://github.com/super-man/awesome/security/dependabot/2',
+            dependency: { package: { name: 'left-pad' } },
+          },
+        ]);
+      }
+      if (url.includes('/dependabot/alerts')) {
+        return new Response(
+          JSON.stringify([
+            {
+              number: 1,
+              state: 'open',
+              html_url: 'https://github.com/super-man/awesome/security/dependabot/1',
+              security_advisory: { summary: 'XSS' },
+              security_vulnerability: { severity: 'medium' },
+            },
+          ]),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              Link: '<https://api.github.com/repos/super-man/awesome/dependabot/alerts?page=2>; rel="next"',
+            },
+          },
+        );
+      }
+      if (url.includes('/code-scanning/alerts') || url.includes('/pulls')) {
+        return Response.json([]);
+      }
+      return new Response('not found', { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const builds = await fetchAllBuilds(
+      {
+        poll_in_seconds: 60,
+        integrations: [{ type: 'GITHUB', username: 'super-man', repo: 'awesome' }],
+      },
+      { githubToken: 'secret' },
+    );
+
+    expect(builds[0]?.security?.vulnerabilities.items.map((item) => item.number)).toEqual([1, 2]);
+  });
 });

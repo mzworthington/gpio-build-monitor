@@ -140,6 +140,37 @@ describe('keepLastValidPayload', () => {
     expect(keepLastValidPayload(previous, next).builds).toEqual(next.builds);
     expect(keepLastValidPayload(previous, next).status).toBe('PASS');
   });
+
+  it('orders mixed previous and next repos with localeCompare', () => {
+    const previous = {
+      type: 'status' as const,
+      fetching: false,
+      status: 'PASS' as const,
+      is_running: false,
+      builds: [
+        { repo: 'zeta/web', workflow: 'CI', status: 'PASS', url: 'https://example.com/z' },
+      ],
+      poll_in_seconds: 60,
+      last_checked_at: 1,
+      next_check_at: 61,
+    };
+    const next = {
+      ...previous,
+      builds: [
+        { repo: 'acme/web', workflow: 'CI', status: 'PASS', url: 'https://example.com/a' },
+        {
+          repo: 'zeta/web',
+          workflow: '(github workflows)',
+          status: 'CONNECTION_ERROR',
+          url: 'https://github.com/zeta/web',
+        },
+      ],
+    };
+    expect(keepLastValidPayload(previous, next).builds.map((build) => build.repo)).toEqual([
+      'acme/web',
+      'zeta/web',
+    ]);
+  });
 });
 
 describe('fetchAllBuilds CircleCI', () => {

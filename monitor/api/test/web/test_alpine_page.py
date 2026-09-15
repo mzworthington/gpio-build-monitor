@@ -41,6 +41,16 @@ def test_status_page_lists_pull_request_and_security_items():
     assert "finding.source" in html
 
 
+def test_status_page_associates_open_tab_labels_with_accessible_text():
+    html = (WEB_PUBLIC / "index.html").read_text(encoding="utf-8")
+    assert 'for="open-tab-prs"' in html
+    assert 'id="open-tab-prs"' in html
+    assert 'for="open-tab-findings"' in html
+    assert 'id="open-tab-findings"' in html
+    assert ">PRs</span>" in html
+    assert ">findings</span>" in html
+
+
 def test_status_page_does_not_load_handwritten_countdown_script():
     html = (WEB_PUBLIC / "index.html").read_text(encoding="utf-8")
     assert 'src="/countdown.js"' not in html

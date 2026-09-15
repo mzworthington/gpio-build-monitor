@@ -1,6 +1,6 @@
 {
   "disabled": false,
   "lastTestOutcome": "pass",
-  "lastTestCommand": "pnpm test",
-  "lastTestAt": "2026-09-12T11:50:15.652Z"
+  "lastTestCommand": "pnpm test && pnpm typecheck && pnpm build:web",
+  "lastTestAt": "2026-09-15T16:41:05.549Z"
 }

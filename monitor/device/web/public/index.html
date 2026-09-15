@@ -181,13 +181,13 @@
         aria-label="Open items"
         x-show="openPulls().length && openFindings().length"
       >
-        <label>
-          <input type="radio" name="open-tab" value="prs" x-model="openTab">
-          <span x-text="openPulls().length + ' PR' + (openPulls().length === 1 ? '' : 's')"></span>
+        <label for="open-tab-prs">
+          <input id="open-tab-prs" type="radio" name="open-tab" value="prs" x-model="openTab">
+          <span x-text="openPulls().length + ' PR' + (openPulls().length === 1 ? '' : 's')">PRs</span>
         </label>
-        <label>
-          <input type="radio" name="open-tab" value="findings" x-model="openTab">
-          <span x-text="openFindings().length + ' finding' + (openFindings().length === 1 ? '' : 's')"></span>
+        <label for="open-tab-findings">
+          <input id="open-tab-findings" type="radio" name="open-tab" value="findings" x-model="openTab">
+          <span x-text="openFindings().length + ' finding' + (openFindings().length === 1 ? '' : 's')">findings</span>
         </label>
       </div>
       <ul

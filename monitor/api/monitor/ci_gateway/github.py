@@ -3,7 +3,6 @@
 import asyncio
 import logging
 import os
-import re
 from collections.abc import Callable
 from fnmatch import fnmatch
 from itertools import groupby
@@ -28,12 +27,18 @@ ALL_BRANCHES = "*"
 
 # Dependabot version checks: unique Update #ID (and optional package list) per run.
 # Collapse to ecosystem + directory so a newer check supersedes a historic fail.
-_DEPENDABOT_UPDATE_KEY = re.compile(
-    r"^(?P<head>.+?)(?: for .+?)? - Update #\d+$"
-)
-_LINK_NEXT = re.compile(r'<([^>]+)>\s*;\s*rel="next"', re.IGNORECASE)
+_UPDATE_MARK = " - Update #"
+_FOR_MARK = " for "
 _ALERT_PAGE_CAP = 10
 _ALERT_PAGE_SIZE = "100"
+
+
+def dependabot_update_head(name: str) -> str | None:
+    prefix, sep, suffix = (name or "").rpartition(_UPDATE_MARK)
+    if not sep or not suffix.isdigit():
+        return None
+    for_at = prefix.find(_FOR_MARK)
+    return prefix[:for_at] if for_at != -1 else prefix
 
 
 def github_security_payload(
@@ -147,8 +152,16 @@ def _map_items(payload: list[object], mapper: Callable[[object], _T | None]) -> 
 def link_rel_next(link_header: str | None) -> str | None:
     if not link_header:
         return None
-    match = _LINK_NEXT.search(link_header)
-    return match.group(1) if match else None
+    for part in link_header.split(","):
+        trimmed = part.strip()
+        if 'rel="next"' not in trimmed.lower():
+            continue
+        start = trimmed.find("<")
+        end = trimmed.find(">", start + 1)
+        if start == -1 or end == -1:
+            continue
+        return trimmed[start + 1:end]
+    return None
 
 
 class GitHubAction(IntegrationAdapter):
@@ -427,14 +440,11 @@ class GitHubAction(IntegrationAdapter):
     @staticmethod
     def workflow_identity_key(name: str) -> str:
         """Stable key for 'latest per workflow'."""
-        match = _DEPENDABOT_UPDATE_KEY.match(name or "")
-        if match:
-            return match.group("head")
-        return name or ""
+        return dependabot_update_head(name) or (name or "")
 
     def _include_run(self, run: dict) -> bool:
         name = run.get('name') or ''
-        if _DEPENDABOT_UPDATE_KEY.match(name):
+        if dependabot_update_head(name):
             return False
         if name in self.excluded_workflows:
             return False
