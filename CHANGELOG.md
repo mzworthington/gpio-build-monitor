@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.25.3 (2026-09-15)
+
+### Bug Fixes
+
+- **monitor**: Add uv.lock and exclude CrossPoint from sonar
+  ([`5628440`](https://github.com/mzworthington/gpio-build-monitor/commit/5628440790f4f614ce6fff1267b3013a9bddd1db))
+
+
 ## v0.25.2 (2026-09-15)
 
 ### Bug Fixes
