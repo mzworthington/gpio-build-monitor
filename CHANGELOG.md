@@ -2,6 +2,37 @@
 
 <!-- version list -->
 
+## v0.25.2 (2026-09-15)
+
+### Bug Fixes
+
+- **infra**: Use bundler moduleResolution for TypeScript 6
+  ([`2b9800d`](https://github.com/mzworthington/gpio-build-monitor/commit/2b9800dd7cad22f1b403bce74794fc078182dfd9))
+
+- **monitor**: Apply gpio pin overrides when the board starts
+  ([#30](https://github.com/mzworthington/gpio-build-monitor/pull/30),
+  [`83baedb`](https://github.com/mzworthington/gpio-build-monitor/commit/83baedb36017a72f6d412100f57da7308830f3b6))
+
+### Chores
+
+- Code security improvements
+  ([`e2b6d6d`](https://github.com/mzworthington/gpio-build-monitor/commit/e2b6d6dde515a3adbadc59fcd19921e5ee10754b))
+
+- Improve dependendabot & codeQL
+  ([`81222d1`](https://github.com/mzworthington/gpio-build-monitor/commit/81222d1f472180cfa70f310fed5b536d39a9fd60))
+
+- Update .gitignore and modify tdd-guard state for pre-commit testing
+  ([`37427e3`](https://github.com/mzworthington/gpio-build-monitor/commit/37427e37e65a9b64dba8c109c120870d66013123))
+
+- Update .gitignore and modify tdd-guard state for pre-commit testing
+  ([`2f68656`](https://github.com/mzworthington/gpio-build-monitor/commit/2f686569177c2b4c347ec4678e71e8536685b4ef))
+
+### Refactoring
+
+- Subject no longer defaulted
+  ([`3b83529`](https://github.com/mzworthington/gpio-build-monitor/commit/3b83529273c37884e17e2cb5e816284921b3de1c))
+
+
 ## v0.25.1 (2026-09-12)
 
 ### Bug Fixes
