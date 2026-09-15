@@ -23,3 +23,13 @@ def test_dockerfile_pip_installs_hash_locked_requirements():
     text = DOCKERFILE.read_text(encoding="utf-8")
     assert "--require-hashes" in text
     assert "requirements.lock" in text
+
+
+def test_dockerfile_declares_one_runtime_cmd():
+    lines = [
+        line.strip()
+        for line in DOCKERFILE.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+    cmds = [line for line in lines if line.startswith("CMD ")]
+    assert len(cmds) == 1

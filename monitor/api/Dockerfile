@@ -14,7 +14,3 @@ RUN pip install --no-cache-dir --require-hashes --only-binary :all: -r requireme
 EXPOSE 8080
 USER app
 CMD ["python", "-m", "monitor", "run", "--conf", "/etc/gpio-build-monitor/integrations.yaml"]
-
-EXPOSE 8080
-USER app
-CMD ["python", "-m", "monitor", "run", "--conf", "/etc/gpio-build-monitor/integrations.yaml"]
