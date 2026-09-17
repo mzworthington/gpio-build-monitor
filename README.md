@@ -1,5 +1,8 @@
 # GPIO build monitor
 
+[![CI](https://img.shields.io/github/actions/workflow/status/mzworthington/gpio-build-monitor/ci.yml?branch=main&style=for-the-badge&logo=github-actions&label=CI)](https://github.com/mzworthington/gpio-build-monitor/actions/workflows/ci.yml)
+[![Quality gate](https://img.shields.io/sonar/alert_status/mzworthington_gpio-build-monitor?server=https%3A%2F%2Fsonarcloud.io&style=for-the-badge&logo=sonarqube)](https://sonarcloud.io/summary/new_code?id=mzworthington_gpio-build-monitor)
+
 Glanceable CI status - on the web, or glowing on your desk.
 
 **Live status:** [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk)
