@@ -1,3 +1,5 @@
+import { pushApiOrigin, pushSubscribeUrl, pushVapidUrl } from './apiOrigin';
+
 export type PushElement = {
   hidden: boolean;
   textContent: string | null;
@@ -33,6 +35,8 @@ export type PushHost = {
   notificationPermission?: NotificationPermissionState;
   requestNotificationPermission?: () => Promise<NotificationPermissionState>;
   pushManagerSupported?: boolean;
+  locationOrigin?: string;
+  configuredApiOrigin?: string;
 };
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -48,7 +52,11 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 function browserPushHost(): PushHost {
   const win = globalThis as unknown as {
-    document: { getElementById: (id: string) => PushElement | null };
+    document: {
+      getElementById: (id: string) => PushElement | null;
+      querySelector?: (selector: string) => { getAttribute?: (name: string) => string | null } | null;
+    };
+    location?: { origin?: string };
     fetch: PushHost['fetch'];
     navigator: { serviceWorker?: PushHost['serviceWorker'] };
     Notification?: {
@@ -57,6 +65,7 @@ function browserPushHost(): PushHost {
     };
     PushManager?: unknown;
   };
+  const meta = win.document.querySelector?.('meta[name="monitor-api-origin"]');
   return {
     getElementById: (id) => win.document.getElementById(id),
     fetch: win.fetch.bind(win),
@@ -65,20 +74,25 @@ function browserPushHost(): PushHost {
     requestNotificationPermission: () =>
       win.Notification?.requestPermission() ?? Promise.resolve('denied'),
     pushManagerSupported: 'PushManager' in win,
+    locationOrigin: win.location?.origin,
+    configuredApiOrigin: meta?.getAttribute?.('content') || '',
   };
 }
 
-export function startPushControls(host: PushHost = browserPushHost()): void {
+export function startPushControls(host: PushHost = browserPushHost()): Promise<void> {
   const rootEl = host.getElementById('push-controls');
   const buttonEl = host.getElementById('push-toggle');
   const hint = host.getElementById('push-hint');
-  if (!rootEl || !buttonEl) return;
+  if (!rootEl || !buttonEl) return Promise.resolve();
   const root = rootEl;
   const button = buttonEl;
 
   const supported = Boolean(
     host.serviceWorker && host.pushManagerSupported && host.requestNotificationPermission,
   );
+  const apiOrigin = pushApiOrigin(host.configuredApiOrigin, host.locationOrigin ?? '');
+  const vapidUrl = pushVapidUrl(apiOrigin);
+  const subscribeUrl = pushSubscribeUrl(apiOrigin);
 
   function setHint(text: string): void {
     if (hint) hint.textContent = text || '';
@@ -90,7 +104,7 @@ export function startPushControls(host: PushHost = browserPushHost()): void {
   }
 
   async function fetchPublicKey(): Promise<string | null> {
-    const res = await host.fetch('/api/push/vapid-public-key');
+    const res = await host.fetch(vapidUrl);
     if (!res.ok) throw new Error('vapid key unavailable');
     const data: unknown = await res.json();
     if (
@@ -139,7 +153,7 @@ export function startPushControls(host: PushHost = browserPushHost()): void {
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(publicKey),
     });
-    const res = await host.fetch('/api/push/subscribe', {
+    const res = await host.fetch(subscribeUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(sub.toJSON?.() ?? sub),
@@ -155,7 +169,7 @@ export function startPushControls(host: PushHost = browserPushHost()): void {
       return;
     }
     try {
-      await host.fetch('/api/push/subscribe', {
+      await host.fetch(subscribeUrl, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ endpoint: sub.endpoint }),
@@ -207,7 +221,7 @@ export function startPushControls(host: PushHost = browserPushHost()): void {
     });
   }
 
-  void init().catch(() => {
+  return init().catch(() => {
     root.hidden = true;
   });
 }
