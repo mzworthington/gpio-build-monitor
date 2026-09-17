@@ -15,12 +15,13 @@ import {
   parsePushSubscription,
   recoveryNotificationMessage,
   sendWebPush,
-  shouldNotifyFailure,
-  shouldNotifyRecovery,
   statusToRemember,
   SUB_KEY_PREFIX,
   vapidFromEnv,
   publicVapidKeyBody,
+  pushCorsPreflight,
+  runStatusPushDelivery,
+  withPushCors,
   type StoredPushSubscription,
 } from './api/push';
 import type { PushMessage } from '@block65/webcrypto-web-push';
@@ -192,11 +193,13 @@ export class StatusHub implements DurableObject {
     }
     await this.state.storage.setAlarm(Date.now() + delay * 1000);
 
-    if (shouldNotifyFailure(previous, status)) {
-      this.state.waitUntil(this.notifyFailure());
-    } else if (shouldNotifyRecovery(previous, status, is_running)) {
-      this.state.waitUntil(this.notifyRecovery());
-    }
+    await runStatusPushDelivery({
+      previous,
+      next: status,
+      isRunning: is_running,
+      notifyFailure: () => this.notifyFailure(),
+      notifyRecovery: () => this.notifyRecovery(),
+    });
   }
 
   private async subscribe(request: Request): Promise<Response> {
@@ -303,21 +306,26 @@ export default {
     }
 
     if (url.pathname === '/api/push/vapid-public-key') {
-      return Response.json(publicVapidKeyBody(env));
+      if (request.method === 'OPTIONS') return pushCorsPreflight(request);
+      return withPushCors(request, Response.json(publicVapidKeyBody(env)));
     }
 
     if (url.pathname === '/api/push/subscribe') {
       // Forward to the DO so subscriptions sit with the FAIL edge trigger.
       const method = request.method;
+      if (method === 'OPTIONS') return pushCorsPreflight(request);
       if (method !== 'POST' && method !== 'DELETE') {
         return new Response('Method not allowed', { status: 405 });
       }
-      return statusStub(env).fetch(
-        new Request(new URL('/push/subscribe', request.url), {
-          method,
-          headers: request.headers,
-          body: request.body,
-        }),
+      return withPushCors(
+        request,
+        await statusStub(env).fetch(
+          new Request(new URL('/push/subscribe', request.url), {
+            method,
+            headers: request.headers,
+            body: request.body,
+          }),
+        ),
       );
     }
 
