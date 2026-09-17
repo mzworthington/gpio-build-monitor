@@ -54,7 +54,7 @@ Merging to `main` triggers an automatic release when `monitor/api/` or `pyprojec
 
 The release job:
 
-1. Detects application changes since the latest `v*` tag
+1. Detects application changes since the latest `v*` tag (`mzworthington/dotfiles` `detect-release-changes`)
 2. Bumps the version in `pyproject.toml` from commit messages
 3. Updates `CHANGELOG.md` from conventional commits
 4. Builds wheel and sdist artifacts (`semantic-release version`)

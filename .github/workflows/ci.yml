@@ -56,22 +56,11 @@ jobs:
 
       - name: Detect application changes since last release
         id: changes
-        run: |
-          git fetch --tags --force
-          if ! git describe --tags --match 'v*' --abbrev=0 >/dev/null 2>&1; then
-            echo "release=true" >> "$GITHUB_OUTPUT"
-            echo "No previous release tag found; release required."
-            exit 0
-          fi
-
-          last_tag="$(git describe --tags --match 'v*' --abbrev=0)"
-          if git diff --quiet "${last_tag}" HEAD -- monitor/api/ pyproject.toml; then
-            echo "release=false" >> "$GITHUB_OUTPUT"
-            echo "No application changes since ${last_tag}."
-          else
-            echo "release=true" >> "$GITHUB_OUTPUT"
-            echo "Application changes detected since ${last_tag}."
-          fi
+        uses: mzworthington/dotfiles/.github/actions/detect-release-changes@main
+        with:
+          paths: |
+            monitor/api/
+            pyproject.toml
 
       - name: Install mise
         if: steps.changes.outputs.release == 'true'
