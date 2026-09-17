@@ -25,21 +25,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install mise
-        uses: jdx/mise-action@v4
-
-      - name: Bootstrap
-        run: make bootstrap
-
-      - name: Test
-        run: make test
-
-      - name: Publish Test Report
-        if: always()
-        uses: mikepenz/action-junit-report@v6
-        with:
-          report_paths: junit/test-results.xml
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify
+        uses: mzworthington/dotfiles/.github/actions/python-mise-verify@main
 
   release:
     needs: test
@@ -72,30 +59,9 @@ jobs:
 
       - name: Release
         if: steps.changes.outputs.release == 'true'
+        uses: mzworthington/dotfiles/.github/actions/python-semantic-release@main
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          export PATH="$PWD/.venv/bin:$PATH"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if ! git describe --tags --match 'v*' >/dev/null 2>&1; then
-            VERSION="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
-            git tag "v${VERSION}"
-            echo "Seeded baseline tag v${VERSION} from pyproject.toml"
-          fi
-          print_log="$(.venv/bin/semantic-release version --print 2>&1 || true)"
-          printf '%s\n' "$print_log"
-          if printf '%s\n' "$print_log" | grep -qiE 'No release will be made|No release will be created'; then
-            echo "No semantic-release version to cut; skipping publish."
-            exit 0
-          fi
-          .venv/bin/semantic-release version
-          git fetch origin main
-          git pull --ff-only origin main
-          # `version` builds dist/ and creates the GitHub Release; `publish` uploads
-          # the wheel/sdist assets that bin/update installs on the Pi.
-          .venv/bin/semantic-release publish
 
   deploy-pages:
     needs: [test, web]
@@ -104,19 +70,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 11.20.0
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: monitor/device/web/pnpm-lock.yaml
-
-      - name: Install
-        working-directory: monitor/device/web
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-web-pnpm
 
       - name: Test
         working-directory: monitor/device/web
@@ -143,19 +97,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 11.20.0
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: monitor/device/web/pnpm-lock.yaml
-
-      - name: Install
-        working-directory: monitor/device/web
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-web-pnpm
 
       - name: Build Alpine UI
         working-directory: monitor/device/web
@@ -174,19 +116,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 11.20.0
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: monitor/device/web/pnpm-lock.yaml
-
-      - name: Install
-        working-directory: monitor/device/web
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-web-pnpm
 
       - name: Test
         working-directory: monitor/device/web

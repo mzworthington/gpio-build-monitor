@@ -1,0 +1,26 @@
+name: Setup gpio web pnpm
+description: Install pnpm and Node for monitor/device/web and frozen-lockfile install
+inputs:
+  pnpm-version:
+    required: false
+    default: "11.20.0"
+  node-version:
+    required: false
+    default: "22"
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v6
+      with:
+        version: ${{ inputs.pnpm-version }}
+
+    - uses: actions/setup-node@v7
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: pnpm
+        cache-dependency-path: monitor/device/web/pnpm-lock.yaml
+
+    - name: Install
+      shell: bash
+      working-directory: monitor/device/web
+      run: pnpm install --frozen-lockfile
