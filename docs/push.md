@@ -15,6 +15,10 @@ namespace, no extra Cloudflare product).
 - Opt-in from the status page (“Notify on failure”)
 - Hidden automatically when VAPID secrets are not configured (local Pi UI
   included)
+- The `*.pages.dev` preview has no StatusHub. The page loads the VAPID key and
+  stores subscriptions on `https://monitor.mzworthington.co.uk` (CORS allowlisted)
+- Refresh/alarm **awaits** fan-out so a hibernating Durable Object cannot drop
+  the FCM request
 
 ## Setup
 
@@ -47,7 +51,8 @@ pnpm deploy:api
 ## Try it
 
 1. Open [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) in
-   Chrome (desktop or Android).
+   Chrome (desktop or Android). The Pages preview also works; it talks to this
+   Worker for subscribe.
 2. Click **Notify on failure** and allow notifications.
 3. When aggregate status next moves into FAIL, you should get a system
    notification. When it later recovers to all PASS (and nothing is still
