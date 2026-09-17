@@ -187,13 +187,13 @@ def _nested_items(*sources: object) -> list[object]:
         if not isinstance(source, Mapping):
             continue
         raw = source.get("items")
-        if isinstance(raw, Sequence) and not isinstance(raw, str | bytes):
+        if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes)):
             items.extend(raw)
     return items
 
 
 def _item_lines(items: object, *, sfimage: str) -> list[str]:
-    if not isinstance(items, Sequence) or isinstance(items, str | bytes):
+    if not isinstance(items, Sequence) or isinstance(items, (str, bytes)):
         return []
     lines: list[str] = []
     for item in items:

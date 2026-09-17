@@ -1,6 +1,25 @@
 #!/usr/bin/env python3
 
+import ast
+from pathlib import Path
+
 from menu_bar import last_valid_payload, plugin_output, snapshot_headers, title_for
+
+
+def test_isinstance_checks_do_not_use_pep604_unions():
+    source = (Path(__file__).resolve().parents[1] / "menu_bar.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    unions = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if not isinstance(func, ast.Name) or func.id != "isinstance":
+            continue
+        for arg in node.args[1:]:
+            if isinstance(arg, ast.BinOp) and isinstance(arg.op, ast.BitOr):
+                unions.append(ast.unparse(arg))
+    assert unions == []
 
 
 def test_title_maps_like_gpio_lights():
