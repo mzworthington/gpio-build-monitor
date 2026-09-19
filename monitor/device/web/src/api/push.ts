@@ -144,6 +144,65 @@ export function publicVapidKeyBody(env: {
   return { publicKey: vapidFromEnv(env)?.publicKey ?? null };
 }
 
+export function isAllowedPushBrowserOrigin(origin: string): boolean {
+  if (origin === 'https://monitor.mzworthington.co.uk') return true;
+  try {
+    const host = new URL(origin).hostname;
+    return host === 'gpio-build-monitor.pages.dev' || host.endsWith('.gpio-build-monitor.pages.dev');
+  } catch {
+    return false;
+  }
+}
+
+export function pushCorsHeaders(request: Request): Record<string, string> {
+  const origin = request.headers.get('Origin');
+  if (!origin || !isAllowedPushBrowserOrigin(origin)) return {};
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '86400',
+    Vary: 'Origin',
+  };
+}
+
+export function withPushCors(request: Request, response: Response): Response {
+  const extra = pushCorsHeaders(request);
+  const headers = new Headers(response.headers);
+  for (const [key, value] of Object.entries(extra)) {
+    headers.set(key, value);
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+export function pushCorsPreflight(request: Request): Response {
+  return new Response(null, { status: 204, headers: pushCorsHeaders(request) });
+}
+
+export async function runStatusPushDelivery(input: {
+  previous: AggregateStatus | null | undefined;
+  next: AggregateStatus;
+  isRunning: boolean;
+  notifyFailure: () => Promise<void>;
+  notifyRecovery: () => Promise<void>;
+}): Promise<'failure' | 'recovery' | null> {
+  // Await delivery inside the alarm/refresh so hibernatable DOs cannot
+  // drop a fire-and-forget waitUntil before FCM accepts the message.
+  if (shouldNotifyFailure(input.previous, input.next)) {
+    await input.notifyFailure();
+    return 'failure';
+  }
+  if (shouldNotifyRecovery(input.previous, input.next, input.isRunning)) {
+    await input.notifyRecovery();
+    return 'recovery';
+  }
+  return null;
+}
+
 export async function sendWebPush(
   subscription: StoredPushSubscription,
   message: PushMessage,
