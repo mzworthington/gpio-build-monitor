@@ -13,14 +13,14 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20260908.1",
+    "@cloudflare/workers-types": "5.20260916.1",
     "esbuild": "^0.28.2",
     "typescript": "7.0.2",
-    "vitest": "5.0.0",
-    "wrangler": "4.130.0"
+    "vitest": "5.0.1",
+    "wrangler": "4.133.0"
   },
   "dependencies": {
     "@block65/webcrypto-web-push": "2.0.0",
-    "alpinejs": "^3.17.2"
+    "alpinejs": "^3.17.3"
   }
 }
