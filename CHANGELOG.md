@@ -2,6 +2,39 @@
 
 <!-- version list -->
 
+## v0.25.4 (2026-09-20)
+
+### Bug Fixes
+
+- Fix menu bar
+  ([`c1df8a2`](https://github.com/mzworthington/gpio-build-monitor/commit/c1df8a20c800bed2c44338d8472ac2f9cc31f1d5))
+
+- Sonar exclusions
+  ([`be9b85e`](https://github.com/mzworthington/gpio-build-monitor/commit/be9b85ee7945f66adf545afd520846eb4703eb8f))
+
+- **align-ci**: Keep the kit checkout so wk stays on PATH
+  ([`b09ae86`](https://github.com/mzworthington/gpio-build-monitor/commit/b09ae8662335bddbdf376b0c4cfe5727fb78571b))
+
+### Chores
+
+- **deps**: Batch dependabot updates
+  ([#48](https://github.com/mzworthington/gpio-build-monitor/pull/48),
+  [`e9e1566`](https://github.com/mzworthington/gpio-build-monitor/commit/e9e1566afa50b8f3f3e9ca8a81d41b4df6d8ad6d))
+
+### Continuous Integration
+
+- Retrigger Waykit align against current kit main
+  ([`fbecaa8`](https://github.com/mzworthington/gpio-build-monitor/commit/fbecaa88139b078c0de1039b34b72c25e9721623))
+
+- Use shared python actions and local web pnpm setup
+  ([`82eca12`](https://github.com/mzworthington/gpio-build-monitor/commit/82eca125c496a2dbe2ef94e5da74d61078e345e4))
+
+### Documentation
+
+- Render readme status badges via shields.io
+  ([`56419c0`](https://github.com/mzworthington/gpio-build-monitor/commit/56419c043bcadeb7c192bfc5dde347e26cb28841))
+
+
 ## v0.25.3 (2026-09-15)
 
 ### Bug Fixes
