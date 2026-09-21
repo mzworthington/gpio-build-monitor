@@ -34,7 +34,7 @@ lint: bootstrap ## Run ruff linter
 	./$(VENV)/bin/ruff check monitor/api/monitor monitor/api/test test monitor/device/menu-bar monitor/device/pi
 
 test: bootstrap lint ## Run pytest with junit formatting and a hub coverage floor
-	./$(VENV)/bin/python -m pytest -v --junitxml=junit/test-results.xml --cov=monitor --cov-report=term-missing --cov-fail-under=84
+	./$(VENV)/bin/python -m pytest -v --junitxml=junit/test-results.xml --cov=monitor --cov-report=term-missing --cov-report=xml --cov-fail-under=84
 
 test-eink: ## Native tests for the e-ink snapshot parser (no hardware)
 	$(MAKE) -C monitor/device/eink test
