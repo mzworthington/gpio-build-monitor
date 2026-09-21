@@ -1,4 +1,4 @@
-import { apiOrigin, statusHttpUrl, statusWsUrl } from './apiOrigin';
+import { hostedApiOrigin, statusHttpUrl, statusWsUrl } from './apiOrigin';
 import { startLiveStatus, type LiveDocument } from './liveStatus';
 import { registerMonitor, type AlpineHost, type MonitorPage, type MonitorSnapshot } from './monitor';
 
@@ -13,7 +13,7 @@ function monitorPage(alpine: AlpineRuntime, root: object): MonitorPage | undefin
 
 export type MonitorApiHost = {
   MonitorApi?: {
-    apiOrigin: typeof apiOrigin;
+    apiOrigin: typeof hostedApiOrigin;
     statusHttpUrl: typeof statusHttpUrl;
     statusWsUrl: typeof statusWsUrl;
   };
@@ -26,7 +26,7 @@ export function bootMonitor(
   alpine: AlpineRuntime,
   host: MonitorApiHost = globalThis as MonitorApiHost,
 ): void {
-  host.MonitorApi = { apiOrigin, statusHttpUrl, statusWsUrl };
+  host.MonitorApi = { apiOrigin: hostedApiOrigin, statusHttpUrl, statusWsUrl };
   registerMonitor(alpine);
   alpine.start();
   if (!host.WebSocket || !host.document || !host.location) return;

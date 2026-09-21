@@ -5,7 +5,10 @@ import {
   isPushSubscription,
   parsePushSubscription,
   publicVapidKeyBody,
+  pushCorsHeaders,
+  pushCorsPreflight,
   recoveryNotificationMessage,
+  runStatusPushDelivery,
   shouldNotifyFailure,
   shouldNotifyRecovery,
   statusToRemember,
@@ -60,7 +63,7 @@ describe('shouldNotifyRecovery', () => {
 });
 
 describe('statusToRemember', () => {
-  it('holds FAIL while a rebuild is in progress so recovery can fire later', () => {
+  it('holds FAIL while a rebuild is in progress so recovery can still fire later', () => {
     expect(statusToRemember('FAIL', 'PASS', true)).toBe('FAIL');
     expect(statusToRemember('FAIL', 'NONE', true)).toBe('FAIL');
   });
@@ -145,5 +148,68 @@ describe('recoveryNotificationMessage', () => {
 describe('publicVapidKeyBody', () => {
   it('returns a null key when VAPID is unset', () => {
     expect(publicVapidKeyBody({})).toEqual({ publicKey: null });
+  });
+});
+
+describe('push CORS', () => {
+  it('reflects the Pages preview origin so the installed app can subscribe', () => {
+    const request = new Request('https://monitor.mzworthington.co.uk/api/push/vapid-public-key', {
+      headers: { Origin: 'https://gpio-build-monitor.pages.dev' },
+    });
+    const headers = pushCorsHeaders(request);
+    expect(headers['Access-Control-Allow-Origin']).toBe('https://gpio-build-monitor.pages.dev');
+    expect(pushCorsPreflight(request).status).toBe(204);
+  });
+
+  it('does not open CORS to arbitrary sites', () => {
+    const request = new Request('https://monitor.mzworthington.co.uk/api/push/subscribe', {
+      headers: { Origin: 'https://evil.example' },
+    });
+    expect(pushCorsHeaders(request)).toEqual({});
+  });
+});
+
+describe('runStatusPushDelivery', () => {
+  it('awaits failure delivery instead of returning before the push send finishes', async () => {
+    const order: string[] = [];
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const running = runStatusPushDelivery({
+      previous: 'PASS',
+      next: 'FAIL',
+      isRunning: false,
+      notifyFailure: async () => {
+        order.push('start');
+        await held;
+        order.push('sent');
+      },
+      notifyRecovery: async () => {
+        order.push('recovery');
+      },
+    });
+    expect(order).toEqual(['start']);
+    release();
+    await expect(running).resolves.toBe('failure');
+    expect(order).toEqual(['start', 'sent']);
+  });
+
+  it('awaits recovery after a settled FAIL → PASS', async () => {
+    const calls: string[] = [];
+    await expect(
+      runStatusPushDelivery({
+        previous: 'FAIL',
+        next: 'PASS',
+        isRunning: false,
+        notifyFailure: async () => {
+          calls.push('failure');
+        },
+        notifyRecovery: async () => {
+          calls.push('recovery');
+        },
+      }),
+    ).resolves.toBe('recovery');
+    expect(calls).toEqual(['recovery']);
   });
 });
