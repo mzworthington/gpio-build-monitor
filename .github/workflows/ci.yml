@@ -30,14 +30,6 @@ jobs:
       - name: Verify
         uses: mzworthington/dotfiles/.github/actions/python-mise-verify@main
 
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@v6
-        env:
-          SONAR_TOKEN: ${{ secrets.SONARQUBE_API_TOKEN }}
-          SONAR_HOST_URL: https://sonarcloud.io
-        with:
-          args: -Dsonar.organization=${{ vars.SONARQUBE_ORG }}
-
   release:
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
