@@ -2,6 +2,46 @@
 
 <!-- version list -->
 
+## v0.25.5 (2026-10-01)
+
+### Bug Fixes
+
+- **deps**: Apply Dependabot bumps and patch open advisories
+  ([`f84c9c2`](https://github.com/mzworthington/gpio-build-monitor/commit/f84c9c2d499a72523184d3054972a1c20721937b))
+
+- **web**: Add Pages CORS and await StatusHub push delivery
+  ([#43](https://github.com/mzworthington/gpio-build-monitor/pull/43),
+  [`a6bbd3b`](https://github.com/mzworthington/gpio-build-monitor/commit/a6bbd3be4926539fcead2782890c12e461d75e93))
+
+- **web**: Await alarm push fan-out and allow Pages CORS
+  ([#43](https://github.com/mzworthington/gpio-build-monitor/pull/43),
+  [`a6bbd3b`](https://github.com/mzworthington/gpio-build-monitor/commit/a6bbd3be4926539fcead2782890c12e461d75e93))
+
+- **web**: Await StatusHub refresh push fan-out
+  ([#43](https://github.com/mzworthington/gpio-build-monitor/pull/43),
+  [`a6bbd3b`](https://github.com/mzworthington/gpio-build-monitor/commit/a6bbd3be4926539fcead2782890c12e461d75e93))
+
+- **web**: Restore pages and alarm push notification delivery
+  ([#43](https://github.com/mzworthington/gpio-build-monitor/pull/43),
+  [`a6bbd3b`](https://github.com/mzworthington/gpio-build-monitor/commit/a6bbd3be4926539fcead2782890c12e461d75e93))
+
+### Chores
+
+- Sonar auto analysis
+  ([`a64a99b`](https://github.com/mzworthington/gpio-build-monitor/commit/a64a99b0f1953ee18abd110f458f7317e19f4367))
+
+### Continuous Integration
+
+- Keep test files out of coverage reports
+  ([`759d4fc`](https://github.com/mzworthington/gpio-build-monitor/commit/759d4fc5140543571778068b6841180f42d2fede))
+
+- Publish existing pytest coverage to SonarCloud
+  ([`64952ca`](https://github.com/mzworthington/gpio-build-monitor/commit/64952ca97edb2e6e618624f6fdb3dbe57e6cf298))
+
+- Use SONARQUBE_API_TOKEN and SONARQUBE_ORG for SonarCloud
+  ([`5113a69`](https://github.com/mzworthington/gpio-build-monitor/commit/5113a69429c979ae0482186b15687a3531a0bd26))
+
+
 ## v0.25.4 (2026-09-20)
 
 ### Bug Fixes
