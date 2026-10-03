@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v0.25.7 (2026-10-03)
+
+### Bug Fixes
+
+- **web**: Ignore the floating push-controls promise at page boot
+  ([`7344bff`](https://github.com/mzworthington/gpio-build-monitor/commit/7344bff08f829a98b9b9def87de00c3bb414db00))
+
+### Refactoring
+
+- **monitor**: Roll up CiResult and thin the GitHub poller (MZW-95)
+  ([`5df947b`](https://github.com/mzworthington/gpio-build-monitor/commit/5df947b264d7962a1070e18177c229fee692e14a))
+
+
 ## v0.25.6 (2026-10-03)
 
 ### Bug Fixes
