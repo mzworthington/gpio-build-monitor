@@ -17,6 +17,10 @@ from monitor.ci_gateway.constants import (
 Result = CiResult
 
 
+def _status_value(status: str | CiResult) -> str:
+    return status.value if isinstance(status, CiResult) else status
+
+
 class BuildDetail(TypedDict):
     repo: str
     workflow: str
@@ -34,28 +38,30 @@ def get_status_from_details(builds: list[BuildDetail]) -> Result:
     """
     settled = [
         build for build in builds
-        if build["status"] not in IN_PROGRESS_VALUES
+        if _status_value(build["status"]) not in IN_PROGRESS_VALUES
     ]
     if not settled:
         if not builds_in_progress(builds):
             return Result.NONE
         waiting_only = any(
-            build["status"] == CiResult.WAITING.value for build in builds
-        ) and not any(build["status"] == CiResult.RUNNING.value for build in builds)
+            _status_value(build["status"]) == CiResult.WAITING.value for build in builds
+        ) and not any(
+            _status_value(build["status"]) == CiResult.RUNNING.value for build in builds
+        )
         return Result.WAITING if waiting_only else Result.RUNNING
-    if any(build["status"] == CiResult.FAIL.value for build in settled):
+    if any(_status_value(build["status"]) == CiResult.FAIL.value for build in settled):
         return Result.FAIL
-    if any(build["status"] == CiResult.CONNECTION_ERROR.value for build in settled):
+    if any(_status_value(build["status"]) == CiResult.CONNECTION_ERROR.value for build in settled):
         return Result.CONNECTION_ERROR
-    if any(build["status"] == CiResult.APPROVAL.value for build in settled):
+    if any(_status_value(build["status"]) == CiResult.APPROVAL.value for build in settled):
         return Result.APPROVAL
-    if all(build["status"] == CiResult.PASS.value for build in settled):
+    if all(_status_value(build["status"]) == CiResult.PASS.value for build in settled):
         return Result.PASS
     return Result.UNKNOWN
 
 
 def builds_in_progress(builds: list[BuildDetail]) -> bool:
-    return any(build["status"] in IN_PROGRESS_VALUES for build in builds)
+    return any(_status_value(build["status"]) in IN_PROGRESS_VALUES for build in builds)
 
 
 class OverallStatus(TypedDict):
@@ -70,7 +76,7 @@ def attention_builds(builds: list[BuildDetail]) -> list[BuildDetail]:
     return [
         build
         for build in builds
-        if build["status"] in {
+        if _status_value(build["status"]) in {
             CiResult.FAIL.value,
             CiResult.CONNECTION_ERROR.value,
             CiResult.APPROVAL.value,
@@ -143,14 +149,26 @@ class AggregatorService:
         ]
         completed = await asyncio.gather(*tasks)
 
-        builds: list[BuildDetail] = []
+        fetched: list[BuildDetail] = []
         for integration_builds in completed:
-            builds.extend(integration_builds)
+            fetched.extend(integration_builds)
+
+        builds = [
+            BuildDetail(
+                repo=build["repo"],
+                workflow=build["workflow"],
+                status=_status_value(build["status"]),
+                url=build["url"],
+                pull_requests=build.get("pull_requests"),
+                security=build.get("security"),
+            )
+            for build in fetched
+        ]
 
         return OverallStatus(
             type="AGGREGATED",
-            is_running=builds_in_progress(builds),
-            status=get_status_from_details(builds),
+            is_running=builds_in_progress(fetched),
+            status=get_status_from_details(fetched),
             builds=builds,
         )
 
@@ -184,7 +202,7 @@ class AggregatorService:
                 BuildDetail(
                     repo=repo,
                     workflow="(fetch)",
-                    status=CiResult.CONNECTION_ERROR.value,
+                    status=CiResult.CONNECTION_ERROR,
                     url="",
                     pull_requests=pull_requests,
                     security=findings,
@@ -195,7 +213,7 @@ class AggregatorService:
             BuildDetail(
                 repo=repo,
                 workflow=build["name"],
-                status=build["status"].value,
+                status=build["status"],
                 url=build["vcs"],
                 pull_requests=pull_requests,
                 security=findings,

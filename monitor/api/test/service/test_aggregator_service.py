@@ -546,6 +546,20 @@ def test_repo_summaries_keeps_github_security_over_circle_null():
     assert summaries[0]["security"] == findings
 
 
+def test_rollup_reads_ci_result_statuses():
+    from monitor.service.aggregator_service import get_status_from_details
+
+    rolled = get_status_from_details([
+        {
+            "repo": "a/b",
+            "workflow": "CI",
+            "status": CiResult.FAIL,
+            "url": "",
+        },
+    ])
+    assert rolled is CiResult.FAIL
+
+
 def test_rollup_status_is_the_ci_result_enum():
     assert Result is CiResult
 

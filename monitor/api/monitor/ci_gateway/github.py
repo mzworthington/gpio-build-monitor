@@ -149,6 +149,204 @@ def _map_items(payload: list[object], mapper: Callable[[object], _T | None]) -> 
     return items
 
 
+def github_public_headers() -> dict[str, str]:
+    return {
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'gpio-build-monitor',
+    }
+
+
+def github_auth_headers(token: str) -> dict[str, str]:
+    return {
+        **github_public_headers(),
+        'Authorization': f'Bearer {token}',
+    }
+
+
+async def github_get_json(
+    session: ClientSession,
+    url: str,
+    params: dict[str, str],
+    *,
+    token: str | None,
+) -> object:
+    attempts: list[dict[str, str]] = []
+    if token:
+        attempts.append(github_auth_headers(token))
+    attempts.append(github_public_headers())
+
+    last_status = 0
+    for index, headers in enumerate(attempts):
+        resp = await session.get(url, params=params, headers=headers)
+        last_status = resp.status
+        if resp.status == 200:
+            return await resp.json()
+        await resp.release()
+        if resp.status not in {401, 403}:
+            break
+        if index < len(attempts) - 1:
+            logging.warning(
+                'GitHub %s returned %s; retrying without credentials',
+                url,
+                resp.status,
+            )
+
+    raise APIError('GET', url, last_status)
+
+
+def include_workflow_run(
+    run: dict,
+    *,
+    excluded_workflows: list[str],
+    excluded_workflow_patterns: list[str],
+    branch: str,
+    filters_by_branch: bool,
+) -> bool:
+    name = run.get('name') or ''
+    if dependabot_update_head(name):
+        return False
+    if name in excluded_workflows:
+        return False
+    if any(fnmatch(name, pattern) for pattern in excluded_workflow_patterns):
+        logging.debug('Skipping workflow %s matching exclusion pattern', name)
+        return False
+    if filters_by_branch:
+        head_branch = run.get('head_branch')
+        if head_branch is not None and head_branch != branch:
+            logging.debug(
+                'Skipping %s run %s on branch %s (want %s)',
+                name,
+                run.get('id'),
+                head_branch,
+                branch,
+            )
+            return False
+    return True
+
+
+def latest_workflow_runs(
+    runs: list[dict],
+    *,
+    excluded_workflows: list[str],
+    excluded_workflow_patterns: list[str],
+    branch: str,
+    filters_by_branch: bool,
+) -> list[dict]:
+    jobs = []
+    filtered = [
+        run for run in runs
+        if include_workflow_run(
+            run,
+            excluded_workflows=excluded_workflows,
+            excluded_workflow_patterns=excluded_workflow_patterns,
+            branch=branch,
+            filters_by_branch=filters_by_branch,
+        )
+    ]
+    keyed = sorted(
+        filtered,
+        key=lambda run: dependabot_update_head(run.get("name") or "") or (run.get("name") or ""),
+    )
+    for _, group in groupby(
+        keyed,
+        key=lambda run: dependabot_update_head(run.get("name") or "") or (run.get("name") or ""),
+    ):
+        newest = max(
+            group,
+            key=lambda run: run.get("created_at") or "",
+        )
+        jobs.append(newest)
+    return jobs
+
+
+async def github_paged_list(
+    session: ClientSession,
+    url: str,
+    *,
+    token: str | None,
+    extra: dict[str, str] | None = None,
+    allow_public_retry: bool,
+    empty_on_404: bool,
+) -> list[object] | None:
+    """Fetch open-state list pages. None means unavailable."""
+    params: dict[str, str] = {
+        "state": "open",
+        "per_page": _ALERT_PAGE_SIZE,
+        **(extra or {}),
+    }
+    headers = github_auth_headers(token) if token else github_public_headers()
+    next_url: str | None = url
+    collected: list[object] = []
+    pages = 0
+    public_retried = False
+    while next_url and pages < _ALERT_PAGE_CAP:
+        resp = await session.get(
+            next_url,
+            params=params if pages == 0 else None,
+            headers=headers,
+        )
+        status = resp.status
+        link = resp.headers.get("Link")
+        if (
+            status in {401, 403}
+            and allow_public_retry
+            and token
+            and not public_retried
+            and pages == 0
+        ):
+            await resp.release()
+            headers = github_public_headers()
+            public_retried = True
+            logging.warning(
+                'GitHub %s returned %s; retrying without credentials',
+                url,
+                status,
+            )
+            continue
+        if status == 404:
+            await resp.release()
+            if pages == 0:
+                return [] if empty_on_404 else None
+            return collected
+        if status != 200:
+            await resp.release()
+            return None if pages == 0 else collected
+        payload = await resp.json()
+        if not isinstance(payload, list):
+            return None if pages == 0 else collected
+        collected.extend(payload)
+        next_url = link_rel_next(link)
+        pages += 1
+        params = {}
+    return collected
+
+
+def map_github_run_status(status: str, conclusion: str | None) -> CiResult:
+    """Map a GitHub Actions run onto the board's priority statuses.
+
+    Cancelled/skipped/neutral do not pollute the aggregate (PASS).
+    Waiting (concurrency) and approval gates stay descriptive.
+    """
+    if conclusion is None:
+        if status == "in_progress":
+            return CiResult.RUNNING
+        if status in {"waiting", "queued", "pending"}:
+            return CiResult.WAITING
+        return CiResult.UNKNOWN
+    if status != "completed":
+        return CiResult.UNKNOWN
+    if conclusion in {"failure", "timed_out", "startup_failure"}:
+        return CiResult.FAIL
+    if conclusion == "success":
+        return CiResult.PASS
+    if conclusion == "action_required":
+        return CiResult.APPROVAL
+    if conclusion in {"cancelled", "skipped", "neutral", "stale"}:
+        return CiResult.PASS
+    return CiResult.UNKNOWN
+
+
 def link_rel_next(link_header: str | None) -> str | None:
     if not link_header:
         return None
@@ -189,48 +387,6 @@ class GitHubAction(IntegrationAdapter):
     def filters_by_branch(self) -> bool:
         return bool(self.branch) and self.branch != ALL_BRANCHES
 
-    def _public_headers(self) -> dict[str, str]:
-        return {
-            'Accept': 'application/vnd.github+json',
-            'X-GitHub-Api-Version': '2022-11-28',
-            'User-Agent': 'gpio-build-monitor',
-        }
-
-    def _auth_headers(self) -> dict[str, str]:
-        return {
-            **self._public_headers(),
-            'Authorization': f'Bearer {self.token}',
-        }
-
-    async def _get_json(
-        self,
-        session: ClientSession,
-        url: str,
-        params: dict[str, str],
-    ) -> object:
-        attempts = []
-        if self.token:
-            attempts.append(self._auth_headers())
-        attempts.append(self._public_headers())
-
-        last_status = 0
-        for index, headers in enumerate(attempts):
-            resp = await session.get(url, params=params, headers=headers)
-            last_status = resp.status
-            if resp.status == 200:
-                return await resp.json()
-            await resp.release()
-            if resp.status not in {401, 403}:
-                break
-            if index < len(attempts) - 1:
-                logging.warning(
-                    'GitHub %s returned %s; retrying without credentials',
-                    url,
-                    resp.status,
-                )
-
-        raise APIError('GET', url, last_status)
-
     async def _active_workflow_ids(self, session: ClientSession) -> set[int]:
         """Workflow IDs that still have YAML and are enabled (state=active).
 
@@ -239,7 +395,12 @@ class GitHubAction(IntegrationAdapter):
         base = 'https://api.github.com'
         url = f'{base}/repos/{self.username}/{self.repo}/actions/workflows'
         logging.debug('Calling %s', url)
-        payload = await self._get_json(session, url, {'per_page': '100'})
+        payload = await github_get_json(
+            session,
+            url,
+            {'per_page': '100'},
+            token=self.token,
+        )
         workflows = payload.get('workflows') or [] if isinstance(payload, dict) else []
         active_ids = {
             workflow['id']
@@ -265,7 +426,7 @@ class GitHubAction(IntegrationAdapter):
 
         logging.debug('Calling %s (branch=%s)', url, self.branch)
 
-        payload = await self._get_json(session, url, params)
+        payload = await github_get_json(session, url, params, token=self.token)
         workflow_runs = (
             payload.get('workflow_runs') or [] if isinstance(payload, dict) else []
         )
@@ -283,9 +444,10 @@ class GitHubAction(IntegrationAdapter):
     async def open_pull_requests(self, session: ClientSession) -> PullRequests | None:
         base = 'https://api.github.com'
         url = f'{base}/repos/{self.username}/{self.repo}/pulls'
-        payload = await self._paged_list(
+        payload = await github_paged_list(
             session,
             url,
+            token=self.token,
             allow_public_retry=True,
             empty_on_404=False,
         )
@@ -309,15 +471,17 @@ class GitHubAction(IntegrationAdapter):
         base = f"https://api.github.com/repos/{self.username}/{self.repo}"
         try:
             vuln_rows, codeql_rows = await asyncio.gather(
-                self._paged_list(
+                github_paged_list(
                     session,
                     f"{base}/dependabot/alerts",
+                    token=self.token,
                     allow_public_retry=False,
                     empty_on_404=True,
                 ),
-                self._paged_list(
+                github_paged_list(
                     session,
                     f"{base}/code-scanning/alerts",
+                    token=self.token,
                     extra={"tool_name": "CodeQL"},
                     allow_public_retry=False,
                     empty_on_404=True,
@@ -339,67 +503,6 @@ class GitHubAction(IntegrationAdapter):
             codeql=_map_items(codeql_rows or [], map_codeql_alert),
         )
 
-    async def _paged_list(
-        self,
-        session: ClientSession,
-        url: str,
-        extra: dict[str, str] | None = None,
-        *,
-        allow_public_retry: bool,
-        empty_on_404: bool,
-    ) -> list[object] | None:
-        """Fetch open-state list pages. None means unavailable."""
-        params: dict[str, str] = {
-            "state": "open",
-            "per_page": _ALERT_PAGE_SIZE,
-            **(extra or {}),
-        }
-        headers = self._auth_headers() if self.token else self._public_headers()
-        next_url: str | None = url
-        collected: list[object] = []
-        pages = 0
-        public_retried = False
-        while next_url and pages < _ALERT_PAGE_CAP:
-            resp = await session.get(
-                next_url,
-                params=params if pages == 0 else None,
-                headers=headers,
-            )
-            status = resp.status
-            link = resp.headers.get("Link")
-            if (
-                status in {401, 403}
-                and allow_public_retry
-                and self.token
-                and not public_retried
-                and pages == 0
-            ):
-                await resp.release()
-                headers = self._public_headers()
-                public_retried = True
-                logging.warning(
-                    'GitHub %s returned %s; retrying without credentials',
-                    url,
-                    status,
-                )
-                continue
-            if status == 404:
-                await resp.release()
-                if pages == 0:
-                    return [] if empty_on_404 else None
-                return collected
-            if status != 200:
-                await resp.release()
-                return None if pages == 0 else collected
-            payload = await resp.json()
-            if not isinstance(payload, list):
-                return None if pages == 0 else collected
-            collected.extend(payload)
-            next_url = link_rel_next(link)
-            pages += 1
-            params = {}
-        return collected
-
     @staticmethod
     def map_result(latest) -> BuildStatus:
         return BuildStatus(
@@ -408,79 +511,26 @@ class GitHubAction(IntegrationAdapter):
             id=latest["id"],
             name=latest["name"],
             start=latest["created_at"],
-            status=GitHubAction._map_status(latest["status"], latest["conclusion"]),
+            status=map_github_run_status(latest["status"], latest["conclusion"]),
         )
 
     @staticmethod
     def _map_status(status: str, conclusion: str | None) -> CiResult:
-        """Map a GitHub Actions run onto the board's priority statuses.
-
-        Cancelled/skipped/neutral do not pollute the aggregate (PASS).
-        Waiting (concurrency) and approval gates stay descriptive.
-        """
-        if conclusion is None:
-            if status == "in_progress":
-                return CiResult.RUNNING
-            if status in {"waiting", "queued", "pending"}:
-                return CiResult.WAITING
-            return CiResult.UNKNOWN
-        if status != "completed":
-            return CiResult.UNKNOWN
-        if conclusion in {"failure", "timed_out", "startup_failure"}:
-            return CiResult.FAIL
-        if conclusion == "success":
-            return CiResult.PASS
-        if conclusion == "action_required":
-            return CiResult.APPROVAL
-        # cancelled / skipped / neutral / stale — ignore for the desk board
-        if conclusion in {"cancelled", "skipped", "neutral", "stale"}:
-            return CiResult.PASS
-        return CiResult.UNKNOWN
+        return map_github_run_status(status, conclusion)
 
     @staticmethod
     def workflow_identity_key(name: str) -> str:
         """Stable key for 'latest per workflow'."""
         return dependabot_update_head(name) or (name or "")
 
-    def _include_run(self, run: dict) -> bool:
-        name = run.get('name') or ''
-        if dependabot_update_head(name):
-            return False
-        if name in self.excluded_workflows:
-            return False
-        if any(fnmatch(name, pattern) for pattern in self.excluded_workflow_patterns):
-            logging.debug('Skipping workflow %s matching exclusion pattern', name)
-            return False
-        if self.filters_by_branch:
-            head_branch = run.get('head_branch')
-            if head_branch is not None and head_branch != self.branch:
-                logging.debug(
-                    'Skipping %s run %s on branch %s (want %s)',
-                    name,
-                    run.get('id'),
-                    head_branch,
-                    self.branch,
-                )
-                return False
-        return True
-
     def get_unique_latest_jobs(self, runs: list[dict]) -> list[dict]:
-        jobs = []
-        filtered = [run for run in runs if self._include_run(run)]
-        keyed = sorted(
-            filtered,
-            key=lambda run: self.workflow_identity_key(run.get("name") or ""),
+        return latest_workflow_runs(
+            runs,
+            excluded_workflows=self.excluded_workflows,
+            excluded_workflow_patterns=self.excluded_workflow_patterns,
+            branch=self.branch,
+            filters_by_branch=self.filters_by_branch,
         )
-        for _, group in groupby(
-            keyed,
-            key=lambda run: self.workflow_identity_key(run.get("name") or ""),
-        ):
-            newest = max(
-                group,
-                key=lambda run: run.get("created_at") or "",
-            )
-            jobs.append(newest)
-        return jobs
 
 
 if __name__ == "__main__":
