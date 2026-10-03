@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from monitor.ci_gateway.constants import CiResult
+from monitor.service.aggregator_service import OverallStatus
 from monitor.service.snapshot import (
     eink_payload,
     eink_repo_payload,
@@ -146,6 +148,35 @@ def test_eink_payload_uses_unknown_when_settled_status_is_unresolved():
     assert payload["repos"][0]["status"] == "UNKNOWN"
 
 
+def test_eink_payload_shapes_aggregator_builds_without_rebuilding_rows():
+    import monitor.service.snapshot as snapshot
+
+    assert not hasattr(snapshot, "_details_from_payload_builds")
+    overall: OverallStatus = {
+        "type": "AGGREGATED",
+        "is_running": False,
+        "status": CiResult.FAIL,
+        "builds": [
+            {
+                "repo": "acme/web",
+                "workflow": "CI",
+                "status": "FAIL",
+                "url": "https://example.com/1",
+                "pull_requests": {
+                    "count": 2,
+                    "url": "https://github.com/acme/web/pulls",
+                    "items": [],
+                },
+            }
+        ],
+    }
+    payload = eink_payload(overall)
+    assert payload["status"] == "FAIL"
+    assert payload["sleep_seconds"] == 180
+    assert payload["repos"][0]["repo"] == "acme/web"
+    assert payload["repos"][0]["pr_count"] == 2
+
+
 def test_eink_payload_lists_every_checked_repo_with_action_and_pr_counts():
     payload = eink_payload(
         {
@@ -252,6 +283,46 @@ def test_eink_repo_payload_includes_capped_workflows():
     assert payload["repos"][0]["workflow_count"] == 18
     assert len(payload["repos"][0]["workflows"]) == 16
     assert payload["repos"][0]["workflows"][0] == {"workflow": "W00", "status": "FAIL"}
+
+
+def test_eink_repo_payload_shapes_aggregator_builds_without_rebuilding_rows():
+    overall: OverallStatus = {
+        "type": "AGGREGATED",
+        "is_running": False,
+        "status": CiResult.FAIL,
+        "builds": [
+            {
+                "repo": "acme/web",
+                "workflow": "CI",
+                "status": "FAIL",
+                "url": "https://example.com/1",
+                "pull_requests": {
+                    "count": 2,
+                    "url": "https://github.com/acme/web/pulls",
+                    "items": [],
+                },
+            },
+            {
+                "repo": "acme/api",
+                "workflow": "CI",
+                "status": "PASS",
+                "url": "https://example.com/2",
+            },
+        ],
+    }
+    payload = eink_repo_payload(overall, "acme/web")
+    assert payload["status"] == "FAIL"
+    assert payload["repos"] == [
+        {
+            "repo": "acme/web",
+            "status": "FAIL",
+            "workflow_count": 1,
+            "pr_count": 2,
+            "security_count": 0,
+            "is_running": False,
+            "workflows": [{"workflow": "CI", "status": "FAIL"}],
+        }
+    ]
 
 
 def test_eink_payload_keeps_pr_count_on_green_repos():

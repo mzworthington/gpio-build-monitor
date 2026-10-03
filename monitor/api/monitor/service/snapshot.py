@@ -15,6 +15,7 @@ from typing import Any
 
 from monitor.service.aggregator_service import (
     BuildDetail,
+    OverallStatus,
     Result,
     builds_in_progress,
     get_status_from_details,
@@ -162,27 +163,6 @@ def eink_repo_row(summary: Mapping[str, Any], *, include_workflows: bool) -> dic
     return row
 
 
-def _details_from_payload_builds(raw: object) -> list[BuildDetail]:
-    if not isinstance(raw, list):
-        return []
-    details: list[BuildDetail] = []
-    for item in raw:
-        if not isinstance(item, Mapping):
-            continue
-        row: BuildDetail = {
-            "repo": str(item.get("repo") or ""),
-            "workflow": str(item.get("workflow") or ""),
-            "status": str(item.get("status") or ""),
-            "url": str(item.get("url") or ""),
-        }
-        if "pull_requests" in item:
-            row["pull_requests"] = item.get("pull_requests")
-        if "security" in item:
-            row["security"] = item.get("security")
-        details.append(row)
-    return details
-
-
 def eink_repos(builds: Sequence[BuildDetail] | None, *, include_workflows: bool = False) -> list[dict[str, Any]]:
     return [
         eink_repo_row(summary, include_workflows=include_workflows)
@@ -190,8 +170,8 @@ def eink_repos(builds: Sequence[BuildDetail] | None, *, include_workflows: bool 
     ]
 
 
-def eink_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
-    details = _details_from_payload_builds(payload.get("builds"))
+def eink_payload(payload: OverallStatus) -> dict[str, Any]:
+    details = list(payload["builds"])
     rolled = get_status_from_details(details)
     status = rolled.value
     is_running = bool(payload.get("is_running")) or builds_in_progress(details)
@@ -205,8 +185,8 @@ def eink_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def eink_repo_payload(payload: Mapping[str, Any], repo: str) -> dict[str, Any]:
-    details = _details_from_payload_builds(payload.get("builds"))
+def eink_repo_payload(payload: OverallStatus, repo: str) -> dict[str, Any]:
+    details = list(payload["builds"])
     compact = eink_payload(payload)
     compact["repos"] = [
         row for row in eink_repos(details, include_workflows=True) if row["repo"] == repo

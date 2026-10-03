@@ -24,6 +24,13 @@ def test_sonar_crosspoint_exclusion_avoids_globs():
     assert "**" not in text
 
 
+def test_sonar_sources_omit_github_workflows():
+    text = (ROOT / ".sonarcloud.properties").read_text(encoding="utf-8")
+    sources = [part.strip() for part in _prop(text, "sonar.sources").split(",") if part.strip()]
+    assert not any(_covers(source, ".github/workflows/ci.yml") for source in sources)
+    assert any(_covers(source, ".github/dependabot.yml") for source in sources)
+
+
 def test_sonar_sources_do_not_include_crosspoint_submodule_tree():
     text = (ROOT / ".sonarcloud.properties").read_text(encoding="utf-8")
     sources = [part.strip() for part in _prop(text, "sonar.sources").split(",") if part.strip()]
