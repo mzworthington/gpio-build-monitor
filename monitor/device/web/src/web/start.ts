@@ -5,6 +5,6 @@ import { bootPosthog } from './posthog';
 import { startPushControls } from './pushControls';
 
 startCountdown();
-startPushControls();
+void startPushControls();
 void bootPosthog();
 bootMonitor(Alpine);
