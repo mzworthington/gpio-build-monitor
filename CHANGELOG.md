@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v0.25.6 (2026-10-03)
+
+### Bug Fixes
+
+- **deps**: Raise transitive pins past the remaining advisories
+  ([`fc06b50`](https://github.com/mzworthington/gpio-build-monitor/commit/fc06b50a390a75c37c30a686e64c255462e76684))
+
+### Chores
+
+- **deps**: Bump urllib3 and virtualenv in the uv lockfile
+  ([`07e1820`](https://github.com/mzworthington/gpio-build-monitor/commit/07e18205603697aab4fef4d2312d375481df671d))
+
+### Refactoring
+
+- **snapshot**: Shape eink snapshots from aggregator builds (MZW-97)
+  ([`2e85633`](https://github.com/mzworthington/gpio-build-monitor/commit/2e856337ca8d23a55eeca07debf1520cb32828b4))
+
+
 ## v0.25.5 (2026-10-01)
 
 ### Bug Fixes
