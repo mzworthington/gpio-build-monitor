@@ -18,12 +18,16 @@ from monitor.ci_gateway.github import (
     map_codeql_alert,
     map_dependabot_alert,
     map_pull_request,
+    run_has_failed_job,
 )
 
 os.environ['GITHUB_TOKEN'] = 'secret'
 
 _RUNS_URL = re.compile(
-    r'https://api\.github\.com/repos/super-man/awesome/actions/runs(\?.*)?'
+    r'https://api\.github\.com/repos/super-man/awesome/actions/runs(\?.*)?$'
+)
+_JOBS_URL = re.compile(
+    r'https://api\.github\.com/repos/super-man/awesome/actions/runs/\d+/jobs(\?.*)?$'
 )
 _WORKFLOWS_URL = re.compile(
     r'https://api\.github\.com/repos/super-man/awesome/actions/workflows(\?.*)?'
@@ -158,6 +162,60 @@ class TestGithub:
         result = GitHubAction.map_result(json.loads(latest))
         assert result["status"] == Result.PASS
 
+    def test_cancelled_matrix_jobs_are_not_a_failed_run(self):
+        assert run_has_failed_job([
+            {'name': 'Analyze (actions)', 'conclusion': 'success'},
+            {'name': 'Analyze (python)', 'conclusion': 'cancelled'},
+        ]) is False
+
+    def test_a_failed_job_keeps_the_run_failed(self):
+        assert run_has_failed_job([
+            {'name': 'Analyze (actions)', 'conclusion': 'success'},
+            {'name': 'test', 'conclusion': 'failure'},
+        ]) is True
+
+    def test_incomplete_job_list_does_not_clear_a_failure(self):
+        assert run_has_failed_job([]) is None
+        assert run_has_failed_job([
+            {'name': 'build', 'conclusion': 'action_required'},
+        ]) is None
+
+    @pytest.mark.asyncio
+    async def test_workflow_failure_without_failed_jobs_passes(self):
+        workflows = {
+            'workflows': [{'id': 1001, 'name': 'CodeQL Analysis', 'state': 'active'}],
+        }
+        runs = {
+            'workflow_runs': [{
+                'id': 42,
+                'workflow_id': 1001,
+                'name': 'CodeQL Analysis',
+                'html_url': 'https://example.com/codeql',
+                'created_at': '2026-10-05T19:50:28Z',
+                'status': 'completed',
+                'conclusion': 'failure',
+                'head_branch': 'main',
+            }],
+        }
+        jobs = {
+            'total_count': 2,
+            'jobs': [
+                {'name': 'Analyze (actions)', 'status': 'completed', 'conclusion': 'success'},
+                {'name': 'Analyze (python)', 'status': 'completed', 'conclusion': 'cancelled'},
+            ],
+        }
+        import aiohttp
+        with aioresponses() as m:
+            m.get(_WORKFLOWS_URL, payload=workflows, status=200)
+            m.get(_RUNS_URL, payload=runs, status=200)
+            m.get(_JOBS_URL, payload=jobs, status=200)
+            action = GitHubAction(username='super-man', repo='awesome')
+            async with aiohttp.ClientSession() as session:
+                result = await action.get_latest(session)
+
+        assert result[0]['status'] == Result.PASS
+        assert result[0]['name'] == 'CodeQL Analysis'
+
     def test_timed_out_is_fail(self):
         latest = """{
             "id": 448533827,
@@ -196,6 +254,18 @@ class TestGithub:
         with aioresponses() as m:
             m.get(_WORKFLOWS_URL, payload=workflows, status=200)
             m.get(_RUNS_URL, payload=data, status=200)
+            m.get(
+                _JOBS_URL,
+                payload={
+                    'total_count': 1,
+                    'jobs': [{
+                        'name': 'build',
+                        'status': 'completed',
+                        'conclusion': 'failure',
+                    }],
+                },
+                status=200,
+            )
 
             action = GitHubAction(**{'username': 'super-man',
                                      'repo': 'awesome'})

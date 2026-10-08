@@ -8,7 +8,7 @@ from fnmatch import fnmatch
 from itertools import groupby
 from typing import TypeVar
 
-from aiohttp import ClientSession
+from aiohttp import ClientError, ClientSession
 
 from monitor.ci_gateway.constants import (
     APIError,
@@ -347,6 +347,37 @@ def map_github_run_status(status: str, conclusion: str | None) -> CiResult:
     return CiResult.UNKNOWN
 
 
+_FAILED_JOB_CONCLUSIONS = frozenset({"failure", "timed_out", "startup_failure"})
+_IGNORED_JOB_CONCLUSIONS = frozenset({
+    "success",
+    "cancelled",
+    "skipped",
+    "neutral",
+    "stale",
+})
+
+
+def run_has_failed_job(jobs: list[object]) -> bool | None:
+    """Whether a workflow run's jobs include a real failure.
+
+    Cancelled, skipped, and successful jobs do not count. CodeQL's language
+    matrix cancels legs that never start, and GitHub still marks the workflow
+    conclusion as failure. None means the list is incomplete, so the workflow
+    conclusion should stand.
+    """
+    if not jobs:
+        return None
+    for job in jobs:
+        if not isinstance(job, dict):
+            return None
+        conclusion = job.get("conclusion")
+        if conclusion in _FAILED_JOB_CONCLUSIONS:
+            return True
+        if conclusion not in _IGNORED_JOB_CONCLUSIONS:
+            return None
+    return False
+
+
 def link_rel_next(link_header: str | None) -> str | None:
     if not link_header:
         return None
@@ -436,10 +467,51 @@ class GitHubAction(IntegrationAdapter):
             if run.get('workflow_id') in active_ids
         ]
         runs = self.get_unique_latest_jobs(runs)
-        response = list(map(GitHubAction.map_result, runs))
+        response = [await self._map_run(session, run) for run in runs]
         logging.info('Called %s (branch=%s)', url, self.branch)
         logging.info('Response %s', response)
         return response
+
+    async def _map_run(self, session: ClientSession, run: dict) -> BuildStatus:
+        mapped = GitHubAction.map_result(run)
+        if mapped["status"] != CiResult.FAIL:
+            return mapped
+        jobs = await self._latest_jobs(session, run.get("id"))
+        if run_has_failed_job(jobs or []) is False:
+            mapped["status"] = CiResult.PASS
+        return mapped
+
+    async def _latest_jobs(self, session: ClientSession, run_id: object) -> list[object] | None:
+        if not isinstance(run_id, int):
+            return None
+        url = (
+            f"https://api.github.com/repos/{self.username}/{self.repo}"
+            f"/actions/runs/{run_id}/jobs"
+        )
+        try:
+            payload = await github_get_json(
+                session,
+                url,
+                {"filter": "latest", "per_page": "100"},
+                token=self.token,
+            )
+        except (APIError, ClientError):
+            logging.warning(
+                "GitHub jobs unavailable for %s/%s run %s",
+                self.username,
+                self.repo,
+                run_id,
+            )
+            return None
+        if not isinstance(payload, dict):
+            return None
+        jobs = payload.get("jobs")
+        total = payload.get("total_count")
+        if not isinstance(jobs, list):
+            return None
+        if isinstance(total, int) and total > len(jobs):
+            return None
+        return jobs
 
     async def open_pull_requests(self, session: ClientSession) -> PullRequests | None:
         base = 'https://api.github.com'

@@ -126,11 +126,14 @@ export function keepLastValidPayload(
     return next;
   }
   if (next.builds.length === 0) {
+    // Durable Object startup hydrates with an empty payload whose timestamps
+    // are null. Keep the stored schedule so a wake does not look stale and
+    // start a GitHub refresh on every status read.
     return {
       ...previous,
       fetching: next.fetching,
-      last_checked_at: next.last_checked_at,
-      next_check_at: next.next_check_at,
+      last_checked_at: next.last_checked_at ?? previous.last_checked_at,
+      next_check_at: next.next_check_at ?? previous.next_check_at,
       poll_in_seconds: next.poll_in_seconds,
     };
   }
@@ -240,6 +243,53 @@ function mapGithubConclusion(run: {
   return 'UNKNOWN';
 }
 
+const FAILED_JOB_CONCLUSIONS = new Set(['failure', 'timed_out', 'startup_failure']);
+const IGNORED_JOB_CONCLUSIONS = new Set([
+  'success',
+  'cancelled',
+  'skipped',
+  'neutral',
+  'stale',
+]);
+
+/**
+ * True when a job actually failed. False when every job is success, cancelled,
+ * skipped, neutral, or stale. Null when the list is incomplete.
+ *
+ * CodeQL's language matrix cancels legs that never start, and GitHub still
+ * marks the workflow run conclusion as failure. Those are not failed jobs.
+ */
+export function runHasFailedJob(
+  jobs: Array<{ conclusion?: string | null }>,
+): boolean | null {
+  if (jobs.length === 0) return null;
+  for (const job of jobs) {
+    const conclusion = job.conclusion ?? null;
+    if (conclusion && FAILED_JOB_CONCLUSIONS.has(conclusion)) return true;
+    if (!conclusion || !IGNORED_JOB_CONCLUSIONS.has(conclusion)) return null;
+  }
+  return false;
+}
+
+function noteGithubRateLimit(resp: Response): void {
+  if (resp.status !== 403 && resp.status !== 429) return;
+  const remaining = resp.headers.get('X-RateLimit-Remaining');
+  const reset = Number(resp.headers.get('X-RateLimit-Reset'));
+  const retryAfter = Number(resp.headers.get('Retry-After'));
+  let until = 0;
+  if (remaining === '0') {
+    until = Number.isFinite(reset) && reset > 0 ? reset * 1000 : Date.now() + 60_000;
+  } else if (resp.status === 429 && Number.isFinite(reset) && reset > 0) {
+    until = reset * 1000;
+  }
+  if (Number.isFinite(retryAfter) && retryAfter > 0) {
+    until = Math.max(until, Date.now() + retryAfter * 1000);
+  } else if (resp.status === 429 && until === 0) {
+    until = Date.now() + 60_000;
+  }
+  if (until > githubSkipPublicUntilMs) githubSkipPublicUntilMs = until;
+}
+
 function mapCircleStatus(status: string): CiResult {
   switch (status) {
     case 'success':
@@ -293,6 +343,7 @@ export function githubPollDelaySeconds(configured: number): number {
 
 async function githubGet(url: URL, token: string): Promise<Response> {
   const authed = await fetch(url, { headers: githubHeaders(token) });
+  if (authed.status === 429) noteGithubRateLimit(authed);
   if (authed.ok || (authed.status !== 401 && authed.status !== 403)) {
     return authed;
   }
@@ -302,11 +353,7 @@ async function githubGet(url: URL, token: string): Promise<Response> {
       return authed;
     }
     const pub = await fetch(url, { headers: githubPublicHeaders() });
-    if (pub.status === 403 && pub.headers.get('X-RateLimit-Remaining') === '0') {
-      const reset = Number(pub.headers.get('X-RateLimit-Reset'));
-      githubSkipPublicUntilMs =
-        Number.isFinite(reset) && reset > 0 ? reset * 1000 : Date.now() + 60_000;
-    }
+    noteGithubRateLimit(pub);
     return pub;
   });
   githubPublicLock = queued.then(
@@ -432,14 +479,50 @@ async function fetchGithub(
     }
   }
 
-  return [...latestByKey.values()].map((run) => ({
-    repo,
-    workflow: run.name,
-    status: mapGithubConclusion(run),
-    url: run.html_url,
-    pull_requests: pullGlance,
-    security,
-  }));
+  return Promise.all(
+    [...latestByKey.values()].map(async (run) => {
+      let status = mapGithubConclusion(run);
+      if (status === 'FAIL') {
+        const failedJob = await workflowRunHasFailedJob(repo, run.id, token);
+        if (failedJob === false) status = 'PASS';
+      }
+      return {
+        repo,
+        workflow: run.name,
+        status,
+        url: run.html_url,
+        pull_requests: pullGlance,
+        security,
+      };
+    }),
+  );
+}
+
+async function workflowRunHasFailedJob(
+  repo: string,
+  runId: number,
+  token: string,
+): Promise<boolean | null> {
+  try {
+    const url = new URL(
+      `https://api.github.com/repos/${repo}/actions/runs/${runId}/jobs`,
+    );
+    url.searchParams.set('filter', 'latest');
+    url.searchParams.set('per_page', '100');
+    const resp = await githubGet(url, token);
+    if (!resp.ok) return null;
+    const payload = (await resp.json()) as {
+      total_count?: number;
+      jobs?: Array<{ conclusion?: string | null }>;
+    };
+    const jobs = payload.jobs ?? [];
+    if (typeof payload.total_count === 'number' && payload.total_count > jobs.length) {
+      return null;
+    }
+    return runHasFailedJob(jobs);
+  } catch {
+    return null;
+  }
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

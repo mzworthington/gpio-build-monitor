@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { aggregate, fetchAllBuilds, keepLastValidPayload } from './ci';
+import { aggregate, emptyPayload, fetchAllBuilds, keepLastValidPayload } from './ci';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -170,6 +170,51 @@ describe('keepLastValidPayload', () => {
       'acme/web',
       'zeta/web',
     ]);
+  });
+
+  it('keeps the stored schedule when hydrating from an empty payload', () => {
+    const previous = {
+      type: 'status' as const,
+      fetching: false,
+      status: 'FAIL' as const,
+      is_running: false,
+      builds: [
+        { repo: 'acme/web', workflow: 'CodeQL Analysis', status: 'FAIL', url: 'https://example.com/1' },
+      ],
+      poll_in_seconds: 60,
+      last_checked_at: 10,
+      next_check_at: 70,
+    };
+    const restored = keepLastValidPayload(previous, emptyPayload(60));
+    expect(restored.last_checked_at).toBe(10);
+    expect(restored.next_check_at).toBe(70);
+    expect(restored.fetching).toBe(false);
+    expect(restored.status).toBe('FAIL');
+    expect(restored.builds).toEqual(previous.builds);
+  });
+
+  it('moves the schedule forward when a refresh returns no builds', () => {
+    const previous = {
+      type: 'status' as const,
+      fetching: false,
+      status: 'PASS' as const,
+      is_running: false,
+      builds: [
+        { repo: 'acme/web', workflow: 'CI', status: 'PASS', url: 'https://example.com/1' },
+      ],
+      poll_in_seconds: 60,
+      last_checked_at: 1,
+      next_check_at: 61,
+    };
+    const next = {
+      ...previous,
+      builds: [],
+      last_checked_at: 5,
+      next_check_at: 65,
+    };
+    expect(keepLastValidPayload(previous, next).last_checked_at).toBe(5);
+    expect(keepLastValidPayload(previous, next).next_check_at).toBe(65);
+    expect(keepLastValidPayload(previous, next).builds).toEqual(previous.builds);
   });
 });
 
