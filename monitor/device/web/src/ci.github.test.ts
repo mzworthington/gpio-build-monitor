@@ -5,6 +5,7 @@ import {
   githubPullRequests,
   githubSecurityFindings,
   resetGithubPublicClient,
+  runHasFailedJob,
 } from './ci';
 
 afterEach(() => {
@@ -533,5 +534,95 @@ describe('fetchAllBuilds GitHub', () => {
     );
 
     expect(builds[0]?.security?.vulnerabilities.items.map((item) => item.number)).toEqual([1, 2]);
+  });
+
+  it('does not fail a workflow whose jobs were only cancelled or successful', async () => {
+    expect(runHasFailedJob([
+      { conclusion: 'success' },
+      { conclusion: 'cancelled' },
+    ])).toBe(false);
+    expect(runHasFailedJob([{ conclusion: 'failure' }])).toBe(true);
+    expect(runHasFailedJob([])).toBeNull();
+
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes('/actions/workflows')) {
+        return Response.json({ workflows: [{ id: 1001, state: 'active' }] });
+      }
+      if (url.includes('/jobs')) {
+        return Response.json({
+          total_count: 2,
+          jobs: [
+            { name: 'Analyze (actions)', status: 'completed', conclusion: 'success' },
+            { name: 'Analyze (python)', status: 'completed', conclusion: 'cancelled' },
+          ],
+        });
+      }
+      if (url.includes('/actions/runs')) {
+        return Response.json({
+          workflow_runs: [
+            {
+              id: 42,
+              workflow_id: 1001,
+              name: 'CodeQL Analysis',
+              html_url: 'https://example.com/codeql',
+              created_at: '2026-10-05T19:50:28Z',
+              status: 'completed',
+              conclusion: 'failure',
+              head_branch: 'main',
+            },
+          ],
+        });
+      }
+      return Response.json([]);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const builds = await fetchAllBuilds(
+      {
+        poll_in_seconds: 60,
+        integrations: [{ type: 'GITHUB', username: 'super-man', repo: 'awesome' }],
+      },
+      { githubToken: 'secret' },
+    );
+
+    expect(builds).toEqual([
+      expect.objectContaining({
+        workflow: 'CodeQL Analysis',
+        status: 'PASS',
+        url: 'https://example.com/codeql',
+      }),
+    ]);
+  });
+
+  it('backs off when the public GitHub API answers 429', async () => {
+    const fetchMock = vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      const headers = new Headers(init?.headers);
+      if (url.includes('/actions/workflows')) {
+        return Response.json({ workflows: [{ id: 1001, state: 'active' }] });
+      }
+      if (url.includes('/actions/runs') && headers.has('Authorization')) {
+        return Response.json({ message: 'Resource not accessible' }, { status: 403 });
+      }
+      if (url.includes('/actions/runs')) {
+        return Response.json(
+          { message: 'secondary rate limit' },
+          { status: 429, headers: { 'Retry-After': '120' } },
+        );
+      }
+      return Response.json([]);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchAllBuilds(
+      {
+        poll_in_seconds: 60,
+        integrations: [{ type: 'GITHUB', username: 'super-man', repo: 'awesome' }],
+      },
+      { githubToken: 'secret' },
+    );
+
+    expect(githubPollDelaySeconds(60)).toBeGreaterThan(60);
   });
 });

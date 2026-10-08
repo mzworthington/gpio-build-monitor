@@ -57,6 +57,7 @@ export class StatusHub implements DurableObject {
   private readonly state: DurableObjectState;
   private readonly env: Env;
   private payload: StatusPayload;
+  private refreshInFlight: Promise<void> | null = null;
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -83,7 +84,7 @@ export class StatusHub implements DurableObject {
       server.send(JSON.stringify(this.payload));
       // Avoid a fetch flash on every connect/reconnect; alarm owns the cadence.
       if (this.isStale()) {
-        void this.refresh();
+        this.state.waitUntil(this.refresh());
       }
       return new Response(null, { status: 101, webSocket: client });
     }
@@ -98,7 +99,7 @@ export class StatusHub implements DurableObject {
         return new Response('Method not allowed', { status: 405 });
       }
       if (this.isStale()) {
-        void this.refresh();
+        this.state.waitUntil(this.refresh());
       }
       return statusSnapshotResponse(request, this.payload);
     }
@@ -156,6 +157,15 @@ export class StatusHub implements DurableObject {
   }
 
   async refresh(): Promise<void> {
+    if (this.refreshInFlight) return this.refreshInFlight;
+    const run = this.refreshOnce().finally(() => {
+      this.refreshInFlight = null;
+    });
+    this.refreshInFlight = run;
+    return run;
+  }
+
+  private async refreshOnce(): Promise<void> {
     const config = parseMonitorConfig(this.env.MONITOR_CONFIG);
     // Signal fetch without resetting countdown / wiping status payload fields.
     this.payload = {
