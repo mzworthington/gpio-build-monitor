@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v0.25.8 (2026-10-08)
+
+### Bug Fixes
+
+- **monitor**: Stop showing reruns and cancelled jobs as failures
+  ([#59](https://github.com/mzworthington/gpio-build-monitor/pull/59),
+  [`8c54f39`](https://github.com/mzworthington/gpio-build-monitor/commit/8c54f39f5193c0c86bad4900fc62b499f334a050))
+
+
 ## v0.25.7 (2026-10-03)
 
 ### Bug Fixes
