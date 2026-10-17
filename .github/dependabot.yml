@@ -1,75 +1,111 @@
 version: 2
 updates:
-  - package-ecosystem: pip
-    directory: /
+  - package-ecosystem: "pip"
+    directory: "/"
     schedule:
-      interval: weekly
-      day: sunday
+      interval: "weekly"
+      day: "sunday"
       time: "00:00"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     labels:
-      - dependencies
-      - python
+      - "dependencies"
+      - "python"
+    # Direct deps only. Transitive security fixes otherwise land as
+    # lockfile-only PRs.
+    allow:
+      - dependency-type: "direct"
+    versioning-strategy: "increase"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
     groups:
-      python-dependencies:
+      pip-security:
+        applies-to: "security-updates"
         patterns:
           - "*"
-    commit-message:
-      prefix: pip
-
-  - package-ecosystem: github-actions
-    directory: /
-    schedule:
-      interval: weekly
-      day: sunday
-      time: "00:00"
-    open-pull-requests-limit: 10
-    labels:
-      - dependencies
-      - github-actions
-    groups:
-      github-actions:
-        patterns:
-          - "*"
-    commit-message:
-      prefix: ci
-
-  - package-ecosystem: npm
-    directory: /monitor/device/web
-    schedule:
-      interval: weekly
-      day: sunday
-      time: "00:00"
-    open-pull-requests-limit: 10
-    labels:
-      - dependencies
-      - javascript
-    groups:
-      web-dependencies:
+      pip-minor-patch:
+        applies-to: "version-updates"
         patterns:
           - "*"
         update-types:
           - "minor"
           - "patch"
-    commit-message:
-      prefix: npm
 
-  - package-ecosystem: npm
-    directory: /infra/cloudflare
+  - package-ecosystem: "github-actions"
+    directory: "/"
     schedule:
-      interval: weekly
-      day: sunday
+      interval: "weekly"
+      day: "sunday"
       time: "00:00"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
     labels:
-      - dependencies
-      - javascript
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
     groups:
-      pulumi-dependencies:
+      actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "npm"
+    directory: "/monitor/device/web"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "00:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "javascript"
+    allow:
+      - dependency-type: "direct"
+    versioning-strategy: "increase"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    groups:
+      npm-security:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+      npm-minor-patch:
+        applies-to: "version-updates"
         patterns:
           - "*"
         update-types:
           - "minor"
           - "patch"
+
+  - package-ecosystem: "npm"
+    directory: "/infra/cloudflare"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "00:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "javascript"
+    allow:
+      - dependency-type: "direct"
+    versioning-strategy: "increase"
     commit-message:
-      prefix: npm
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    groups:
+      npm-security:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+      npm-minor-patch:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
