@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.25.9 (2026-10-17)
+
+### Bug Fixes
+
+- **deps**: Land open dependency updates and patched advisories
+  ([`761065f`](https://github.com/mzworthington/gpio-build-monitor/commit/761065fa2809c2a4d4ade6db4b2f12de2874d972))
+
+
 ## v0.25.8 (2026-10-08)
 
 ### Bug Fixes
