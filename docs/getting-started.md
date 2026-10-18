@@ -86,3 +86,5 @@ See [Raspberry Pi](raspberry-pi.md) for hardware setup and systemd.
 Menu bar on a Mac: [Mac menu bar](macos.md) (SwiftBar + `GET /status` or `/api/status`).
 
 Battery e-ink (Xteink X3): [Xteink e-ink](xteink-x3.md) (CrossPoint overlay + `GET /status?view=eink`).
+
+Agents: [Agents](agents.md). Hosted MCP is `https://monitor.mzworthington.co.uk/mcp`. The local Python hub serves the same glance at `http://127.0.0.1:8080/api/status?view=agent`.

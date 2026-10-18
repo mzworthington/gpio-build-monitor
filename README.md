@@ -3,7 +3,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/mzworthington/gpio-build-monitor/ci.yml?branch=main&style=for-the-badge&logo=github-actions&label=CI)](https://github.com/mzworthington/gpio-build-monitor/actions/workflows/ci.yml)
 [![Quality gate](https://img.shields.io/sonar/alert_status/mzworthington_gpio-build-monitor?server=https%3A%2F%2Fsonarcloud.io&style=for-the-badge&logo=sonarqube)](https://sonarcloud.io/summary/new_code?id=mzworthington_gpio-build-monitor)
 
-Glanceable CI status - on the web, or glowing on your desk.
+Glanceable CI status - on the web, glowing on your desk, or in an agent's tools.
 
 **Live status:** [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk)
 
@@ -15,14 +15,14 @@ Inspired by office information radiators. [Read the story →](https://mzworthin
 
 Same aggregation; pick the outputs you want.
 
-| | **On the web** | **On a Pi** | **On a Mac** | **On an X3** |
-|---|---|---|---|---|
-| **What you get** | Public status UI | Desk LEDs | Menu bar extra | Pocket e-ink (CrossPoint) |
-| **Where it runs** | Cloudflare Worker | Raspberry Pi GPIO | [SwiftBar](docs/macos.md) plugin | ESP32-C3 firmware |
-| **See it** | [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) | Hardware on your desk | Top toolbar (polls `/api/status`) | E-ink panel (`/api/status?view=eink`) |
-| **Setup** | [Web UI](monitor/device/web/README.md) · [infra/cloudflare](infra/cloudflare/README.md) | [Pi setup](docs/pi-setup.md) · [Hardware](docs/hardware.md) | [Mac menu bar](docs/macos.md) | [Xteink e-ink](docs/xteink-x3.md) |
+| | **On the web** | **On a Pi** | **On a Mac** | **On an X3** | **For agents** |
+|---|---|---|---|---|---|
+| **What you get** | Public status UI | Desk LEDs | Menu bar extra | Pocket e-ink (CrossPoint) | Read-only MCP tools |
+| **Where it runs** | Cloudflare Worker | Raspberry Pi GPIO | [SwiftBar](docs/macos.md) plugin | ESP32-C3 firmware | Any MCP client |
+| **See it** | [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) | Hardware on your desk | Top toolbar (polls `/api/status`) | E-ink panel (`/api/status?view=eink`) | [`/mcp`](https://monitor.mzworthington.co.uk/mcp) |
+| **Setup** | [Web UI](monitor/device/web/README.md) · [infra/cloudflare](infra/cloudflare/README.md) | [Pi setup](docs/pi-setup.md) · [Hardware](docs/hardware.md) | [Mac menu bar](docs/macos.md) | [Xteink e-ink](docs/xteink-x3.md) | [Agents](docs/agents.md) |
 
-Every client reads the hosted Worker: `GET /api/status` and `/api/ws` on `https://monitor.mzworthington.co.uk`. StatusHub polls GitHub Actions and CircleCI. Desk lights subscribe to `/api/ws`; they do not poll GitHub.
+Every client reads the hosted Worker on `https://monitor.mzworthington.co.uk`. People use `GET /api/status` and `/api/ws`. Agents use `/mcp` (`get_build_status`, `get_repo_status`, `list_attention`). StatusHub polls GitHub Actions and CircleCI. Desk lights subscribe to `/api/ws`.
 
 ```mermaid
 flowchart TB
@@ -31,6 +31,7 @@ flowchart TB
     Mac[Menu bar]
     X3[Pocket e-ink X3]
     LEDs[Desk lights]
+    Agent[Agent tools]
   end
 
   subgraph hosted [Hosted]
@@ -46,11 +47,12 @@ flowchart TB
   Mac --> Worker
   X3 --> Worker
   LEDs --> Worker
+  Agent --> Worker
   Worker --> GH
   Worker --> CCI
 ```
 
-The public hostname is a Worker custom domain. Alpine loads from that origin and opens `wss://monitor.mzworthington.co.uk/api/ws`. Point the Mac extra and e-ink at the same `/api`. Optional `PYTHON_API_ORIGIN` on the Worker can proxy `/api*` to a Python process; production leaves that empty so StatusHub is the hub.
+The public hostname is a Worker custom domain. Alpine loads from that origin and opens `wss://monitor.mzworthington.co.uk/api/ws`. Point the Mac extra and e-ink at the same `/api`. Agents connect to `/mcp` on that origin ([Agents](docs/agents.md)). Optional `PYTHON_API_ORIGIN` on the Worker can proxy `/api*` to a Python process; production leaves that empty so StatusHub is the hub.
 
 ```mermaid
 sequenceDiagram
@@ -60,6 +62,7 @@ sequenceDiagram
   participant Mac as Menu bar
   participant X3 as Pocket e-ink
   participant Pi as Pi GPIO follower
+  participant Agent as Agent
   participant GH as GitHub / CircleCI
 
   alt Open the status page
@@ -85,6 +88,11 @@ sequenceDiagram
     X3->>Worker: GET /api/status?view=eink
     Worker-->>X3: compact JSON
     X3-->>You: list jobs and PRs
+  else Ask an agent
+    You->>Agent: what failed?
+    Agent->>Worker: MCP /mcp
+    Worker-->>Agent: status, failures, pull requests
+    Agent-->>You: the runs that need a look
   end
 ```
 
@@ -115,6 +123,7 @@ bin/bootstrap
 - **Glanceable** - lights and a dial instead of inbox noise or another tab.
 - **Always on** - hosted Worker stays up; Pi stays lit when your machine is shut.
 - **Multi-provider** - GitHub Actions and CircleCI, aggregated across repos.
+- **Agent-ready** - [three MCP tools](docs/agents.md) on that same snapshot, so an agent can see what failed and open the run.
 - **Low cost** - Pi Zero and a handful of LEDs; the [full build came in around £20](docs/hardware.md#shopping-list).
 
 ## How status maps
@@ -132,6 +141,7 @@ flowchart LR
   leds[Desk lights] --> agg[Aggregate]
   ui[Status page] --> agg
   snapshot[Menu bar and e-ink] --> agg
+  agents[Agent tools] --> agg
   agg --> poll[CI poll and webhooks]
 ```
 
@@ -158,6 +168,7 @@ See [Getting started](docs/getting-started.md) for mise, Make, and CLI details.
 | Guide | Contents |
 |-------|----------|
 | [Getting started](docs/getting-started.md) | Local setup, CLI, development workflow |
+| [Agents](docs/agents.md) | MCP tools: status, one repo, and what needs attention |
 | [Pi setup](docs/pi-setup.md) | Headless Raspberry Pi + systemd |
 | [Webhooks](docs/webhooks.md) | GitHub/CircleCI webhooks on the hosted Worker |
 | [Push notifications](docs/push.md) | Chrome/Android fail + recovery alerts (hosted Worker) |
