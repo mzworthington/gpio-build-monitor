@@ -5,7 +5,8 @@
 The hosted Worker (and local WebSocket adapter) expose aggregated CI status
 over HTTP. Always-on clients (browser, Mac menu bar) use the full payload.
 Battery clients (Xteink X4) sample the same port, then deep-sleep using
-``sleep_seconds`` / ``Retry-After``.
+``sleep_seconds`` / ``Retry-After``. Agents sample ``view=agent``, a glance
+with ``retry_after_seconds``, and do not poll CI themselves.
 """
 
 from collections.abc import Mapping, Sequence
@@ -192,6 +193,131 @@ def eink_repo_payload(payload: OverallStatus, repo: str) -> dict[str, Any]:
         row for row in eink_repos(details, include_workflows=True) if row["repo"] == repo
     ]
     return compact
+
+
+def _details(payload: Mapping[str, Any]) -> list[BuildDetail]:
+    return list(payload.get("builds") or [])
+
+
+def _agent_timing(payload: Mapping[str, Any]) -> dict[str, Any]:
+    details = _details(payload)
+    status = get_status_from_details(details).value
+    is_running = bool(payload.get("is_running")) or builds_in_progress(details)
+    return {
+        "status": status,
+        "is_running": is_running,
+        "last_checked_at": payload.get("last_checked_at"),
+        "retry_after_seconds": sleep_seconds(status, is_running=is_running),
+    }
+
+
+def agent_payload(payload: OverallStatus) -> dict[str, Any]:
+    """Glance an agent can read without the UI build list."""
+    return {
+        "type": "status",
+        **_agent_timing(payload),
+        "repos": eink_repos(_details(payload), include_workflows=False),
+    }
+
+
+def _workflow_rows(builds: Sequence[Mapping[str, Any]]) -> list[dict[str, str]]:
+    rows = [
+        {
+            "workflow": str(build.get("workflow") or ""),
+            "status": str(build.get("status") or ""),
+            "url": str(build.get("url") or ""),
+        }
+        for build in builds
+        if build.get("repo")
+    ]
+    rows.sort(key=lambda item: item["workflow"].lower())
+    return rows
+
+
+def _pull_items(builds: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    for build in builds:
+        pulls = build.get("pull_requests")
+        if not isinstance(pulls, Mapping):
+            continue
+        try:
+            count = int(pulls.get("count") or 0)
+        except (TypeError, ValueError):
+            continue
+        if count <= 0:
+            continue
+        items = []
+        for item in pulls.get("items") or []:
+            if not isinstance(item, Mapping):
+                continue
+            if not isinstance(item.get("number"), int) or not isinstance(item.get("title"), str):
+                continue
+            items.append({
+                "number": item["number"],
+                "title": item["title"],
+                "url": str(item.get("url") or ""),
+                "draft": bool(item.get("draft")),
+            })
+        return items
+    return []
+
+
+def _security_items(builds: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    for build in builds:
+        security = build.get("security")
+        if not isinstance(security, Mapping) or security.get("count") is None:
+            continue
+        rows: list[dict[str, Any]] = []
+        for source in ("vulnerabilities", "codeql"):
+            bucket = security.get(source)
+            if not isinstance(bucket, Mapping):
+                continue
+            for item in bucket.get("items") or []:
+                if not isinstance(item, Mapping) or not isinstance(item.get("title"), str):
+                    continue
+                rows.append({
+                    "title": item["title"],
+                    "severity": item.get("severity"),
+                    "url": str(item.get("url") or ""),
+                    "state": str(item.get("state") or ""),
+                    "source": source,
+                })
+        return rows
+    return []
+
+
+def agent_repo_status(payload: OverallStatus, repo: str) -> dict[str, Any] | None:
+    details = [build for build in _details(payload) if build.get("repo") == repo]
+    if not repo or not details:
+        return None
+    timing = _agent_timing(payload)
+    rolled = get_status_from_details(details)
+    return {
+        "repo": repo,
+        "status": rolled.value,
+        "is_running": builds_in_progress(details),
+        "last_checked_at": timing["last_checked_at"],
+        "retry_after_seconds": timing["retry_after_seconds"],
+        "workflows": _workflow_rows(details),
+        "pull_requests": _pull_items(details),
+        "security": _security_items(details),
+    }
+
+
+def agent_repo_payload(payload: OverallStatus, repo: str) -> dict[str, Any]:
+    found = agent_repo_status(payload, repo)
+    if found is not None:
+        return found
+    timing = _agent_timing(payload)
+    return {
+        "repo": repo,
+        "status": "NONE",
+        "is_running": False,
+        "last_checked_at": timing["last_checked_at"],
+        "retry_after_seconds": timing["retry_after_seconds"],
+        "workflows": [],
+        "pull_requests": [],
+        "security": [],
+    }
 
 
 def snapshot_headers(

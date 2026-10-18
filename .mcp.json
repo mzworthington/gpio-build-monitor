@@ -33,6 +33,9 @@
         "MEMORY_FILE_PATH": "${userHome}/.agents/sync/mcp-memory.jsonl"
       }
     },
+    "build-monitor": {
+      "url": "https://monitor.mzworthington.co.uk/mcp"
+    },
     "sonarqube": {
       "url": "https://api.sonarcloud.io/mcp",
       "headers": {

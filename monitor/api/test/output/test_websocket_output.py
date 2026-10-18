@@ -192,6 +192,23 @@ async def test_status_snapshot_matches_websocket_payload():
                     }
                 ]
 
+            async with session.get(f"http://127.0.0.1:{port}/status?view=agent") as agent:
+                assert agent.status == 200
+                body = await agent.json()
+                assert body["retry_after_seconds"] == 180
+                assert "builds" not in body
+                assert body["repos"][0]["repo"] == "acme/web"
+
+            async with session.get(
+                f"http://127.0.0.1:{port}/api/status?view=agent&repo=acme/web"
+            ) as agent_repo:
+                assert agent_repo.status == 200
+                body = await agent_repo.json()
+                assert body["workflows"] == [
+                    {"workflow": "CI", "status": "FAIL", "url": "https://example.com/1"},
+                    {"workflow": "Deploy", "status": "PASS", "url": "https://example.com/2"},
+                ]
+
             async with session.get(
                 f"http://127.0.0.1:{port}/status?view=eink&repo=acme/web"
             ) as detail:

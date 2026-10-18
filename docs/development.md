@@ -34,7 +34,7 @@ cd monitor/device/web && pnpm install && pnpm test && pnpm typecheck && pnpm dep
 cd ../../../infra/cloudflare && pnpm install && pulumi up
 ```
 
-The status page is TypeScript Alpine (`monitor/device/web/src/web/`) bundled into `monitor/device/web/public/monitor.js`. CI `web` and `deploy-api` run that build. Leave `PYTHON_API_ORIGIN` empty so StatusHub is the hub.
+The status page is TypeScript Alpine (`monitor/device/web/src/web/`) bundled into `monitor/device/web/public/monitor.js`. CI `web` and `deploy-api` run that build. Leave `PYTHON_API_ORIGIN` empty so StatusHub is the hub. Agents use the Worker's `/mcp` server ([Agents](agents.md)).
 
 [`.github/workflows/pulumi-cloudflare.yml`](../.github/workflows/pulumi-cloudflare.yml) previews/applies the Pulumi stack via the shared edge-dns reusable workflow.
 

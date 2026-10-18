@@ -2,11 +2,15 @@
 
 Public status UI and StatusHub on one Worker. Live origin:
 `https://monitor.mzworthington.co.uk` (`GET /api/status`, `wss://…/api/ws`;
-`/status` and `/ws` still work).
+`/status` and `/ws` still work). Agents use the stateless MCP server at
+`/mcp` and `/api/mcp`. See [Agents](../../../docs/agents.md) for
+`get_build_status`, `get_repo_status`, and `list_attention`.
+`GET /api/status?view=agent` is the same glance as JSON.
 
 Production leaves `PYTHON_API_ORIGIN` empty so the Worker is the hub. If you
 set it, `/api/status`, `/api/ws`, `/api/health`, and `/api/webhooks/*` proxy to
-that Python origin.
+that Python origin. The MCP tools follow that origin for `/api/status` and
+still answer on `/mcp`.
 
 ```bash
 pnpm install

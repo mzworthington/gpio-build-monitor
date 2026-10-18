@@ -16,6 +16,7 @@ Local `bin/serve` can listen on the Python webhook port as well
 | CircleCI | `https://monitor.mzworthington.co.uk/webhooks/circleci` | `workflow-completed`, `job-completed` |
 | Health | `https://monitor.mzworthington.co.uk/health` | - |
 | Snapshot | `https://monitor.mzworthington.co.uk/status` | also `/api/status` |
+| Agents | `https://monitor.mzworthington.co.uk/mcp` | read-only tools; see [Agents](agents.md) |
 
 ## 1. (Optional) Shared secrets
 
