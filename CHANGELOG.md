@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v0.26.0 (2026-10-18)
+
+### Chores
+
+- **deps-dev**: Bump the npm-minor-patch group
+  ([`5dadb92`](https://github.com/mzworthington/gpio-build-monitor/commit/5dadb92dd95a0db09265dd5348642e8022cdfcbb))
+
+- **deps-dev**: Update ruff requirement from >=0.16.10 to >=0.17.0
+  ([`9e792cb`](https://github.com/mzworthington/gpio-build-monitor/commit/9e792cb377fe1f71b2cf632c0f95d049d27ffbfb))
+
+### Features
+
+- Og grah update
+  ([`eaec32d`](https://github.com/mzworthington/gpio-build-monitor/commit/eaec32dc6f6edf2b85d1cfa49a5ae538a71dd9d6))
+
+
 ## v0.25.9 (2026-10-17)
 
 ### Bug Fixes
