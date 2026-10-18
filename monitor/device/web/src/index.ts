@@ -30,6 +30,7 @@ import { statusSnapshotResponse } from './api/snapshot';
 import { statusHubInternalPath } from './api/statusHubRoutes';
 import { isPythonApiPath, pythonApiUrl } from './api/pythonApi';
 import { handleWebhook } from './api/webhooks';
+import { stampOpenGraph } from './web/openGraph';
 
 export interface Env {
   ASSETS: Fetcher;
@@ -300,6 +301,33 @@ function statusStub(env: Env) {
   return env.STATUS.get(env.STATUS.idFromName('monitor'));
 }
 
+async function homepageWithOpenGraph(request: Request, env: Env): Promise<Response> {
+  const asset = await env.ASSETS.fetch(request);
+  const contentType = asset.headers.get('content-type') ?? '';
+  if (!asset.ok) {
+    return asset;
+  }
+  if (contentType && !contentType.includes('text/html')) {
+    return asset;
+  }
+  let builds: StatusPayload['builds'] = [];
+  try {
+    const status = await statusStub(env).fetch(new Request(new URL('/status', request.url)));
+    if (status.ok) {
+      const payload = (await status.json()) as StatusPayload;
+      builds = payload.builds ?? [];
+    }
+  } catch {
+    return asset;
+  }
+  const headers = new Headers(asset.headers);
+  headers.set('cache-control', 'public, max-age=60');
+  return new Response(stampOpenGraph(await asset.text(), builds), {
+    status: asset.status,
+    headers,
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -349,6 +377,10 @@ export default {
 
     if (url.pathname === '/health') {
       return Response.json({ status: 'ok' });
+    }
+
+    if (url.pathname === '/' || url.pathname === '/index.html') {
+      return homepageWithOpenGraph(request, env);
     }
 
     if (url.pathname === '/webhooks/github' && request.method === 'POST') {
