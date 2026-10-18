@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v0.27.0 (2026-10-18)
+
+### Chores
+
+- **deps**: Bump the npm-minor-patch group
+  ([`865609d`](https://github.com/mzworthington/gpio-build-monitor/commit/865609d84f6bfc8a57a946dd058631076f59aa4f))
+
+### Documentation
+
+- Highlight agent access to build status
+  ([`3814ebe`](https://github.com/mzworthington/gpio-build-monitor/commit/3814ebe1751e90e3f9f13f9f6eba868a4aa89ded))
+
+### Features
+
+- **web**: Expose build status to agents over MCP
+  ([`b2f30db`](https://github.com/mzworthington/gpio-build-monitor/commit/b2f30dbd738c62f3c1a7020e69bee84822f80960))
+
+
 ## v0.26.0 (2026-10-18)
 
 ### Chores
