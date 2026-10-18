@@ -4,6 +4,8 @@ allowBuilds:
   esbuild: true
   workerd: true
   sharp: true
+  # Babel runtime polyfill. Its postinstall is a funding notice, not a compile step.
+  core-js-pure: false
 onlyBuiltDependencies:
   - esbuild
   - workerd
