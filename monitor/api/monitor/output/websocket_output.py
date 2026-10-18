@@ -13,6 +13,8 @@ from aiohttp import WSMsgType, web
 from monitor.service.aggregator_service import BuildDetail, Result
 from monitor.service.refresh_signal import RefreshSignal
 from monitor.service.snapshot import (
+    agent_payload,
+    agent_repo_payload,
     eink_payload,
     eink_repo_payload,
     etag_matches,
@@ -23,6 +25,14 @@ from monitor.webhooks.constants import WebhookSecrets
 from monitor.webhooks.server import register_webhook_routes
 
 WEB_DIR = Path(__file__).resolve().parents[3] / "device" / "web" / "public"
+
+
+def _snapshot_body(payload: dict, view: str | None, repo: str | None) -> dict:
+    if view == "eink":
+        return eink_repo_payload(payload, repo) if repo else eink_payload(payload)
+    if view == "agent":
+        return agent_repo_payload(payload, repo) if repo else agent_payload(payload)
+    return payload
 
 
 class WebSocketStatusOutput:
@@ -159,11 +169,7 @@ class WebSocketStatusOutput:
         if etag_matches(request.headers.get("If-None-Match"), headers["ETag"]):
             return web.Response(status=304, headers=headers)
         payload = self._payload()
-        if request.query.get("view") == "eink":
-            repo = request.query.get("repo")
-            body = eink_repo_payload(payload, repo) if repo else eink_payload(payload)
-        else:
-            body = payload
+        body = _snapshot_body(payload, request.query.get("view"), request.query.get("repo"))
         return web.json_response(body, headers=headers)
 
     async def _vapid_public_key_handler(self, _request: web.Request) -> web.Response:

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { StatusPayload } from '../ci';
 import {
+  agentAttention,
+  agentPayload,
+  agentRepoPayload,
+  agentRepoStatus,
   einkPayload,
   einkRepoPayload,
   etagMatches,
@@ -304,6 +308,31 @@ describe('statusSnapshotResponse', () => {
     expect(body.fetching).toBe(false);
   });
 
+  it('returns an agent glance for view=agent', async () => {
+    const response = statusSnapshotResponse(
+      new Request('https://monitor.example/status?view=agent'),
+      failPayload,
+    );
+    const body = (await response.json()) as { retry_after_seconds: number; builds?: unknown; repos: unknown[] };
+    expect(body.retry_after_seconds).toBe(120);
+    expect(body.builds).toBeUndefined();
+    expect(body.repos).toHaveLength(2);
+    expect(response.headers.get('Retry-After')).toBe('120');
+  });
+
+  it('returns one repo for view=agent&repo=', async () => {
+    const response = statusSnapshotResponse(
+      new Request('https://monitor.example/status?view=agent&repo=acme/web'),
+      failPayload,
+    );
+    const body = (await response.json()) as { repo: string; workflows: Array<{ url: string }> };
+    expect(body.repo).toBe('acme/web');
+    expect(body.workflows.map((row) => row.url)).toEqual([
+      'https://example.com/1',
+      'https://example.com/2',
+    ]);
+  });
+
   it('returns workflows for view=eink&repo=', async () => {
     const response = statusSnapshotResponse(
       new Request('https://monitor.example/status?view=eink&repo=acme/web'),
@@ -315,6 +344,104 @@ describe('statusSnapshotResponse', () => {
     expect(body.repos).toHaveLength(1);
     expect(body.repos[0]?.repo).toBe('acme/web');
     expect(body.repos[0]?.workflows.map((row) => row.workflow)).toEqual(['CI', 'Deploy']);
+  });
+});
+
+describe('agentPayload', () => {
+  it('returns a glance with retry_after_seconds and no build list', () => {
+    const glance = agentPayload(failPayload);
+    expect(glance.retry_after_seconds).toBe(120);
+    expect(glance.status).toBe('FAIL');
+    expect(glance.is_running).toBe(true);
+    expect(glance.last_checked_at).toBe(100);
+    expect(glance).not.toHaveProperty('builds');
+    expect(glance.repos.map((row) => row.repo)).toEqual(['acme/api', 'acme/web']);
+    expect(glance.repos[1]).toMatchObject({ status: 'FAIL', workflow_count: 2, is_running: false });
+  });
+
+  it('includes workflow urls, pull requests, and security for one repo', () => {
+    const detail = agentRepoStatus(
+      {
+        ...failPayload,
+        builds: [
+          {
+            repo: 'acme/web',
+            workflow: 'CI',
+            status: 'FAIL',
+            url: 'https://example.com/1',
+            pull_requests: {
+              count: 1,
+              url: 'https://github.com/acme/web/pulls',
+              items: [
+                {
+                  number: 9,
+                  title: 'Fix the lights',
+                  url: 'https://github.com/acme/web/pull/9',
+                  draft: false,
+                },
+              ],
+            },
+            security: {
+              count: 1,
+              url: 'https://github.com/acme/web/security',
+              vulnerabilities: {
+                count: 1,
+                url: 'https://github.com/acme/web/security/dependabot',
+                items: [
+                  {
+                    number: 3,
+                    title: 'lodash',
+                    severity: 'high',
+                    url: 'https://github.com/acme/web/security/dependabot/3',
+                    state: 'open',
+                  },
+                ],
+              },
+              codeql: { count: 0, url: 'https://github.com/acme/web/security/code-scanning', items: [] },
+            },
+          },
+        ],
+      },
+      'acme/web',
+    );
+    expect(detail?.workflows).toEqual([
+      { workflow: 'CI', status: 'FAIL', url: 'https://example.com/1' },
+    ]);
+    expect(detail?.pull_requests).toEqual([
+      {
+        number: 9,
+        title: 'Fix the lights',
+        url: 'https://github.com/acme/web/pull/9',
+        draft: false,
+      },
+    ]);
+    expect(detail?.security).toEqual([
+      {
+        title: 'lodash',
+        severity: 'high',
+        url: 'https://github.com/acme/web/security/dependabot/3',
+        state: 'open',
+        source: 'vulnerabilities',
+      },
+    ]);
+  });
+
+  it('returns null for an unknown repo and an empty document for the http view', () => {
+    expect(agentRepoStatus(failPayload, 'missing/repo')).toBeNull();
+    expect(agentRepoPayload(failPayload, 'missing/repo').workflows).toEqual([]);
+    expect(agentRepoPayload(failPayload, 'missing/repo').status).toBe('NONE');
+  });
+
+  it('lists failed and running workflows with urls', () => {
+    const attention = agentAttention(failPayload);
+    expect(attention.failed).toEqual([
+      { repo: 'acme/web', workflow: 'CI', status: 'FAIL', url: 'https://example.com/1' },
+    ]);
+    expect(attention.running).toEqual([
+      { repo: 'acme/api', workflow: 'CI', status: 'RUNNING', url: 'https://example.com/3' },
+    ]);
+    expect(attention.open_prs).toEqual([]);
+    expect(attention.retry_after_seconds).toBe(120);
   });
 });
 

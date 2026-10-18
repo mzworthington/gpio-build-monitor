@@ -3,6 +3,9 @@
 from monitor.ci_gateway.constants import CiResult
 from monitor.service.aggregator_service import OverallStatus
 from monitor.service.snapshot import (
+    agent_payload,
+    agent_repo_payload,
+    agent_repo_status,
     eink_payload,
     eink_repo_payload,
     sleep_seconds,
@@ -535,3 +538,91 @@ def test_eink_repos_takes_build_details():
 
     hints = get_type_hints(eink_repos)
     assert hints["builds"] == Sequence[BuildDetail] | None
+
+
+def test_agent_payload_is_a_glance_with_retry_after():
+    payload = agent_payload(
+        {
+            "type": "status",
+            "fetching": True,
+            "status": "FAIL",
+            "is_running": True,
+            "builds": [
+                {
+                    "repo": "acme/web",
+                    "workflow": "CI",
+                    "status": "FAIL",
+                    "url": "https://example.com/1",
+                },
+                {
+                    "repo": "acme/api",
+                    "workflow": "CI",
+                    "status": "RUNNING",
+                    "url": "https://example.com/3",
+                },
+            ],
+            "poll_in_seconds": 30,
+            "last_checked_at": 100.0,
+            "next_check_at": 130.0,
+        }
+    )
+    assert payload["retry_after_seconds"] == 120
+    assert payload["status"] == "FAIL"
+    assert payload["last_checked_at"] == 100.0
+    assert "builds" not in payload
+    assert [row["repo"] for row in payload["repos"]] == ["acme/api", "acme/web"]
+
+
+def test_agent_repo_payload_includes_workflow_urls_and_empty_unknown_repo():
+    source = {
+        "type": "status",
+        "fetching": False,
+        "status": "FAIL",
+        "is_running": False,
+        "builds": [
+            {
+                "repo": "acme/web",
+                "workflow": "Deploy",
+                "status": "PASS",
+                "url": "https://example.com/2",
+            },
+            {
+                "repo": "acme/web",
+                "workflow": "CI",
+                "status": "FAIL",
+                "url": "https://example.com/1",
+                "pull_requests": {
+                    "count": 1,
+                    "url": "https://github.com/acme/web/pulls",
+                    "items": [
+                        {
+                            "number": 9,
+                            "title": "Fix the lights",
+                            "url": "https://github.com/acme/web/pull/9",
+                            "draft": False,
+                        }
+                    ],
+                },
+            },
+        ],
+        "poll_in_seconds": 30,
+        "last_checked_at": 100.0,
+        "next_check_at": 130.0,
+    }
+    detail = agent_repo_status(source, "acme/web")
+    assert detail is not None
+    assert detail["workflows"] == [
+        {"workflow": "CI", "status": "FAIL", "url": "https://example.com/1"},
+        {"workflow": "Deploy", "status": "PASS", "url": "https://example.com/2"},
+    ]
+    assert detail["pull_requests"] == [
+        {
+            "number": 9,
+            "title": "Fix the lights",
+            "url": "https://github.com/acme/web/pull/9",
+            "draft": False,
+        }
+    ]
+    assert agent_repo_status(source, "missing/repo") is None
+    assert agent_repo_payload(source, "missing/repo")["status"] == "NONE"
+    assert agent_repo_payload(source, "missing/repo")["workflows"] == []

@@ -25,6 +25,7 @@ import {
   type StoredPushSubscription,
 } from './api/push';
 import type { PushMessage } from '@block65/webcrypto-web-push';
+import { handleBuildMonitorMcp, isMcpPath } from './api/mcp';
 import { posthogConfigResponse } from './api/posthogConfig';
 import { statusSnapshotResponse } from './api/snapshot';
 import { statusHubInternalPath } from './api/statusHubRoutes';
@@ -334,6 +335,10 @@ export default {
 
     if (isPythonApiPath(url.pathname) && env.PYTHON_API_ORIGIN) {
       return fetch(new Request(pythonApiUrl(request.url, env.PYTHON_API_ORIGIN), request));
+    }
+
+    if (isMcpPath(url.pathname)) {
+      return handleBuildMonitorMcp(request, env, ctx);
     }
 
     const hubPath = statusHubInternalPath(url.pathname);
