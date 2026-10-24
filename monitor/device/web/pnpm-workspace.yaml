@@ -16,3 +16,6 @@ overrides:
   # miniflare still pins sharp 0.35.2; 0.35.5 patches librsvg CVE-2026-96889 and libheif
   # (GHSA-g89c-p67h-r497, GHSA-2jg2-4ch7-h545 / GHSA-rgj7-g3m4-5g8c).
   sharp: 0.35.5
+  # launch-editor command injection fixed in vite 8.2.4
+  # (GHSA-587h-7wmj-h5pm, GHSA-r825-w8mm-5pxw, GHSA-698v-4r3x-3vcv).
+  vite: '>=8.2.4'
