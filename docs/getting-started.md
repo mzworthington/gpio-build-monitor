@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.10+ ([mise](https://mise.jdx.dev/) is recommended; this repo pins 3.12)
+- Python 3.11+ ([mise](https://mise.jdx.dev/) is recommended; this repo pins 3.12)
 - API tokens for the CI providers you configure - see [Configuration](configuration.md#environment-variables)
 
 ## Bootstrap
