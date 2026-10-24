@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v0.27.1 (2026-10-24)
+
+### Bug Fixes
+
+- **deps**: Bump vite past launch-editor advisories
+  ([`83bef2a`](https://github.com/mzworthington/gpio-build-monitor/commit/83bef2a62d14f1d1611e2159d7d5b08f8d503595))
+
+- **deps**: Pin Node and Python packages past open advisories
+  ([`bd225e6`](https://github.com/mzworthington/gpio-build-monitor/commit/bd225e66a19cbf1e70ecbf13eb75c6492efeece2))
+
+- **web**: Deny the core-js-pure postinstall script
+  ([`ea15416`](https://github.com/mzworthington/gpio-build-monitor/commit/ea15416ed316af3439e563d77516be4a35eaaac4))
+
+### Chores
+
+- **deps**: Bump the uv group across 1 directory with 3 updates
+  ([`473a4b1`](https://github.com/mzworthington/gpio-build-monitor/commit/473a4b161b178f38a0ffaf6b11945c8810b77af6))
+
+
 ## v0.27.0 (2026-10-18)
 
 ### Chores
