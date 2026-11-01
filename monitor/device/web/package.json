@@ -13,16 +13,16 @@
         "test": "vitest run"
     },
     "devDependencies": {
-        "@cloudflare/workers-types": "5.20261021.1",
+        "@cloudflare/workers-types": "5.20261028.1",
         "esbuild": "^0.28.2",
         "typescript": "7.0.2",
         "vitest": "5.0.5",
-        "wrangler": "4.151.3"
+        "wrangler": "4.155.0"
     },
     "dependencies": {
         "@block65/webcrypto-web-push": "2.0.0",
-        "@modelcontextprotocol/server": "2.3.1",
-        "agents": "^0.29.0",
+        "@modelcontextprotocol/server": "2.4.0",
+        "agents": "^0.31.0",
         "alpinejs": "^3.17.5",
         "zod": "^4.6.7"
     }
