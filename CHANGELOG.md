@@ -2,6 +2,49 @@
 
 <!-- version list -->
 
+## v0.27.2 (2026-11-05)
+
+### Bug Fixes
+
+- **deps**: Pin glob 14.0.3 past the abort-walk advisory
+  ([`ec74c4a`](https://github.com/mzworthington/gpio-build-monitor/commit/ec74c4af7c85cc3583a029366a0b1ace1ba3a531))
+
+- **web**: Collapse open reviews so repos lead the page
+  ([`af9a9ec`](https://github.com/mzworthington/gpio-build-monitor/commit/af9a9ec7605d6c67f11202e9d582a65667489aef))
+
+### Chores
+
+- **deps**: Bump the npm-minor-patch group
+  ([`77fbede`](https://github.com/mzworthington/gpio-build-monitor/commit/77fbede066e8b0360c09ddca5289126b223b1705))
+
+- **deps**: Bump the npm-minor-patch group
+  ([`9e243b8`](https://github.com/mzworthington/gpio-build-monitor/commit/9e243b8dd33ef5c8d8ca23074d805a28227f4954))
+
+- **deps**: Bump the npm-minor-patch group
+  ([`5f360fa`](https://github.com/mzworthington/gpio-build-monitor/commit/5f360fa827ba7394f2de384001292d8d2faa4fbe))
+
+- **deps**: Bump the npm-minor-patch group
+  ([`d68acae`](https://github.com/mzworthington/gpio-build-monitor/commit/d68acae99d9c278b68947ed84aacc92eeee33661))
+
+- **deps-dev**: Update pre-commit requirement from >=4.6.2 to >=4.7.0
+  ([`4daed79`](https://github.com/mzworthington/gpio-build-monitor/commit/4daed79ed09af71bb7e08a6518886426e970a21b))
+
+- **deps-dev**: Update pytest requirement from >=9.1.1 to >=9.2.0
+  ([`95e14a2`](https://github.com/mzworthington/gpio-build-monitor/commit/95e14a2114abced303d39b3e41b948b2af798c84))
+
+- **deps-dev**: Update pytest-asyncio requirement
+  ([`96e62a0`](https://github.com/mzworthington/gpio-build-monitor/commit/96e62a0b302d1345192f21918ca59aaf8984eea8))
+
+- **deps-dev**: Update ruff requirement from >=0.17.0 to >=0.17.1
+  ([`d37c40a`](https://github.com/mzworthington/gpio-build-monitor/commit/d37c40a2ded915225edc1489ab9253a1b6271e23))
+
+- **deps-dev**: Update ruff requirement from >=0.17.1 to >=0.17.3
+  ([`2f27d7b`](https://github.com/mzworthington/gpio-build-monitor/commit/2f27d7b9c79c2d211774422e14796224b026d5a2))
+
+- **deps-dev**: Update setuptools requirement from >=84.0.0 to >=84.2.1
+  ([`0360f4d`](https://github.com/mzworthington/gpio-build-monitor/commit/0360f4dbbfd5f775a03b7b51d10f05b914a6b301))
+
+
 ## v0.27.1 (2026-10-24)
 
 ### Bug Fixes
