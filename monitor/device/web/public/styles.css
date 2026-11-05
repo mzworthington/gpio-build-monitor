@@ -548,6 +548,46 @@ body[data-status="APPROVAL"] .status-dial-core {
   border-bottom: 1px solid var(--line);
 }
 
+.open-fold {
+  border-bottom: 1px solid var(--line);
+}
+
+.open-summary {
+  align-items: center;
+  margin-bottom: 0;
+  border-bottom: 0;
+  padding: 0.7rem 0.15rem;
+  list-style: none;
+  cursor: pointer;
+}
+
+.open-summary::-webkit-details-marker {
+  display: none;
+}
+
+.open-summary::marker {
+  content: "";
+}
+
+.open-summary .repo-chevron {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.open-fold[open] .open-summary {
+  margin-bottom: 0.8rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.open-fold[open] .repo-chevron {
+  transform: rotate(45deg);
+}
+
+.open-summary:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ring) 70%, white);
+  outline-offset: 2px;
+}
+
 .repos h2,
 .issues h2,
 .open-board h2 {
@@ -556,6 +596,10 @@ body[data-status="APPROVAL"] .status-dial-core {
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: -0.01em;
+}
+
+.open-board .open-summary h2 {
+  margin-right: auto;
 }
 
 .repo-count,

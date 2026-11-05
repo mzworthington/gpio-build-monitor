@@ -28,6 +28,19 @@ def test_status_page_lets_alpine_render_status_without_vanilla_app_js():
     assert not (WEB_PUBLIC / "app.js").is_file()
 
 
+def test_open_review_board_starts_collapsed_with_the_count_visible():
+    """Repos stay in view on load; the review count stays on the closed header."""
+    html = (WEB_PUBLIC / "index.html").read_text(encoding="utf-8")
+    board = html.split('id="open"', 1)[1].split('id="repos"', 1)[0]
+    summary = board.split("<summary", 1)[1].split("</summary>", 1)[0]
+    details_tag = board.split("<details", 1)[1].split(">", 1)[0]
+    assert "openLabel()" in summary
+    assert board.index("</summary>") < board.index('class="open-panel"')
+    assert not details_tag.lstrip().startswith("open")
+    assert " open" not in details_tag
+    assert "open=" not in details_tag
+
+
 def test_status_page_lists_pull_request_and_security_items():
     html = (WEB_PUBLIC / "index.html").read_text(encoding="utf-8")
     assert 'id="open"' in html

@@ -171,10 +171,12 @@
       x-cloak
       x-show="openCount() > 0"
     >
-      <div class="issues-head">
-        <h2>Open</h2>
-        <p class="issue-count" x-text="openLabel()"></p>
-      </div>
+      <details class="open-fold">
+        <summary class="issues-head open-summary">
+          <span class="repo-chevron" aria-hidden="true"></span>
+          <h2>Open</h2>
+          <p class="issue-count" x-text="openLabel()"></p>
+        </summary>
       <div
         class="open-tabs"
         role="tablist"
@@ -258,6 +260,7 @@
           </li>
         </template>
       </ul>
+      </details>
     </section>
     
     <section id="repos" class="repos" aria-label="Watched repositories" x-cloak x-show="repos.length">
