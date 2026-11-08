@@ -2,6 +2,35 @@
 
 <!-- version list -->
 
+## v0.27.3 (2026-11-08)
+
+### Bug Fixes
+
+- **deps**: Pin minimatch 11.0.5 past the globparts advisory
+  ([`9640321`](https://github.com/mzworthington/gpio-build-monitor/commit/964032117dae3a2b2b294feded12f9dc4a2c5b30))
+
+### Chores
+
+- **deps**: Bump @pulumi/pulumi
+  ([`b961b3e`](https://github.com/mzworthington/gpio-build-monitor/commit/b961b3e2f8f3ea4e66b0adb0b636c977e924785b))
+
+- **deps**: Bump the npm-minor-patch group
+  ([`f110422`](https://github.com/mzworthington/gpio-build-monitor/commit/f1104223d61c8c087d774247d48b8e3caf9606f3))
+
+- **deps-dev**: Update pytest-asyncio requirement
+  ([`a7959dc`](https://github.com/mzworthington/gpio-build-monitor/commit/a7959dcfb2f2490b7f1a6bd5b8759352a7178e19))
+
+### Continuous Integration
+
+- **codeql**: Add timeout-minutes; use autobuild for c-cpp
+  ([#85](https://github.com/mzworthington/gpio-build-monitor/pull/85),
+  [`0a8b6ba`](https://github.com/mzworthington/gpio-build-monitor/commit/0a8b6ba088b9b214a3960cc31aa2c8a51180204a))
+
+- **codeql**: Keep c-cpp on build-mode none
+  ([#85](https://github.com/mzworthington/gpio-build-monitor/pull/85),
+  [`0a8b6ba`](https://github.com/mzworthington/gpio-build-monitor/commit/0a8b6ba088b9b214a3960cc31aa2c8a51180204a))
+
+
 ## v0.27.2 (2026-11-05)
 
 ### Bug Fixes
