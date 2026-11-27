@@ -71,6 +71,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Read Cloudflare account
+        id: cloudflare-account
+        uses: ./.github/actions/cloudflare-account
+
 
       - uses: ./.github/actions/setup-web-pnpm
 
@@ -86,7 +90,7 @@ jobs:
         working-directory: monitor/device/web
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.cloudflare-account.outputs.id }}
           MONITOR_API_ORIGIN: ${{ vars.MONITOR_API_ORIGIN }}
           POSTHOG_TOKEN: ${{ secrets.POSTHOG_TOKEN }}
           POSTHOG_HOST: https://a.mzworthington.co.uk
@@ -98,6 +102,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Read Cloudflare account
+        id: cloudflare-account
+        uses: ./.github/actions/cloudflare-account
+
 
       - uses: ./.github/actions/setup-web-pnpm
 
@@ -109,7 +117,7 @@ jobs:
         working-directory: monitor/device/web
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.cloudflare-account.outputs.id }}
           PYTHON_API_ORIGIN: ${{ vars.PYTHON_API_ORIGIN }}
         run: pnpm exec wrangler deploy --var PYTHON_API_ORIGIN:${PYTHON_API_ORIGIN}
 
