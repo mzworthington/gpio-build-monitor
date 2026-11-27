@@ -2,6 +2,34 @@
 
 <!-- version list -->
 
+## v0.27.4 (2026-11-27)
+
+### Bug Fixes
+
+- Commit Cloudflare account and zone ids (MZW-195)
+  ([`5e61923`](https://github.com/mzworthington/gpio-build-monitor/commit/5e6192331ee69553165164c51c17e4a5a8fe586a))
+
+### Chores
+
+- **deps**: Bump the npm-minor-patch group
+  ([`efd4e51`](https://github.com/mzworthington/gpio-build-monitor/commit/efd4e51bdb7cd61e460aa84bae8ed506a626cd69))
+
+- **deps**: Update typer requirement from >=0.27.3 to >=0.29.1
+  ([`7625314`](https://github.com/mzworthington/gpio-build-monitor/commit/762531448cde42f5118d0bc59fd69f3acea7f318))
+
+- **deps-dev**: Bump the npm-minor-patch group
+  ([`dc59f07`](https://github.com/mzworthington/gpio-build-monitor/commit/dc59f0700c5330ac61ed74f0c23167b1b4cb9613))
+
+- **deps-dev**: Bump the npm-minor-patch group
+  ([`c3a125b`](https://github.com/mzworthington/gpio-build-monitor/commit/c3a125b514d25c0464699d917cc0b6172a4665a4))
+
+- **deps-dev**: Update pytest-asyncio requirement
+  ([`efa2aa0`](https://github.com/mzworthington/gpio-build-monitor/commit/efa2aa09c55ae045bb043cb1c3c3fe207c927ba2))
+
+- **deps-dev**: Update ruff requirement from >=0.17.3 to >=0.17.4
+  ([`89bc948`](https://github.com/mzworthington/gpio-build-monitor/commit/89bc948e4051664da207b285be2601c749578870))
+
+
 ## v0.27.3 (2026-11-08)
 
 ### Bug Fixes
