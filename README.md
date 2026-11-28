@@ -3,17 +3,33 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/mzworthington/gpio-build-monitor/ci.yml?branch=main&style=for-the-badge&logo=github-actions&label=CI)](https://github.com/mzworthington/gpio-build-monitor/actions/workflows/ci.yml)
 [![Quality gate](https://img.shields.io/sonar/alert_status/mzworthington_gpio-build-monitor?server=https%3A%2F%2Fsonarcloud.io&style=for-the-badge&logo=sonarqube)](https://sonarcloud.io/summary/new_code?id=mzworthington_gpio-build-monitor)
 
-Glanceable CI status - on the web, glowing on your desk, or in an agent's tools.
+GitHub Actions and CircleCI, rolled into one snapshot. Read it on the status page, on desk LEDs, in the Mac menu bar, on a pocket e-ink panel or from an agent's tools.
 
-**Live status:** [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk)
+**Live:** [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) · [Read the story →](https://mzworthington.co.uk/guides/i-built-a-build-monitor)
 
-![Finished build monitor](build_monitor.jpg)
+StatusHub, the Worker on that hostname, is the only piece that talks to CI. It serves the status page. The Pi, the menu bar, the X3 and agents read the same snapshot. A local `bin/serve` hub speaks the same `/api/status`, so you can point those clients at your machine instead.
 
-Inspired by office information radiators. [Read the story →](https://mzworthington.co.uk/guides/i-built-a-build-monitor)
+<p align="center">
+  <img src="docs/images/web.png" alt="Status page: Passing, with eight watched repos" width="640">
+</p>
+
+Status page. The dial is the roll-up. Open the rows for workflows, pull requests and security findings.
+
+<p align="center">
+  <img src="docs/images/menu-bar.png" alt="Mac menu bar: green check, watched repos and the archlens workflow submenu" width="560">
+</p>
+
+Mac menu bar ([SwiftBar](docs/macos.md)). The icon uses the same colours as the desk LEDs. Each repo opens its workflows, open PRs and a link to GitHub.
+
+<p align="center">
+  <img src="docs/images/xteink-x3.jpg" alt="Xteink X3 in hand, Build monitor listing repos with OK and FAIL" width="320">
+</p>
+
+Xteink X3. CrossPoint plus a Build monitor overlay, from `GET /api/status?view=eink`.
 
 ## Ways to run it
 
-Same aggregation; pick the outputs you want.
+Pick any of these. Each one shows the StatusHub snapshot.
 
 | | **On the web** | **On a Pi** | **On a Mac** | **On an X3** | **For agents** |
 |---|---|---|---|---|---|
@@ -22,7 +38,7 @@ Same aggregation; pick the outputs you want.
 | **See it** | [monitor.mzworthington.co.uk](https://monitor.mzworthington.co.uk) | Hardware on your desk | Top toolbar (polls `/api/status`) | E-ink panel (`/api/status?view=eink`) | [`/mcp`](https://monitor.mzworthington.co.uk/mcp) |
 | **Setup** | [Web UI](monitor/device/web/README.md) · [infra/cloudflare](infra/cloudflare/README.md) | [Pi setup](docs/pi-setup.md) · [Hardware](docs/hardware.md) | [Mac menu bar](docs/macos.md) | [Xteink e-ink](docs/xteink-x3.md) | [Agents](docs/agents.md) |
 
-Every client reads the hosted Worker on `https://monitor.mzworthington.co.uk`. People use `GET /api/status` and `/api/ws`. Agents use `/mcp` (`get_build_status`, `get_repo_status`, `list_attention`). StatusHub polls GitHub Actions and CircleCI. Desk lights subscribe to `/api/ws`.
+People use `GET /api/status` and `/api/ws` on `https://monitor.mzworthington.co.uk`. Desk lights subscribe to `/api/ws`. Agents use `/mcp` (`get_build_status`, `get_repo_status`, `list_attention`).
 
 ```mermaid
 flowchart TB
@@ -108,6 +124,8 @@ cd monitor/device/web && pnpm install && pnpm deploy:api
 `pnpm deploy` still publishes a Pages project on `*.pages.dev`. That is not the public hostname.
 
 ### Pi (headless)
+
+![Desk lights](build_monitor.jpg)
 
 A Raspberry Pi drives LEDs by following the hosted `/api/ws` - green / red / yellow / blue / purple at a glance, even when your laptop is closed.
 
