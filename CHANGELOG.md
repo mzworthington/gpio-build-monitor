@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v0.27.5 (2026-11-28)
+
+### Bug Fixes
+
+- Read the Cloudflare account id from hosting.yaml (MZW-195)
+  ([`4eac39b`](https://github.com/mzworthington/gpio-build-monitor/commit/4eac39b336fde2b827996dba0fdc44bb5ce5c966))
+
+### Chores
+
+- **deps**: Bump the npm-minor-patch group
+  ([`6e45629`](https://github.com/mzworthington/gpio-build-monitor/commit/6e45629d59b53a0573700325c684f450f6949917))
+
+- **deps**: Update typer requirement from >=0.29.1 to >=0.29.2
+  ([`8738525`](https://github.com/mzworthington/gpio-build-monitor/commit/8738525b16515c00a40188f8ec5057506d987203))
+
+
 ## v0.27.4 (2026-11-27)
 
 ### Bug Fixes
