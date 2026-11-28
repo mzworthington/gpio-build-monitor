@@ -28,7 +28,7 @@ Config accepts `workerName` / `workerHostnames` or the older
 
 ```bash
 # From repo root
-bin/setup-cloudflare-hosting.sh
+setup-cloudflare-hosting
 
 cd monitor/device/web && pnpm install && pnpm deploy:api
 

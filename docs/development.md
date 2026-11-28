@@ -29,7 +29,7 @@ pre-commit install --hook-type commit-msg
 Public hostname: Cloudflare Worker from `monitor/device/web/` (`pnpm deploy:api`). Pages still deploys to `*.pages.dev`. Custom domain via `infra/cloudflare`. Python `monitor/api` is local (`bin/serve`).
 
 ```shell
-bin/setup-cloudflare-hosting.sh
+setup-cloudflare-hosting
 cd monitor/device/web && pnpm install && pnpm test && pnpm typecheck && pnpm deploy:api
 cd ../../../infra/cloudflare && pnpm install && pulumi up
 ```
